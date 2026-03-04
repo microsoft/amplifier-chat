@@ -318,6 +318,27 @@
     }
 
     .session-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .session-load-more {
+      display: block;
+      width: calc(100% - 24px);
+      margin: 8px 12px;
+      padding: 6px 0;
+      background: transparent;
+      border: 1px solid var(--border-color, #333);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .session-load-more:hover:not(:disabled) {
+      background: var(--hover-bg, rgba(255,255,255,0.05));
+      color: var(--text-primary);
+    }
+    .session-load-more:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
     .session-list-loading {
       padding: 8px 12px;
       color: var(--text-secondary);
@@ -1337,8 +1358,8 @@
     async unpinSession(sessionId) {
       return fetch(`${API_BASE}/chat/api/sessions/${sessionId}/pin`, { method: 'DELETE' });
     },
-    async listSessionHistory(limit = 300) {
-      const resp = await fetch(`${API_BASE}/chat/api/sessions/history?limit=${limit}`);
+    async listSessionHistory(limit = 200, offset = 0) {
+      const resp = await fetch(`${API_BASE}/chat/api/sessions/history?limit=${limit}&offset=${offset}`);
       return resp.json();
     },
     async getSessionRevisions(payload) {
@@ -1352,11 +1373,6 @@
   };
 
   // === SSE Manager (replaces WebSocket streaming) ===
-  // SSE events arrive as TransportEvent envelopes:
-  // { event, data, session_id, timestamp, correlation_id, sequence }
-  // The inner `data` field is the actual event payload.
-  // Map SSE event names to legacy WS message `type` values so the existing
-  // handleWsMessage switch statement works without a full rewrite.
   const SSE_EVENT_TYPE_MAP = {
     'content_block:start':   'content_start',
     'content_block:delta':   'content_delta',
@@ -1529,7 +1545,7 @@
     return { text: JSON.stringify(result, null, 2) };
   }
 
-  // --- Pin API helpers (amplifierd REST endpoints) ---
+  // --- Pin API helpers ---
   async function fetchPinnedSessions() {
     try {
       const data = await api.listPins();
@@ -2608,6 +2624,10 @@
     const [syncingHistory, setSyncingHistory] = useState(false);
     const [historyListLoading, setHistoryListLoading] = useState(true);
     const [pendingHistorySyncCount, setPendingHistorySyncCount] = useState(0);
+    const [hasMoreHistory, setHasMoreHistory] = useState(false);
+    const [historyOffset, setHistoryOffset] = useState(0);
+    const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
+    const HISTORY_PAGE_SIZE = 100;
     const [sessionSortMode, setSessionSortMode] = useState('recent');
     const [sessionFilterQuery, setSessionFilterQuery] = useState('');
     const [showSessionFilter, setShowSessionFilter] = useState(false);
@@ -2654,9 +2674,7 @@
     // Accumulates token usage across LLM calls within a single turn
     const turnTokensRef = useRef(null);
     const placeholderIdRef = useRef(null);
-    const revisionPollInFlightRef = useRef(false);
     const historySyncInFlightRef = useRef(false);
-    const historyDiscoverInFlightRef = useRef(false);
     const transcriptFetchAbortRef = useRef(null);
     const diskRefreshInFlightRef = useRef(new Set());
     const autoDiskRefreshAtRef = useRef({});
@@ -2681,20 +2699,7 @@
       defaultCwdRef.current = defaultCwd;
     }, [defaultCwd]);
 
-    // Load workspace_root from distro settings as initial default CWD
-    useEffect(() => {
-      fetch('/apps/settings/distro-settings')
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          const root = data?.settings?.workspace_root;
-          if (root && typeof root === 'string') {
-            defaultCwdRef.current = root;
-            setDefaultCwd(root);
-            setCwd(root);
-          }
-        })
-        .catch(() => {});
-    }, []);
+    // amplifierd doesn't have a distro-settings endpoint; default CWD is '~'
 
     useEffect(() => {
       return () => {
@@ -2845,6 +2850,25 @@
       const ownerKey = sourceKey || activeKeyRef.current;
       const isActiveStream = ownerKey === activeKeyRef.current;
       if (!ownerKey) return;
+
+      // user_message: broadcast from another client's prompt submission.
+      // Handled before the active/background split so it works for both.
+      // The originating browser already added the message optimistically
+      // in sendMessage(), so skip if the latest user item matches.
+      if (msg.type === 'user_message') {
+        const umContent = msg.content || '';
+        setChronoItems(prev => {
+          const lastUser = [...prev].reverse().find(i => i.role === 'user' && i.type === 'text');
+          if (lastUser && lastUser.content === umContent) return prev;
+          return [...prev, {
+            id: makeId(), type: 'text', role: 'user',
+            content: umContent, streaming: false,
+            order: orderCounterRef.current++,
+          }];
+        });
+        return;
+      }
+
       if (!isActiveStream) {
         // Keep session list metadata live even when this session is in
         // background, and queue renderable events for later replay.
@@ -2861,6 +2885,7 @@
               ...s,
               sessionId: msg.session_id,
               cwd: msg.cwd || '~',
+              serverCwd: msg.cwd || s.serverCwd || null,
               bundle: msg.bundle,
               source: 'live',
               status: 'idle',
@@ -2974,6 +2999,9 @@
               ...s,
               sessionId: msg.session_id,
               cwd: msg.cwd || '~',
+              // Track the server's canonical CWD (may differ from what we
+              // sent if the server expanded ~ or resolved symlinks).
+              serverCwd: msg.cwd || s.serverCwd || null,
               bundle: msg.bundle,
               source: 'live',
               status: 'idle',
@@ -3281,6 +3309,31 @@
         }
 
         case 'command_result': {
+          // When the /cwd command succeeds, update session state with the
+          // new session_id and cwd so subsequent prompts go to the correct
+          // backend session.
+          if (msg.command === 'cwd' && msg.result && !msg.result.error) {
+            const newCwd = msg.result.cwd;
+            const newSid = msg.result.session_id;
+            if (isActiveStream) {
+              if (newSid) setSessionId(newSid);
+              if (newCwd) setCwd(newCwd);
+            }
+            if (ownerKey) {
+              setSessions(prev => {
+                const next = new Map(prev);
+                const s = next.get(ownerKey);
+                if (s) {
+                  const patch = {};
+                  if (newSid) patch.sessionId = newSid;
+                  if (newCwd) { patch.cwd = newCwd; patch.serverCwd = newCwd; }
+                  next.set(ownerKey, { ...s, ...patch });
+                }
+                return next;
+              });
+            }
+            break;  // Skip the system message for silent CWD updates
+          }
           const fmt = formatCommandResult(msg.command, msg.result);
           const item = {
             id: makeId(), type: 'text', role: 'system',
@@ -3336,7 +3389,6 @@
         const sessionId = result.session_id;
         if (!sessionId) throw new Error('No session_id in createSession response');
 
-        // Synthesise the session_created event that the rest of the app expects
         handleWsMessage({
           type: 'session_created',
           session_id: sessionId,
@@ -3362,11 +3414,11 @@
           sseRef.current = sse;
           setSseStatus('connected');
         }
+        const requestedCwd2 = getRequestedCwd();
         setSessions(prev => {
-          if (!sessionKey) return prev;
           const next = new Map(prev);
           const s = next.get(sessionKey) || {};
-          next.set(sessionKey, { ...s, sse, cwd: s.cwd || requestedCwd });
+          next.set(sessionKey, { ...s, sse, cwd: s.cwd || requestedCwd2, serverCwd: requestedCwd2 });
           return next;
         });
       } catch (err) {
@@ -3375,49 +3427,17 @@
       }
     }, [handleWsMessage]);
 
-    const discoverNewHistorySessions = useCallback(() => {
-      if (historyDiscoverInFlightRef.current || historySyncInFlightRef.current) return;
-      historyDiscoverInFlightRef.current = true;
-
-      api.listSessionHistory()
-        .then(data => {
-          const rows = Array.isArray(data?.sessions) ? data.sessions : [];
-          if (!rows.length) {
-            setPendingHistorySyncCount(0);
-            return;
-          }
-
-          const knownSessionIds = new Set();
-          for (const session of sessionsRef.current.values()) {
-            if (session && session.sessionId) knownSessionIds.add(session.sessionId);
-          }
-
-          let pending = 0;
-          for (const s of rows.slice(0, 300)) {
-            if (!s || !s.session_id) continue;
-            const messageCount = Number(s.message_count) || 0;
-            if (messageCount <= 0 && !s.last_user_message) continue;
-            if (!knownSessionIds.has(s.session_id)) pending += 1;
-          }
-          setPendingHistorySyncCount(pending);
-        })
-        .catch(err => {
-          console.warn('[chat] failed to discover new sessions', err);
-        })
-        .finally(() => {
-          historyDiscoverInFlightRef.current = false;
-        });
-    }, []);
-
     const syncSessionHistory = useCallback((options = {}) => {
       const silent = !!options.silent;
       if (historySyncInFlightRef.current) return;
       historySyncInFlightRef.current = true;
       if (!silent) setSyncingHistory(true);
 
-      api.listSessionHistory()
+      api.listSessionHistory(HISTORY_PAGE_SIZE)
         .then(data => {
           const rows = Array.isArray(data?.sessions) ? data.sessions : [];
+          setHasMoreHistory(!!data?.has_more);
+          setHistoryOffset(rows.length);
           if (!rows.length) {
             setPendingHistorySyncCount(0);
             return;
@@ -3433,7 +3453,7 @@
             }
 
             let changed = false;
-            for (const s of rows.slice(0, 300)) {
+            for (const s of rows) {
               if (!s || !s.session_id) continue;
               const messageCount = Number(s.message_count) || 0;
               if (messageCount <= 0 && !s.last_user_message) continue;
@@ -3493,7 +3513,10 @@
 
               const cur = next.get(existingKey) || {};
               const remoteRevision = revision ?? cur.remoteRevision ?? null;
-              const knownRevision = cur.knownRevision == null ? remoteRevision : cur.knownRevision;
+              // For live sessions (active WS), keep knownRevision in sync with
+              // disk so the "Updated" badge doesn't flicker — WS delivers content.
+              const isLive = cur.source === 'live';
+              const knownRevision = (cur.knownRevision == null || isLive) ? remoteRevision : cur.knownRevision;
               const hasExternalUpdate = !!cur.hasExternalUpdate
                 || (
                   knownRevision != null
@@ -3581,6 +3604,86 @@
         });
     }, []);
 
+    const refreshHistory = useCallback(() => {
+      // Consolidated poll: replaces both discoverNewHistorySessions (30s)
+      // and pollSessionRevisions (7s).  A silent history sync detects new
+      // sessions, name/description changes, and revision updates in one call.
+      syncSessionHistory({ silent: true });
+    }, [syncSessionHistory]);
+
+    const loadMoreHistory = useCallback(() => {
+      if (loadingMoreHistory || !hasMoreHistory) return;
+      setLoadingMoreHistory(true);
+
+      const nextOffset = historyOffset;
+      api.listSessionHistory(HISTORY_PAGE_SIZE, nextOffset)
+        .then(data => {
+          const rows = Array.isArray(data?.sessions) ? data.sessions : [];
+          setHasMoreHistory(!!data?.has_more);
+          setHistoryOffset(nextOffset + rows.length);
+
+          if (!rows.length) return;
+
+          setSessions(prev => {
+            const next = new Map(prev);
+            const sessionKeyById = new Map();
+            for (const [key, session] of next.entries()) {
+              if (session && session.sessionId) {
+                sessionKeyById.set(session.sessionId, key);
+              }
+            }
+
+            let changed = false;
+            for (const s of rows) {
+              if (!s || !s.session_id) continue;
+              const messageCount = Number(s.message_count) || 0;
+              if (messageCount <= 0 && !s.last_user_message) continue;
+
+              const sessionId = s.session_id;
+              if (sessionKeyById.has(sessionId)) continue; // already loaded
+
+              const revision = typeof s.revision === 'string' ? s.revision : null;
+              const parentSessionId = normalizeSessionParentId(s.parent_session_id);
+              const spawnAgent = (typeof s.spawn_agent === 'string' && s.spawn_agent) || null;
+              if (parentSessionId) sessionParentByIdRef.current[sessionId] = parentSessionId;
+              if (spawnAgent) childAgentRef.current[sessionId] = spawnAgent;
+
+              const historyKey = 'history-' + sessionId;
+              if (next.has(historyKey)) continue;
+              next.set(historyKey, {
+                source: 'history',
+                status: 'history',
+                sessionId,
+                cwd: s.cwd || '~',
+                turnCount: messageCount,
+                savedTurnCount: messageCount,
+                messageCount,
+                lastUserMessage: s.last_user_message || null,
+                lastUpdated: s.last_updated || null,
+                name: s.name || null,
+                description: s.description || null,
+                knownRevision: revision,
+                remoteRevision: revision,
+                hasExternalUpdate: false,
+                isNewSession: false,
+                parentSessionId,
+                spawnAgent,
+              });
+              sessionKeyById.set(sessionId, historyKey);
+              changed = true;
+            }
+
+            return changed ? next : prev;
+          });
+        })
+        .catch(err => {
+          console.warn('[chat] failed to load more history', err);
+        })
+        .finally(() => {
+          setLoadingMoreHistory(false);
+        });
+    }, [historyOffset, hasMoreHistory, loadingMoreHistory]);
+
     const handleTogglePin = useCallback(async (sessionId, currentlyPinned) => {
       if (currentlyPinned) {
         const card = document.querySelector('[data-session-id="' + sessionId + '"]');
@@ -3630,16 +3733,16 @@
     }, [connect, syncSessionHistory]);
 
     useEffect(() => {
-      const onFocus = () => discoverNewHistorySessions();
+      const onFocus = () => refreshHistory();
       const onVisibility = () => {
         if (document.visibilityState === 'visible') {
           // SSE reconnects automatically; just refresh session list
-          discoverNewHistorySessions();
+          refreshHistory();
         }
       };
       const intervalId = window.setInterval(() => {
-        discoverNewHistorySessions();
-      }, 30000);
+        refreshHistory();
+      }, 10000);
 
       window.addEventListener('focus', onFocus);
       document.addEventListener('visibilitychange', onVisibility);
@@ -3648,7 +3751,7 @@
         window.removeEventListener('focus', onFocus);
         document.removeEventListener('visibilitychange', onVisibility);
       };
-    }, [discoverNewHistorySessions]);
+    }, [refreshHistory]);
 
     useEffect(() => {
       if (sessionSortMode !== 'directory') return;
@@ -3745,6 +3848,7 @@
       const sessionId = activeSession?.sessionId || null;
 
       if (!sessionId) {
+        // Visible feedback instead of silent return
         setChronoItems(prev => [...prev, {
           id: makeId(), type: 'text', role: 'system',
           content: 'Warning: No active session. Message not sent.',
@@ -3757,6 +3861,7 @@
       if (content.startsWith('/')) {
         const parts = content.trim().split(/\s+/);
         const cmd = parts[0];
+        const args = parts.slice(1);
 
         if (cmd === '/cwd') {
           setChronoItems(prev => [...prev, {
@@ -3783,6 +3888,7 @@
             setViewMode(m => m === 'workspace' ? 'chat' : 'workspace');
             return;
           case '/thinking':
+            // Toggle visibility — implemented in Phase 6
             return;
         }
         // Server-side command via REST
@@ -3817,8 +3923,11 @@
       const placeholderId = makeId();
       placeholderIdRef.current = placeholderId;
       setChronoItems(prev => [...prev, {
-        id: placeholderId, type: 'thinking', content: '',
-        streaming: true, order: orderCounterRef.current++,
+        id: placeholderId,
+        type: 'thinking',
+        content: '',
+        streaming: true,
+        order: orderCounterRef.current++,
       }]);
 
       setExecuting(true);
@@ -3828,7 +3937,12 @@
         const key = activeKeyRef.current;
         if (key && next.has(key)) {
           const s = next.get(key);
-          next.set(key, { ...s, status: 'running', lastUserMessage: content || s.lastUserMessage || null, lastUpdated: nowIso });
+          next.set(key, {
+            ...s,
+            status: 'running',
+            lastUserMessage: content || s.lastUserMessage || null,
+            lastUpdated: nowIso,
+          });
         }
         return next;
       });
@@ -3868,10 +3982,10 @@
       setPendingApproval(null);
       setSessions(prev => {
         const next = new Map(prev);
-        const k = activeKeyRef.current;
-        if (k && next.has(k)) {
-          const s = next.get(k);
-          next.set(k, { ...s, pendingApproval: false });
+        const key = activeKeyRef.current;
+        if (key && next.has(key)) {
+          const s = next.get(key);
+          next.set(key, { ...s, pendingApproval: false });
         }
         return next;
       });
@@ -3960,7 +4074,7 @@
           setSessions(prev => {
             const next = new Map(prev);
             const cur = next.get(key) || {};
-            next.set(key, { ...cur, sse, status: 'idle' });
+            next.set(key, { ...cur, sse, status: 'idle', serverCwd: requestedCwd });
             return next;
           });
         })
@@ -4067,7 +4181,10 @@
             return next;
           });
 
-          if (activeKeyRef.current !== key || historyResumeTokenRef.current !== resumeToken) {
+          if (
+            activeKeyRef.current !== key
+            || historyResumeTokenRef.current !== resumeToken
+          ) {
             return;
           }
 
@@ -4105,14 +4222,22 @@
           });
         })
         .catch(err => {
-          if (transcriptAbort.signal.aborted || err?.name === 'AbortError') return;
+          if (transcriptAbort.signal.aborted || err?.name === 'AbortError') {
+            return;
+          }
           console.error('[chat] failed to resume history session', err);
-          if (activeKeyRef.current === key && historyResumeTokenRef.current === resumeToken) {
+          if (
+            activeKeyRef.current === key
+            && historyResumeTokenRef.current === resumeToken
+          ) {
             setSseStatus('disconnected');
             setChronoItems([{
-              id: makeId(), type: 'text', role: 'system',
+              id: makeId(),
+              type: 'text',
+              role: 'system',
               content: 'Warning: Could not resume this session. Try another recent session.',
-              streaming: false, order: orderCounterRef.current++,
+              streaming: false,
+              order: orderCounterRef.current++,
             }]);
           }
           setSessions(prev => {
@@ -4267,142 +4392,18 @@
       }
     }, [sessions, handleWsMessage, resumeHistorySession]);
 
-    const pollSessionRevisions = useCallback(() => {
-      if (revisionPollInFlightRef.current) return;
-
-      const ids = [];
-      const seen = new Set();
-      const knownRevisions = {};
-      const activeSession = activeKeyRef.current
-        ? sessionsRef.current.get(activeKeyRef.current)
-        : null;
-      const activeSessionId = (activeSession && activeSession.sessionId) || null;
-      for (const session of sessionsRef.current.values()) {
-        if (!session || !session.sessionId) continue;
-        if (seen.has(session.sessionId)) continue;
-        const isActiveSessionId = activeSessionId && session.sessionId === activeSessionId;
-        const sse = session.sse;
-        if (sse && !isActiveSessionId) {
-          continue;
-        }
-        seen.add(session.sessionId);
-        ids.push(session.sessionId);
-        knownRevisions[session.sessionId] = typeof session.knownRevision === 'string'
-          ? session.knownRevision
-          : null;
-      }
-      if (ids.length === 0) return;
-
-      revisionPollInFlightRef.current = true;
-      const payload = {
-        limit: Math.max(300, ids.length + 20),
-        session_ids: ids,
-        known_revisions: knownRevisions,
-      };
-
-      api.getSessionRevisions(payload)
-        .then(data => {
-          const rows = Array.isArray(data?.changed) ? data.changed : [];
-          const removed = Array.isArray(data?.removed) ? data.removed : [];
-          if (!rows.length && !removed.length) return;
-          const byId = new Map(
-            rows
-              .filter(r => r && typeof r.session_id === 'string')
-              .map(r => [r.session_id, r])
-          );
-          const removedIds = new Set(
-            removed.filter(v => typeof v === 'string')
-          );
-
-          setSessions(prev => {
-            let changed = false;
-            const next = new Map(prev);
-            for (const [key, session] of next.entries()) {
-              if (!session || !session.sessionId) continue;
-
-              if (removedIds.has(session.sessionId)) {
-                if (session.remoteRevision === null) continue;
-                next.set(key, {
-                  ...session,
-                  remoteRevision: null,
-                });
-                changed = true;
-                continue;
-              }
-
-              const row = byId.get(session.sessionId);
-              if (!row || typeof row.revision !== 'string') continue;
-
-              const remoteRevision = row.revision;
-              const currentKnown = session.knownRevision ?? null;
-              // Never advance knownRevision in the poll — null means "never reviewed
-              // by this client". Only set a baseline when the user opens the session.
-              const nextKnown = currentKnown;
-              const hasExternalUpdate = currentKnown === null
-                ? (remoteRevision !== null)   // never reviewed: badge if has content
-                : currentKnown !== remoteRevision; // reviewed before: badge if changed
-              const nextUpdatedAt = row.last_updated || session.lastUpdated || null;
-              // Pick up name/description from revision scan (written by naming hook)
-              const nextName = row.name || session.name || null;
-              const nextDescription = row.description || session.description || null;
-
-              if (
-                session.remoteRevision === remoteRevision
-                && session.knownRevision === nextKnown
-                && !!session.hasExternalUpdate === hasExternalUpdate
-                && session.lastUpdated === nextUpdatedAt
-                && session.name === nextName
-                && session.description === nextDescription
-              ) {
-                continue;
-              }
-
-              next.set(key, {
-                ...session,
-                remoteRevision,
-                knownRevision: nextKnown,
-                hasExternalUpdate,
-                lastUpdated: nextUpdatedAt,
-                name: nextName,
-                description: nextDescription,
-              });
-              changed = true;
-            }
-            return changed ? next : prev;
-          });
-        })
-        .catch(err => {
-          if (String(err?.message || '').includes('401')) return;
-          console.warn('[chat] failed to poll session revisions', err);
-        })
-        .finally(() => {
-          revisionPollInFlightRef.current = false;
-        });
-    }, []);
-
-    useEffect(() => {
-      pollSessionRevisions();
-      const intervalId = window.setInterval(pollSessionRevisions, 7000);
-      const onFocus = () => pollSessionRevisions();
-      const onVisibility = () => {
-        if (document.visibilityState === 'visible') {
-          pollSessionRevisions();
-        }
-      };
-      window.addEventListener('focus', onFocus);
-      document.addEventListener('visibilitychange', onVisibility);
-      return () => {
-        window.clearInterval(intervalId);
-        window.removeEventListener('focus', onFocus);
-        document.removeEventListener('visibilitychange', onVisibility);
-      };
-    }, [pollSessionRevisions]);
+    // NOTE: pollSessionRevisions removed — consolidated into the 10s
+    // history re-poll (refreshHistory).  The history endpoint now returns
+    // name, description, revision, and last_updated which covers the same
+    // data that the revisions endpoint provided.
 
     useEffect(() => {
       if (!activeKey) return;
       const active = sessions.get(activeKey);
       if (!active || !active.sessionId || !active.hasExternalUpdate) return;
       if (executing || active.status === 'running' || active.status === 'loading_history') return;
+      // Live sessions get all content via WebSocket — skip disk refresh.
+      if (active.source === 'live') return;
 
       const now = Date.now();
       const lastAt = Number(autoDiskRefreshAtRef.current[activeKey] || 0);
@@ -4416,6 +4417,26 @@
       const normalized = (rawCwd || '').trim() || '~';
       defaultCwdRef.current = normalized;
       setDefaultCwd(normalized);
+
+      // For draft sessions, also update the displayed cwd and session data
+      // so the metadata view stays consistent if the draft editor hides.
+      // Server-side reconciliation is deferred to sendMessage() to avoid
+      // session churn from repeated edits.
+      const key = activeKeyRef.current;
+      if (!key) return;
+      const session = sessionsRef.current.get(key);
+      if (!session) return;
+      const isDraft = session.source !== 'history' && (session.turnCount || 0) === 0;
+      if (!isDraft) return;
+      if (normalized === (session.cwd || '~')) return;
+
+      setCwd(normalized);
+      setSessions(prev => {
+        const next = new Map(prev);
+        const s = next.get(key);
+        if (s) next.set(key, { ...s, cwd: normalized });
+        return next;
+      });
     }, []);
 
     const startPaneResize = useCallback((pane, e) => {
@@ -4741,6 +4762,15 @@
                       ${unpinnedEntries.map(entry => renderSessionTreeEntry(entry))}
                     `
                 }
+                ${hasMoreHistory && html`
+                  <button
+                    class="session-load-more"
+                    onClick=${loadMoreHistory}
+                    disabled=${loadingMoreHistory}
+                  >
+                    ${loadingMoreHistory ? 'Loading...' : 'Load more sessions'}
+                  </button>
+                `}
               `;
             })()}
           </div>
@@ -4756,6 +4786,10 @@
                         onInput=${e => {
                           defaultCwdRef.current = e.target.value;
                           setDefaultCwd(e.target.value);
+                          // Keep displayed cwd in sync so the metadata view
+                          // shows the edited value if the draft editor hides
+                          // (e.g. when executing becomes true on send).
+                          setCwd(e.target.value);
                         }}
                         onBlur=${e => applyDraftCwd(e.target.value)}
                       />
