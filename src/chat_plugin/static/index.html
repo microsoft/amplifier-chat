@@ -1394,6 +1394,75 @@
     'display_message':       'display_message',
   };
 
+  /**
+   * Normalize raw kernel event data to the shape the UI handlers expect.
+   * The kernel uses field names like block_index, tool_input, usage.input_tokens,
+   * while the UI expects index, arguments, input_tokens at the top level.
+   */
+  function normalizeKernelPayload(eventName, payload) {
+    const p = { ...payload };
+    switch (eventName) {
+      case 'content_block:start':
+      case 'content_block:delta':
+      case 'content_block:end': {
+        // block_index → index (check nested block too)
+        if (p.index == null) {
+          let idx = p.block_index;
+          if (idx == null && p.block) {
+            idx = p.block.block_index ?? p.block.index;
+          }
+          p.index = idx ?? 0;
+        }
+        // delta: Anthropic dict format → plain string
+        if (eventName === 'content_block:delta' && typeof p.delta === 'object' && p.delta !== null) {
+          p.delta = p.delta.text || p.delta.thinking || '';
+        }
+        // content_block:end — extract text from nested block
+        if (eventName === 'content_block:end' && typeof p.text !== 'string') {
+          const blk = p.block;
+          if (blk && typeof blk === 'object') {
+            p.text = blk.text || blk.thinking || blk.content || '';
+          } else {
+            p.text = p.content || '';
+          }
+        }
+        break;
+      }
+      case 'tool:pre':
+        if (p.arguments == null && p.tool_input != null) {
+          p.arguments = p.tool_input;
+        }
+        break;
+      case 'tool:post': {
+        const result = p.result;
+        if (result && typeof result === 'object') {
+          p.output = result.output != null ? String(result.output) : null;
+          p.error = result.error || null;
+          p.success = !result.error;
+        }
+        break;
+      }
+      case 'tool:error':
+        if (p.success == null) p.success = false;
+        if (p.error == null) p.error = p.message || 'Unknown error';
+        break;
+      case 'llm:response': {
+        const usage = p.usage || {};
+        p.input_tokens = usage.input_tokens || 0;
+        p.output_tokens = usage.output_tokens || 0;
+        p.total_tokens = usage.total_tokens || (p.input_tokens + p.output_tokens);
+        p.cache_read_tokens = usage.cache_read_tokens || 0;
+        p.cache_write_tokens = usage.cache_write_tokens || 0;
+        if (!p.model) p.model = usage.model;
+        break;
+      }
+      case 'approval_request':
+        if (p.id == null && p.request_id != null) p.id = p.request_id;
+        break;
+    }
+    return p;
+  }
+
   function createSSEManager(sessionId, handlers) {
     const url = `${API_BASE}/events?session=${sessionId}`;
     const source = new EventSource(url);
@@ -1402,7 +1471,8 @@
       source.addEventListener(name, (e) => {
         try {
           const envelope = JSON.parse(e.data);
-          const payload = envelope.data || {};
+          const rawPayload = envelope.data || {};
+          const payload = normalizeKernelPayload(name, rawPayload);
           const msgType = SSE_EVENT_TYPE_MAP[name] || name;
           const msg = { type: msgType, ...payload };
           if (handlers.onMessage) handlers.onMessage(msg);
