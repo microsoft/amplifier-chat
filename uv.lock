@@ -17,7 +17,7 @@ dependencies = [
 [[package]]
 name = "amplifier-foundation"
 version = "1.0.0"
-source = { git = "https://github.com/microsoft/amplifier-foundation#8d950aea182e541288a8d02bc2376f8574a32823" }
+source = { git = "https://github.com/microsoft/amplifier-foundation#7582d03f6bc380fe52ff6ba0156fa3788357ffbe" }
 dependencies = [
     { name = "amplifier-core" },
     { name = "pyyaml" },
@@ -26,7 +26,7 @@ dependencies = [
 [[package]]
 name = "amplifierd"
 version = "0.1.0"
-source = { git = "https://github.com/payneio/amplifierd#9997d029dd866d50a86c461534818a6bddc85bce" }
+source = { git = "https://github.com/payneio/amplifierd#3f04be0cf2be5a25f18cc8075168a8edbc657fba" }
 dependencies = [
     { name = "amplifier-core" },
     { name = "amplifier-foundation" },

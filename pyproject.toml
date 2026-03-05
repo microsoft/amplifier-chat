@@ -10,7 +10,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["amplifierd @ git+https://github.com/payneio/amplifierd", "uvicorn[standard]>=0.30"]
-test = ["pytest", "pytest-anyio", "httpx"]
+test = ["pytest", "pytest-anyio", "pytest-asyncio", "httpx"]
 
 [project.entry-points."amplifierd.plugins"]
 chat = "chat_plugin"
