@@ -73,7 +73,7 @@ def create_pin_routes(pin_storage: PinStorage) -> APIRouter:
 
 
 def create_history_routes(
-    sessions_dir: Path | None,
+    projects_dir: Path | None,
     pin_storage: PinStorage,
 ) -> APIRouter:
     router = APIRouter(prefix="/chat", tags=["chat-history"])
@@ -91,7 +91,7 @@ def create_history_routes(
         caller-side content filtering.
         """
         sessions, total_count = await asyncio.to_thread(
-            scan_sessions, sessions_dir, limit, offset
+            scan_sessions, projects_dir, limit, offset
         )
         pinned_ids = pin_storage.list_pins()
 
@@ -122,7 +122,7 @@ def create_history_routes(
             wanted = _parse_session_id_set(session_ids.split(","))
 
         rows = await asyncio.to_thread(
-            scan_session_revisions, sessions_dir, wanted
+            scan_session_revisions, projects_dir, wanted
         )
         return {"sessions": rows[:limit]}
 
@@ -198,7 +198,7 @@ def create_history_routes(
             )
 
         rows = await asyncio.to_thread(
-            scan_session_revisions, sessions_dir, wanted
+            scan_session_revisions, projects_dir, wanted
         )
         found_ids = {row["session_id"] for row in rows}
 

@@ -1,15 +1,17 @@
-"""Session history — scans amplifierd's sessions_dir to discover past sessions.
+"""Session history — scans amplifierd's projects_dir to discover past sessions.
 
-Adapted from amplifier-distro's session_history.py for amplifierd's flat
+Adapted from amplifier-distro's session_history.py for the project-nested
 directory layout:
 
-    sessions_dir/
-        {session_id}/transcript.jsonl
-        {session_id}/metadata.json
+    projects_dir/
+        {project_slug}/
+            sessions/
+                {session_id}/transcript.jsonl
+                {session_id}/metadata.json
 
 Schema (one dict per session in scan_sessions() output):
     session_id: str             — session directory name
-    cwd: str|None               — working directory from session-info.json
+    cwd: str|None               — working directory decoded from project slug
     parent_session_id: str|None — parent session id from metadata.json
     spawn_agent: str|None       — spawned agent name from metadata.json
     message_count: int          — number of transcript lines with a 'role' key
@@ -26,6 +28,7 @@ import json
 import logging
 import os
 import re
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,6 +41,39 @@ METADATA_FILENAME = "metadata.json"
 SESSION_INFO_FILENAME = "session-info.json"
 
 _VALID_SESSION_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]+$")
+
+
+def _decode_cwd(slug: str) -> str:
+    """Reconstruct CWD from project directory slug.
+
+    Slug convention: /Users/sam/repo → -Users-sam-repo
+    Uses greedy filesystem walk to resolve ambiguous dashes.
+    Falls back to naive dash→slash replacement.
+    """
+    if not slug or slug == "-":
+        return "/"
+    # Remove leading dash
+    raw = slug.lstrip("-")
+    # Try greedy filesystem walk
+    parts = raw.split("-")
+    resolved = "/"
+    i = 0
+    while i < len(parts):
+        # Try longest match first (handles dirs with dashes in name)
+        found = False
+        for j in range(len(parts), i, -1):
+            candidate = "-".join(parts[i:j])
+            test_path = os.path.join(resolved, candidate)
+            if os.path.exists(test_path):
+                resolved = test_path
+                i = j
+                found = True
+                break
+        if not found:
+            # No match on disk — use single component
+            resolved = os.path.join(resolved, parts[i])
+            i += 1
+    return resolved
 
 
 def _session_revision_signature(session_dir: Path) -> tuple[str, str]:
@@ -54,7 +90,9 @@ def _session_revision_signature(session_dir: Path) -> tuple[str, str]:
         return datetime.now(tz=UTC).isoformat(), "0:0"
 
 
-def _read_session_meta(session_dir: Path) -> dict[str, Any]:
+def _read_session_meta(
+    session_dir: Path, project_slug: str | None = None
+) -> dict[str, Any]:
     """Extract lightweight metadata from a single session directory."""
     # Try to read CWD from session-info.json
     cwd: str | None = None
@@ -104,6 +142,10 @@ def _read_session_meta(session_dir: Path) -> dict[str, Any]:
                         cwd = normalized
     except (OSError, json.JSONDecodeError):
         pass
+
+    # Final fallback: decode CWD from project slug
+    if cwd is None and project_slug is not None:
+        cwd = _decode_cwd(project_slug)
 
     transcript_path = session_dir / TRANSCRIPT_FILENAME
     message_count = 0
@@ -159,31 +201,44 @@ def _read_session_meta(session_dir: Path) -> dict[str, Any]:
     }
 
 
-def _iter_session_dirs(sessions_dir: Path) -> list[Path]:
-    """Return validated session directories under sessions_dir."""
-    if not sessions_dir.exists():
-        return []
+def _iter_session_dirs(projects_dir: Path) -> Iterator[tuple[Path, str]]:
+    """Iterate session dirs in projects/{slug}/sessions/{id}/ layout.
 
+    Yields (session_dir, project_slug) tuples.
+    """
+    if not projects_dir or not projects_dir.is_dir():
+        return
     try:
-        children = list(sessions_dir.iterdir())
+        resolved_root = projects_dir.resolve()
     except OSError:
-        logger.warning(
-            "Could not list sessions at %s", sessions_dir, exc_info=True
-        )
-        return []
-
-    session_dirs: list[Path] = []
-    for child in children:
-        if not child.is_dir():
+        return
+    for project_dir in sorted(projects_dir.iterdir()):
+        if not project_dir.is_dir():
             continue
-        if not _VALID_SESSION_ID_RE.fullmatch(child.name):
-            logger.debug(
-                "Skipping session dir with non-standard name: %r", child.name
+        # Symlink containment
+        try:
+            if not project_dir.resolve().is_relative_to(resolved_root):
+                continue
+        except (OSError, ValueError):
+            continue
+        sessions_subdir = project_dir / "sessions"
+        if not sessions_subdir.is_dir():
+            continue
+        try:
+            for session_dir in sessions_subdir.iterdir():
+                if not session_dir.is_dir():
+                    continue
+                if not _VALID_SESSION_ID_RE.match(session_dir.name):
+                    logger.debug(
+                        "Skipping session dir with non-standard name: %r",
+                        session_dir.name,
+                    )
+                    continue
+                yield session_dir, project_dir.name
+        except OSError:
+            logger.warning(
+                "Could not list sessions in %s", sessions_subdir, exc_info=True
             )
-            continue
-        session_dirs.append(child)
-
-    return session_dirs
 
 
 def _dir_mtime(session_dir: Path) -> float:
@@ -197,11 +252,13 @@ def _dir_mtime(session_dir: Path) -> float:
 
 
 def scan_sessions(
-    sessions_dir: Path | None,
+    projects_dir: Path | None,
     limit: int = 200,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Scan sessions_dir and return lightweight metadata for the requested page.
+    """Scan projects_dir and return lightweight metadata for the requested page.
+
+    Walks the two-level projects/{slug}/sessions/{id}/ tree.
 
     Two-phase algorithm for efficiency at scale:
       Phase 1 — cheap stat() all session dirs (~0.03 s for 5 000 dirs).
@@ -215,15 +272,15 @@ def scan_sessions(
 
     Never raises — malformed sessions are included with degraded metadata.
     """
-    if sessions_dir is None:
+    if projects_dir is None:
         return [], 0
 
     # Phase 1: cheap stat — discover and sort without reading transcripts
-    all_dirs = _iter_session_dirs(sessions_dir)
-    all_dirs.sort(key=_dir_mtime, reverse=True)
-    total_count = len(all_dirs)
+    all_entries = list(_iter_session_dirs(projects_dir))
+    all_entries.sort(key=lambda t: _dir_mtime(t[0]), reverse=True)
+    total_count = len(all_entries)
 
-    window = all_dirs[offset : offset + limit]
+    window = all_entries[offset : offset + limit]
     if not window:
         return [], total_count
 
@@ -231,9 +288,12 @@ def scan_sessions(
     results: list[dict[str, Any]] = []
     max_workers = min(8, len(window))
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        future_map = {pool.submit(_read_session_meta, d): d for d in window}
+        future_map = {
+            pool.submit(_read_session_meta, d, slug): (d, slug)
+            for d, slug in window
+        }
         for future in as_completed(future_map):
-            session_dir = future_map[future]
+            session_dir, _slug = future_map[future]
             try:
                 meta = future.result()
                 results.append(meta)
@@ -250,7 +310,7 @@ def scan_sessions(
 
 
 def scan_session_revisions(
-    sessions_dir: Path | None,
+    projects_dir: Path | None,
     session_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Return lightweight revision metadata for session directories on disk.
@@ -258,13 +318,13 @@ def scan_session_revisions(
     Includes name/description from metadata.json so the frontend can update
     session titles without a full history fetch.
     """
-    if sessions_dir is None:
+    if projects_dir is None:
         return []
 
     wanted = set(session_ids) if session_ids is not None else None
 
     rows: list[dict[str, Any]] = []
-    for session_dir in _iter_session_dirs(sessions_dir):
+    for session_dir, _slug in _iter_session_dirs(projects_dir):
         session_id = session_dir.name
         if wanted is not None and session_id not in wanted:
             continue

@@ -3,6 +3,21 @@ import json
 from chat_plugin.session_history import scan_session_revisions, scan_sessions
 
 
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+def _make_session(projects_dir, session_id, slug="-Users-test", transcript=None, metadata=None):
+    """Create a session in the two-level projects/{slug}/sessions/{id}/ layout."""
+    session_dir = projects_dir / slug / "sessions" / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    if transcript is not None:
+        (session_dir / "transcript.jsonl").write_text(transcript, encoding="utf-8")
+    if metadata is not None:
+        (session_dir / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    return session_dir
+
+
+# ── basic coverage ────────────────────────────────────────────────────────────
+
 def test_scan_sessions_none_dir():
     sessions, total = scan_sessions(None)
     assert sessions == []
@@ -16,13 +31,13 @@ def test_scan_sessions_empty_dir(tmp_path):
 
 
 def test_scan_sessions_with_transcript(tmp_path):
-    session_dir = tmp_path / "sess-abc"
-    session_dir.mkdir()
-    transcript = session_dir / "transcript.jsonl"
-    transcript.write_text(
-        json.dumps({"role": "user", "content": "Hello"}) + "\n"
-        + json.dumps({"role": "assistant", "content": "Hi"}) + "\n",
-        encoding="utf-8",
+    _make_session(
+        tmp_path,
+        "sess-abc",
+        transcript=(
+            json.dumps({"role": "user", "content": "Hello"}) + "\n"
+            + json.dumps({"role": "assistant", "content": "Hi"}) + "\n"
+        ),
     )
     results, total = scan_sessions(tmp_path)
     assert total == 1
@@ -35,19 +50,15 @@ def test_scan_sessions_with_transcript(tmp_path):
 
 
 def test_scan_sessions_with_metadata(tmp_path):
-    session_dir = tmp_path / "sess-xyz"
-    session_dir.mkdir()
-    (session_dir / "transcript.jsonl").write_text(
-        json.dumps({"role": "user", "content": "test"}) + "\n",
-        encoding="utf-8",
-    )
-    (session_dir / "metadata.json").write_text(
-        json.dumps({
+    _make_session(
+        tmp_path,
+        "sess-xyz",
+        transcript=json.dumps({"role": "user", "content": "test"}) + "\n",
+        metadata={
             "name": "My Session",
             "description": "A test session",
             "parent_id": "sess-parent",
-        }),
-        encoding="utf-8",
+        },
     )
     results, total = scan_sessions(tmp_path)
     assert total == 1
@@ -59,11 +70,10 @@ def test_scan_sessions_with_metadata(tmp_path):
 
 
 def test_scan_session_revisions(tmp_path):
-    session_dir = tmp_path / "sess-rev"
-    session_dir.mkdir()
-    (session_dir / "transcript.jsonl").write_text(
-        json.dumps({"role": "user", "content": "hi"}) + "\n",
-        encoding="utf-8",
+    _make_session(
+        tmp_path,
+        "sess-rev",
+        transcript=json.dumps({"role": "user", "content": "hi"}) + "\n",
     )
     rows = scan_session_revisions(tmp_path)
     assert len(rows) == 1
@@ -74,9 +84,7 @@ def test_scan_session_revisions(tmp_path):
 
 def test_scan_session_revisions_filter(tmp_path):
     for name in ["sess-a", "sess-b", "sess-c"]:
-        d = tmp_path / name
-        d.mkdir()
-        (d / "transcript.jsonl").write_text("{}\n", encoding="utf-8")
+        _make_session(tmp_path, name, transcript="{}\n")
     rows = scan_session_revisions(tmp_path, session_ids={"sess-b"})
     assert len(rows) == 1
     assert rows[0]["session_id"] == "sess-b"
@@ -87,9 +95,11 @@ def test_scan_session_revisions_none_dir():
 
 
 def test_invalid_session_ids_skipped(tmp_path):
-    (tmp_path / "valid-id").mkdir()
-    (tmp_path / ".hidden").mkdir()
-    (tmp_path / "has spaces").mkdir()
+    _make_session(tmp_path, "valid-id", transcript="{}\n")
+    # Create malformed dirs directly — they sit at the sessions/ level
+    bad_sessions = tmp_path / "-Users-test" / "sessions"
+    (bad_sessions / ".hidden").mkdir()
+    (bad_sessions / "has spaces").mkdir()
     results, total = scan_sessions(tmp_path)
     session_ids = {r["session_id"] for r in results}
     assert "valid-id" in session_ids
@@ -102,10 +112,10 @@ def test_scan_sessions_pagination(tmp_path):
     import time
 
     for name in ["sess-oldest", "sess-middle", "sess-newest"]:
-        d = tmp_path / name
-        d.mkdir()
-        (d / "transcript.jsonl").write_text(
-            '{"role": "user", "content": "hi"}\n', encoding="utf-8"
+        _make_session(
+            tmp_path,
+            name,
+            transcript='{"role": "user", "content": "hi"}\n',
         )
         time.sleep(0.01)  # ensure distinct mtimes
 
@@ -126,10 +136,10 @@ def test_scan_sessions_pagination(tmp_path):
 def test_scan_sessions_total_count(tmp_path):
     """total_count equals the number of valid session directories."""
     for name in ["sess-a", "sess-b", "sess-c"]:
-        d = tmp_path / name
-        d.mkdir()
-        (d / "transcript.jsonl").write_text(
-            '{"role": "user", "content": "x"}\n', encoding="utf-8"
+        _make_session(
+            tmp_path,
+            name,
+            transcript='{"role": "user", "content": "x"}\n',
         )
 
     _, total = scan_sessions(tmp_path)
@@ -139,3 +149,31 @@ def test_scan_sessions_total_count(tmp_path):
     page, total2 = scan_sessions(tmp_path, limit=10, offset=100)
     assert total2 == 3
     assert page == []
+
+
+def test_scan_sessions_cwd_from_slug(tmp_path):
+    """CWD is decoded from project slug when session-info.json is absent."""
+    _make_session(
+        tmp_path,
+        "sess-cwd",
+        slug="-Users-test-myproject",
+        transcript='{"role": "user", "content": "cwd test"}\n',
+    )
+    results, total = scan_sessions(tmp_path)
+    assert total == 1
+    row = results[0]
+    # Naive fallback: -Users-test-myproject → /Users/test/myproject (or longer match)
+    assert row["cwd"] is not None
+    assert row["cwd"].startswith("/")
+
+
+def test_scan_sessions_multiple_projects(tmp_path):
+    """Sessions from different project slugs are all returned."""
+    _make_session(tmp_path, "sess-1", slug="-Users-alice-projA",
+                  transcript='{"role": "user", "content": "a"}\n')
+    _make_session(tmp_path, "sess-2", slug="-Users-bob-projB",
+                  transcript='{"role": "user", "content": "b"}\n')
+    results, total = scan_sessions(tmp_path)
+    assert total == 2
+    ids = {r["session_id"] for r in results}
+    assert ids == {"sess-1", "sess-2"}

@@ -24,9 +24,9 @@ def create_router(state: Any) -> APIRouter:
         session_manager=state.session_manager, event_bus=state.event_bus
     )
 
-    # Extract sessions_dir from amplifierd settings (may be None)
-    sessions_dir = getattr(
-        getattr(state, "settings", None), "sessions_dir", None
+    # Extract projects_dir from amplifierd settings (may be None)
+    projects_dir = getattr(
+        getattr(state, "settings", None), "projects_dir", None
     )
 
     router = APIRouter()
@@ -36,7 +36,7 @@ def create_router(state: Any) -> APIRouter:
         return {"status": "ok", "plugin": "chat"}
 
     router.include_router(create_pin_routes(pin_storage))
-    router.include_router(create_history_routes(sessions_dir, pin_storage))
+    router.include_router(create_history_routes(projects_dir, pin_storage))
     router.include_router(create_command_routes(processor))
     router.include_router(create_static_routes())
     return router

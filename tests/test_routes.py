@@ -87,14 +87,15 @@ def test_api_pin_and_unpin(client):
 def test_history_with_sessions_on_disk(client, tmp_path, state):
     import json
 
-    state.settings.sessions_dir = tmp_path
-    sess_dir = tmp_path / "my-session"
-    sess_dir.mkdir()
+    # Two-level layout: projects/{slug}/sessions/{id}/
+    state.settings.projects_dir = tmp_path
+    sess_dir = tmp_path / "-Users-test" / "sessions" / "my-session"
+    sess_dir.mkdir(parents=True)
     (sess_dir / "transcript.jsonl").write_text(
         json.dumps({"role": "user", "content": "hello"}) + "\n",
         encoding="utf-8",
     )
-    # Re-create app with sessions_dir set
+    # Re-create app with projects_dir set
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from chat_plugin import create_router

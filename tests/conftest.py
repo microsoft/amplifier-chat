@@ -5,7 +5,7 @@ from chat_plugin import create_router
 
 
 class MockSettings:
-    sessions_dir = None
+    projects_dir = None
 
 
 class MockState:
