@@ -40,7 +40,7 @@ TRANSCRIPT_FILENAME = "transcript.jsonl"
 METADATA_FILENAME = "metadata.json"
 SESSION_INFO_FILENAME = "session-info.json"
 
-_VALID_SESSION_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]+$")
+_VALID_SESSION_ID_RE = re.compile(r"^[a-zA-Z0-9_:\-]+$")
 
 
 def _decode_cwd(slug: str) -> str:
@@ -115,9 +115,7 @@ def _read_session_meta(
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         if isinstance(metadata, dict):
-            raw_parent = metadata.get("parent_id") or metadata.get(
-                "parent_session_id"
-            )
+            raw_parent = metadata.get("parent_id") or metadata.get("parent_session_id")
             if (
                 isinstance(raw_parent, str)
                 and raw_parent
@@ -176,9 +174,7 @@ def _read_session_meta(
                                     isinstance(block, dict)
                                     and block.get("type") == "text"
                                 ):
-                                    last_user_message = (
-                                        block.get("text") or ""
-                                    )[:120]
+                                    last_user_message = (block.get("text") or "")[:120]
                                     break
         except OSError:
             logger.warning(
@@ -289,8 +285,7 @@ def scan_sessions(
     max_workers = min(8, len(window))
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_map = {
-            pool.submit(_read_session_meta, d, slug): (d, slug)
-            for d, slug in window
+            pool.submit(_read_session_meta, d, slug): (d, slug) for d, slug in window
         }
         for future in as_completed(future_map):
             session_dir, _slug = future_map[future]
