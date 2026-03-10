@@ -900,9 +900,10 @@
     .sub-session {
       background: var(--bg-tertiary, rgba(255,255,255,0.02));
       border-left: 2px solid var(--border);
-      margin-top: 6px;
-      padding: 6px 0 6px 10px;
+      margin-top: 8px;
+      padding: 8px 8px 8px 12px;
       font-size: 13px;
+      border-radius: 0 4px 4px 0;
     }
     .sub-session .sub-session {
       border-left-color: var(--border);
@@ -950,15 +951,20 @@
       color: var(--text-muted);
     }
     .sub-session-body {
-      padding-top: 4px;
+      padding: 6px 0 4px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
     .sub-session-body .text-block {
       color: var(--text-secondary);
       font-size: 13px;
+      padding: 2px 0;
     }
     .sub-session-body .thinking-block {
       font-size: 12px;
       opacity: 0.85;
+      margin: 2px 0;
     }
     .nested-tool-call {
       margin: 4px 0;
@@ -4564,11 +4570,27 @@
       if (!sessionId) return;
       for (const [key, session] of sessionsRef.current.entries()) {
         if (session && session.sessionId === sessionId) {
-          setActiveKey(key);
+          // Expand the parent session in the sidebar so the child is visible
+          const parentId = session.parentSessionId;
+          if (parentId) {
+            // Find the parent's key and ensure its tree node is expanded
+            for (const [pKey, pSession] of sessionsRef.current.entries()) {
+              if (pSession && pSession.sessionId === parentId) {
+                setCollapsedSpawnGroups(prev => {
+                  const next = new Set(prev);
+                  next.delete(pKey); // uncollapse parent tree node
+                  return next;
+                });
+                break;
+              }
+            }
+          }
+          // Use switchSession which handles transcript loading, SSE, state reset
+          switchSession(key);
           return;
         }
       }
-    }, []);
+    }, [switchSession]);
 
     const sendMessage = useCallback(async (content, images) => {
       const key = activeKeyRef.current;
