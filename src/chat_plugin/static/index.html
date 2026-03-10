@@ -1528,7 +1528,10 @@
       case 'tool:post': {
         const result = p.result;
         if (result && typeof result === 'object') {
-          p.output = result.output != null ? String(result.output) : null;
+          const out = result.output;
+          p.output = out == null ? null
+            : typeof out === 'string' ? out
+            : JSON.stringify(out);
           p.error = result.error || null;
           p.success = !result.error;
         }
