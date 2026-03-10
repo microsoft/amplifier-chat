@@ -29,6 +29,15 @@
       --action-btn-bg-active: rgba(255, 255, 255, 0.15);
       --action-btn-color: #b0b0b0;
       --action-btn-color-hover: #e8e8e8;
+    
+      /* Sub-session tokens */
+      --sub-bg: rgba(255, 255, 255, 0.025);
+      --sub-bg-elevated: rgba(255, 255, 255, 0.04);
+      --sub-bg-hover: rgba(255, 255, 255, 0.06);
+      --sub-border: rgba(255, 255, 255, 0.06);
+      --sub-border-left: rgba(99, 102, 241, 0.4);
+      --sub-text: #aaa;
+      --sub-text-muted: #666;
     }
 
     body[data-theme="light"] {
@@ -49,6 +58,14 @@
       --action-btn-bg-active: rgba(0, 0, 0, 0.12);
       --action-btn-color: #64748b;
       --action-btn-color-hover: #0f172a;
+    
+      --sub-bg: rgba(0, 0, 0, 0.025);
+      --sub-bg-elevated: rgba(0, 0, 0, 0.035);
+      --sub-bg-hover: rgba(0, 0, 0, 0.05);
+      --sub-border: rgba(0, 0, 0, 0.08);
+      --sub-border-left: rgba(99, 102, 241, 0.35);
+      --sub-text: #4a5568;
+      --sub-text-muted: #718096;
     }
 
     body {
@@ -898,11 +915,197 @@
 
     /* —— Sub-Session ————————————————————————————————————————————— */
     .sub-session {
-      background: rgba(255,255,255,0.02);
-      border-left: 2px solid var(--border);
-      margin-top: 6px;
+      background: var(--sub-bg);
+      border-left: 2px solid var(--sub-border-left);
+      margin-top: 8px;
+      padding: 10px 12px 10px 14px;
+      font-size: 13px;
+      border-radius: 0 6px 6px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .sub-session .sub-session {
+      font-size: 12px;
+    }
+
+    .sub-session-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 2px 0;
+      font-size: 12px;
+      color: var(--sub-text-muted);
+      user-select: none;
+    }
+    .sub-session-header:hover {
+      color: var(--sub-text);
+    }
+    .sub-session-status {
+      font-size: 12px;
+      display: inline-block;
+    }
+    .sub-session-agent {
+      font-weight: 500;
+      color: var(--accent, #7c8aff);
+    }
+    .sub-session-nav-link {
+      font-size: 11px;
+      color: var(--accent, #7c8aff);
+      cursor: pointer;
+      opacity: 0.85;
+      margin-left: auto;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .sub-session-nav-link:hover {
+      opacity: 1;
+      text-decoration: underline;
+      background: var(--sub-bg-hover);
+    }
+    .sub-session-chevron {
+      font-size: 10px;
+      margin-left: 4px;
+      color: var(--sub-text-muted);
+    }
+    .sub-session-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Delegated prompt (user-message inside sub-session) */
+    .sub-session .user-message {
+      align-self: flex-start;
+      max-width: 100%;
+      background: var(--sub-bg-elevated);
+      color: var(--sub-text);
+      border: 1px solid var(--sub-border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-style: italic;
+      font-size: 0.92em;
+      line-height: 1.5;
+    }
+    .sub-session .user-message::before {
+      content: "Prompt";
+      display: block;
+      font-size: 10px;
+      font-style: normal;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--sub-text-muted);
+      margin-bottom: 4px;
+    }
+
+    /* Sub-session text blocks */
+    .sub-session .text-block {
+      background: var(--sub-bg-elevated);
+      border: 1px solid var(--sub-border);
+      color: var(--sub-text);
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .sub-session .text-block h1,
+    .sub-session .text-block h2,
+    .sub-session .text-block h3 {
+      color: var(--text-primary);
+    }
+    .sub-session .text-block code {
+      background: var(--sub-bg-hover);
+    }
+    .sub-session .text-block pre {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Sub-session tool cards */
+    .sub-session .tool-card {
+      background: var(--sub-bg);
+      border-color: var(--sub-border);
+    }
+    .sub-session .tool-header {
+      padding: 5px 8px;
+      background: var(--sub-bg-elevated);
+      gap: 6px;
+    }
+    .sub-session .tool-header:hover {
+      background: var(--sub-bg-hover);
+    }
+    .sub-session .tool-name {
+      color: var(--sub-text);
+      font-weight: 400;
+    }
+    .sub-session .tool-body {
       padding: 6px 8px;
-      font-size: 0.9em;
+      border-top-color: var(--sub-border);
+    }
+    .sub-session .tool-args-json {
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .sub-session .tool-result-text {
+      font-size: 11px;
+      color: var(--sub-text-muted);
+    }
+
+    /* Sub-session thinking blocks */
+    .sub-session .thinking-block {
+      border-color: rgba(139, 92, 246, 0.2);
+      background: rgba(139, 92, 246, 0.03);
+    }
+    .sub-session .thinking-header {
+      font-size: 11px;
+      padding: 5px 10px;
+    }
+    .sub-session .thinking-content {
+      font-size: 11px;
+      padding: 6px 10px;
+    }
+
+    /* Nested tool calls (inside sub-sessions) */
+    .nested-tool-call {
+      margin: 4px 0;
+    }
+    .nested-tool-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--sub-text-muted);
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    .nested-tool-header:hover {
+      background: var(--sub-bg-hover);
+    }
+    .nested-tool-body {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    .nested-tool-body .tool-args-json {
+      max-height: 120px;
+      overflow: auto;
+    }
+    .nested-tool-body .tool-result-text {
+      max-height: 120px;
+      overflow: auto;
+    }
+
+    .sub-session-waiting {
+      font-size: 12px;
+      color: var(--sub-text-muted);
+      font-style: italic;
+    }
+    .sub-session-truncated {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+      font-size: 12px;
     }
 
     /* —— Approval Modal ———————————————————————————————————————————— */
@@ -1439,7 +1642,10 @@
       case 'tool:post': {
         const result = p.result;
         if (result && typeof result === 'object') {
-          p.output = result.output != null ? String(result.output) : null;
+          const out = result.output;
+          p.output = out == null ? null
+            : typeof out === 'string' ? out
+            : JSON.stringify(out);
           p.error = result.error || null;
           p.success = !result.error;
         }
@@ -1463,6 +1669,10 @@
         if (p.id == null && p.request_id != null) p.id = p.request_id;
         break;
     }
+    // Preserve sub-session routing fields from kernel events
+    if (payload.child_session_id && !p.child_session_id) p.child_session_id = payload.child_session_id;
+    if (payload.parent_tool_call_id && !p.parent_tool_call_id) p.parent_tool_call_id = payload.parent_tool_call_id;
+    if (payload.nesting_depth != null && p.nesting_depth == null) p.nesting_depth = payload.nesting_depth;
     return p;
   }
 
@@ -1893,6 +2103,20 @@
       }
 
       if (role === 'tool') {
+        // Handle string content directly (e.g., delegate/task tool results
+        // where content is a JSON-encoded string like '{"response":"...","session_id":"..."}')
+        if (typeof content === 'string') {
+          const toolUseId = msg.tool_call_id || msg.tool_use_id;
+          const idx = toolCallIndexById[toolUseId];
+          if (idx !== undefined) {
+            items[idx] = {
+              ...items[idx],
+              result: content,
+              toolStatus: msg.is_error ? 'error' : 'complete',
+            };
+          }
+          continue;
+        }
         const blocks = Array.isArray(content) ? content : [content];
         for (const block of blocks) {
           if (!block || typeof block !== 'object') continue;
@@ -1910,6 +2134,146 @@
         }
       }
     }
+    return items;
+  }
+
+  /**
+   * Post-process chrono items to reconstruct sub-sessions from saved transcripts.
+   * Delegation tool calls (delegate/task) with originSessionId are identified,
+   * and content items belonging to child sessions are moved into SubSession entries
+   * in the provided subSessionsRef map.
+   */
+  /**
+   * Scan chrono items for delegate/task tool calls, extract child session IDs
+   * from their tool results, and return a list of {parentToolCallId, childSessionId, agent}
+   * entries that need child transcript fetching.
+   *
+   * The child session_id is embedded in the tool result's JSON-encoded content string:
+   *   {"response": "...", "session_id": "child-xxx", "agent": "foundation:explorer", ...}
+   */
+  function findDelegationChildSessions(items) {
+    const results = [];
+    // Build a map of toolCallId -> tool result item for quick lookup
+    const resultByToolCallId = {};
+    for (const item of items) {
+      if (item.type === 'tool_call' && item.result && typeof item.result === 'string') {
+        resultByToolCallId[item.toolCallId] = item;
+      }
+    }
+
+    for (const item of items) {
+      if (item.type !== 'tool_call') continue;
+      if (item.toolName !== 'delegate' && item.toolName !== 'task') continue;
+
+      // Try to extract child session_id from the result JSON
+      const resultStr = item.result;
+      if (!resultStr || typeof resultStr !== 'string') continue;
+
+      let parsed = null;
+      try { parsed = JSON.parse(resultStr); } catch {}
+      if (!parsed || typeof parsed !== 'object') continue;
+
+      // session_id may be at top level or nested inside output
+      const out = parsed.output && typeof parsed.output === 'object' ? parsed.output : null;
+      const childSessionId = parsed.session_id || parsed.sessionId
+        || (out && (out.session_id || out.sessionId));
+      if (!childSessionId || typeof childSessionId !== 'string') continue;
+
+      const agent = parsed.agent || (out && out.agent)
+        || item.subAgentName
+        || (item.arguments && item.arguments.agent)
+        || null;
+
+      results.push({
+        parentToolCallId: item.toolCallId,
+        parentItemId: item.id,
+        childSessionId,
+        agent,
+        toolStatus: item.toolStatus,
+      });
+    }
+    return results;
+  }
+
+  /**
+   * Async: fetch child transcripts for delegate/task tool calls and populate
+   * subSessionsRef with the child's content. Mutates items in place (sets subSessionId).
+   * Returns a promise that resolves when all child transcripts are loaded.
+   */
+  async function reconstructSubSessionsFromTranscript(items, subSessionsRef) {
+    const delegations = findDelegationChildSessions(items);
+    if (delegations.length === 0) return items;
+
+    // Fetch all child transcripts in parallel
+    const fetches = delegations.map(async (del) => {
+      try {
+        const data = await api.getTranscript(del.childSessionId);
+        const transcript = Array.isArray(data?.transcript) ? data.transcript : [];
+        if (transcript.length === 0) return null;
+
+        const childItems = transcriptToChronoItems(transcript);
+        return { del, childItems };
+      } catch {
+        // Child transcript unavailable (deleted, different project, etc.) — skip silently
+        return null;
+      }
+    });
+
+    const results = await Promise.all(fetches);
+
+    for (const result of results) {
+      if (!result) continue;
+      const { del, childItems } = result;
+
+      // Build SubSession from child's chrono items
+      let orderCounter = 0;
+      const content = [];
+      const toolCalls = [];
+      for (const ci of childItems) {
+        ci.order = orderCounter++;
+        if (ci.type === 'tool_call') {
+          toolCalls.push(ci);
+        } else {
+          content.push(ci);
+        }
+      }
+
+      subSessionsRef.current.set(del.parentToolCallId, {
+        sessionId: del.childSessionId,
+        parentToolCallId: del.parentToolCallId,
+        agent: del.agent,
+        status: del.toolStatus === 'error' ? 'error' : 'complete',
+        content,
+        toolCalls,
+        orderCounter,
+      });
+
+      // Set flag on parent item for rendering
+      const parentItem = items.find(i => i.id === del.parentItemId);
+      if (parentItem) parentItem.subSessionId = del.childSessionId;
+
+      // Register tool calls from child in toolMapRef so nested sub-sessions can resolve
+      for (const tc of toolCalls) {
+        if (tc.toolCallId) {
+          // Check if this child tool call is itself a delegation with a child transcript
+          // (recursive nesting from saved sessions)
+          // For now, register the toolCallId for potential deeper reconstruction
+        }
+      }
+    }
+
+    // Recurse: check if any child sub-sessions themselves contain delegations
+    // by scanning the newly added toolCalls for delegate/task results
+    for (const result of results) {
+      if (!result) continue;
+      const { del, childItems } = result;
+      const nestedDelegations = findDelegationChildSessions(childItems);
+      if (nestedDelegations.length > 0) {
+        // Fetch grandchild transcripts
+        await reconstructSubSessionsFromTranscript(childItems, subSessionsRef);
+      }
+    }
+
     return items;
   }
 
@@ -2006,7 +2370,7 @@
     `;
   }
 
-  function ToolCallCard({ item, isActivity }) {
+  function ToolCallCard({ item, isActivity, subSessionsRef, subSessionRevision, onNavigateSession }) {
     const [expanded, setExpanded] = useState(false);
     const statusIcon = getToolStatusIcon(item.toolStatus);
     const isRunning = item.toolStatus === 'running';
@@ -2019,6 +2383,7 @@
     const originTitle = item.originSessionId
       ? ('Executed in delegated session ' + item.originSessionId)
       : 'Executed in a delegated sub-agent session';
+    const hasSubSession = item.subSessionId && subSessionsRef && subSessionsRef.current.has(item.toolCallId);
 
     // Keep card sizing/layout unchanged; only auto-open once result is available.
     useEffect(() => {
@@ -2026,6 +2391,15 @@
         setExpanded(true);
       }
     }, [item.toolStatus]);
+
+    // Auto-expand when sub-session appears — fires only once
+    const hasAutoExpanded = useRef(false);
+    useEffect(() => {
+      if (hasSubSession && !hasAutoExpanded.current) {
+        hasAutoExpanded.current = true;
+        setExpanded(true);
+      }
+    }, [hasSubSession]);
 
     return html`
       <div class="tool-card">
@@ -2037,23 +2411,118 @@
         </div>
         ${expanded && html`
           <div class="tool-body">
-            <pre class="tool-args-json">${JSON.stringify(item.arguments || {}, null, 2)}</pre>
-            ${item.result && html`
-              <div class=${'tool-result-text' + (item.resultError ? ' tool-error-text' : '')}>
-                ${item.resultError || item.result || ''}
-              </div>
+            ${!hasSubSession && html`
+              <pre class="tool-args-json">${JSON.stringify(item.arguments || {}, null, 2)}</pre>
+              ${item.result && html`
+                <div class=${'tool-result-text' + (item.resultError ? ' tool-error-text' : '')}>
+                  ${item.resultError || item.result || ''}
+                </div>
+              `}
             `}
-            ${item.subSessionId && html`<${SubSessionView} sessionId=${item.subSessionId} items=${item.subItems || []} />`}
+            ${hasSubSession && html`<${SubSessionView}
+              parentToolCallId=${item.toolCallId}
+              subSessionsRef=${subSessionsRef}
+              revision=${subSessionRevision}
+              depth=${0}
+              onNavigateSession=${onNavigateSession}
+            />`}
           </div>
         `}
       </div>
     `;
   }
 
-  function SubSessionView({ sessionId, items }) {
+  function SubSessionView({ parentToolCallId, subSessionsRef, revision, depth = 0, onNavigateSession }) {
+    const MAX_NESTING = 4;
+    const [collapsed, setCollapsed] = useState(false);
+    const sub = subSessionsRef.current.get(parentToolCallId);
+    if (!sub) return null;
+
+    if (depth >= MAX_NESTING) {
+      return html`<div class="sub-session-truncated">
+        <span class="sub-session-agent">${sub.agent || 'sub-agent'}</span>
+        <span style="color: var(--text-muted); font-size: 11px;"> (nested ${depth} levels deep)</span>
+        ${onNavigateSession && sub.sessionId && html`
+          <a class="sub-session-nav-link"
+             onClick=${(e) => { e.stopPropagation(); onNavigateSession(sub.sessionId); }}>Open session</a>
+        `}
+      </div>`;
+    }
+
+    const statusIcon = getToolStatusIcon(sub.status);
+    const statusClass = sub.status === 'running' ? ' status-running' : '';
+
+    // Merge content and toolCalls, sort by .order
+    const allItems = [...sub.content, ...sub.toolCalls]
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const isEmpty = allItems.length === 0 && sub.status === 'running';
+
     return html`
-      <div class="sub-session">
-        ${items.map(item => html`<${ChronoItem} item=${item} isActivity=${true} />`)}
+      <div class="sub-session" style=${'--nesting-depth: ' + depth}>
+        <div class="sub-session-header" onClick=${() => setCollapsed(c => !c)}>
+          <span class=${'sub-session-status' + statusClass}>${statusIcon}</span>
+          <span class="sub-session-agent">${sub.agent || 'sub-agent'}</span>
+          ${onNavigateSession && sub.sessionId && html`
+            <a class="sub-session-nav-link"
+               onClick=${(e) => { e.stopPropagation(); onNavigateSession(sub.sessionId); }}
+               title="Open this agent session">Open session \u2192</a>
+          `}
+          <span class="sub-session-chevron">${collapsed ? '\u25B6' : '\u25BC'}</span>
+        </div>
+        ${!collapsed && html`
+          <div class="sub-session-body">
+            ${isEmpty && html`<span class="sub-session-waiting">Waiting for response...</span>`}
+            ${allItems.map(item => {
+              if (item.type === 'tool_call') {
+                return html`<${NestedToolCallView}
+                  item=${item}
+                  subSessionsRef=${subSessionsRef}
+                  revision=${revision}
+                  depth=${depth + 1}
+                  onNavigateSession=${onNavigateSession}
+                />`;
+              }
+              return html`<${ChronoItem} item=${item} isActivity=${true} />`;
+            })}
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  function NestedToolCallView({ item, subSessionsRef, revision, depth, onNavigateSession }) {
+    const [expanded, setExpanded] = useState(false);
+    const statusIcon = getToolStatusIcon(item.toolStatus);
+    const isRunning = item.toolStatus === 'running';
+    const argPreview = getArgPreview(item.toolName, item.arguments || {});
+    const hasSubSession = subSessionsRef.current.has(item.toolCallId);
+
+    return html`
+      <div class="nested-tool-call">
+        <div class="nested-tool-header" onClick=${() => setExpanded(e => !e)}>
+          <span class=${'tool-status' + (isRunning ? ' status-running' : '')}>${statusIcon}</span>
+          <span class="tool-name">${item.toolName || 'tool'}</span>
+          <span class="tool-arg-preview">${argPreview}</span>
+        </div>
+        ${expanded && !hasSubSession && html`
+          <div class="nested-tool-body">
+            <pre class="tool-args-json">${JSON.stringify(item.arguments || {}, null, 2)}</pre>
+            ${item.result && html`
+              <div class=${'tool-result-text' + (item.resultError ? ' tool-error-text' : '')}>
+                ${item.resultError || item.result || ''}
+              </div>
+            `}
+          </div>
+        `}
+        ${hasSubSession && html`
+          <${SubSessionView}
+            parentToolCallId=${item.toolCallId}
+            subSessionsRef=${subSessionsRef}
+            revision=${revision}
+            depth=${depth}
+            onNavigateSession=${onNavigateSession}
+          />
+        `}
       </div>
     `;
   }
@@ -2078,7 +2547,7 @@
     `;
   }
 
-  function ChronoItem({ item, isActivity }) {
+  function ChronoItem({ item, isActivity, subSessionsRef, subSessionRevision, onNavigateSession }) {
     if (item.type === 'text') {
       const cls = 'text-block'
         + (item.role === 'user' ? ' user-message' : '')
@@ -2095,7 +2564,9 @@
       return html`<${ThinkingBlock} item=${item} />`;
     }
     if (item.type === 'tool_call') {
-      return html`<${ToolCallCard} item=${item} isActivity=${isActivity} />`;
+      return html`<${ToolCallCard} item=${item} isActivity=${isActivity}
+        subSessionsRef=${subSessionsRef} subSessionRevision=${subSessionRevision}
+        onNavigateSession=${onNavigateSession} />`;
     }
     if (item.type === 'token_usage') {
       return html`<${TokenUsagePill} tokens=${item.tokens} />`;
@@ -2110,6 +2581,9 @@
     showJumpControls = false,
     bottomNoticeSignal = 0,
     bottomNoticeLabel = 'New messages',
+    subSessionsRef,
+    subSessionRevision,
+    onNavigateSession,
   }) {
     const filtered = filterFn ? items.filter(filterFn) : items;
     const sorted = [...filtered].sort((a, b) => a.order - b.order);
@@ -2200,7 +2674,9 @@
     return html`
       <div class="message-list-wrap">
         <div id="message-list" ref=${listRef} onScroll=${updateScrollState}>
-          ${sorted.map(item => html`<${ChronoItem} key=${item.id} item=${item} />`)}
+          ${sorted.map(item => html`<${ChronoItem} key=${item.id} item=${item}
+            subSessionsRef=${subSessionsRef} subSessionRevision=${subSessionRevision}
+            onNavigateSession=${onNavigateSession} />`)}
           <div ref=${bottomRef}></div>
         </div>
         ${showJumpControls && scrollState.hasOverflow && html`
@@ -2755,6 +3231,20 @@
     const diskRefreshInFlightRef = useRef(new Set());
     const autoDiskRefreshAtRef = useRef({});
 
+    // — Sub-session rendering —
+    const subSessionsRef = useRef(new Map());
+    const subBlockMapRef = useRef(new Map());
+    const subNextIndexRef = useRef(new Map());
+    const [subSessionRevision, setSubSessionRevision] = useState(0);
+    const subSessionRafRef = useRef(null);
+
+    function resetSubSessionState() {
+      subSessionsRef.current = new Map();
+      subBlockMapRef.current = new Map();
+      subNextIndexRef.current = new Map();
+      if (subSessionRafRef.current) { cancelAnimationFrame(subSessionRafRef.current); subSessionRafRef.current = null; }
+    }
+
     useEffect(() => {
       activeKeyRef.current = activeKey;
     }, [activeKey]);
@@ -2920,6 +3410,80 @@
         return changed ? next : prev;
       });
     }, []);
+
+    // — Sub-session helpers —
+    function bumpSubSessionRevision() {
+      if (subSessionRafRef.current) return;
+      subSessionRafRef.current = requestAnimationFrame(() => {
+        subSessionRafRef.current = null;
+        setSubSessionRevision(r => r + 1);
+      });
+    }
+
+    function createSubSession(parentToolCallId, sessionId, agent) {
+      subSessionsRef.current.set(parentToolCallId, {
+        sessionId,
+        parentToolCallId,
+        agent: agent || null,
+        status: 'running',
+        content: [],
+        toolCalls: [],
+        orderCounter: 0,
+      });
+      subBlockMapRef.current.set(parentToolCallId, new Map());
+      subNextIndexRef.current.set(parentToolCallId, 0);
+    }
+
+    function resolveSubSessionKey(msg) {
+      if (msg.parent_tool_call_id && subSessionsRef.current.has(msg.parent_tool_call_id)) {
+        return msg.parent_tool_call_id;
+      }
+      if (msg.child_session_id) {
+        const mapped = childToToolRef.current[msg.child_session_id];
+        if (mapped && subSessionsRef.current.has(mapped)) return mapped;
+      }
+      return null;
+    }
+
+    function addSubSessionContent(parentToolCallId, item) {
+      const sub = subSessionsRef.current.get(parentToolCallId);
+      if (!sub) return;
+      item.order = sub.orderCounter++;
+      sub.content.push(item);
+      bumpSubSessionRevision();
+    }
+
+    function updateSubSessionContent(parentToolCallId, updateFn) {
+      const sub = subSessionsRef.current.get(parentToolCallId);
+      if (!sub) return;
+      updateFn(sub);
+      bumpSubSessionRevision();
+    }
+
+    function addSubSessionToolCall(parentToolCallId, item) {
+      const sub = subSessionsRef.current.get(parentToolCallId);
+      if (!sub) return;
+      item.order = sub.orderCounter++;
+      sub.toolCalls.push(item);
+      bumpSubSessionRevision();
+    }
+
+    function updateSubSessionToolCall(parentToolCallId, toolCallId, updateFn) {
+      const sub = subSessionsRef.current.get(parentToolCallId);
+      if (!sub) return;
+      const tc = sub.toolCalls.find(t => t.toolCallId === toolCallId);
+      if (tc) updateFn(tc);
+      bumpSubSessionRevision();
+    }
+
+    function endSubSession(parentToolCallId, status) {
+      const sub = subSessionsRef.current.get(parentToolCallId);
+      if (!sub) return;
+      sub.status = status;
+      subBlockMapRef.current.delete(parentToolCallId);
+      subNextIndexRef.current.delete(parentToolCallId);
+      bumpSubSessionRevision();
+    }
 
     // —— WebSocket event handler ————————————————————————————————————
     const handleWsMessage = useCallback((msg, sourceKey = null) => {
@@ -3115,6 +3679,32 @@
           break;
 
         case 'content_start': {
+          // Sub-session routing
+          {
+            const subKey = resolveSubSessionKey(msg);
+            if (subKey && (msg.nesting_depth ?? 0) > 0) {
+              if (msg.block_type === 'text') {
+                const itemId = makeId();
+                const subIdx = subNextIndexRef.current.get(subKey) ?? 0;
+                subNextIndexRef.current.set(subKey, subIdx + 1);
+                const blockMap = subBlockMapRef.current.get(subKey);
+                if (blockMap) blockMap.set('id-' + subIdx, itemId);
+                addSubSessionContent(subKey, {
+                  id: itemId, type: 'text', content: '', streaming: true, role: 'assistant',
+                });
+              } else if (msg.block_type === 'thinking') {
+                const itemId = makeId();
+                const subIdx = subNextIndexRef.current.get(subKey) ?? 0;
+                subNextIndexRef.current.set(subKey, subIdx + 1);
+                const blockMap = subBlockMapRef.current.get(subKey);
+                if (blockMap) blockMap.set('thinking-id-' + subIdx, itemId);
+                addSubSessionContent(subKey, {
+                  id: itemId, type: 'thinking', content: '', streaming: true,
+                });
+              }
+              break;
+            }
+          }
           // Remove client-side placeholder if present
           const placeholderId = placeholderIdRef.current;
           if (placeholderId) {
@@ -3143,6 +3733,29 @@
         }
 
         case 'content_delta': {
+          // Sub-session routing
+          {
+            const subKey = resolveSubSessionKey(msg);
+            if (subKey && (msg.nesting_depth ?? 0) > 0) {
+              const delta = typeof msg.delta === 'string' ? msg.delta : '';
+              if (!delta) break;
+              const blockMap = subBlockMapRef.current.get(subKey);
+              const subIdx = msg.index ?? 0;
+              const textItemId = blockMap ? blockMap.get('id-' + subIdx) : null;
+              if (textItemId) {
+                const el = document.getElementById(textItemId);
+                if (el) {
+                  el.textContent += delta;
+                } else {
+                  updateSubSessionContent(subKey, sub => {
+                    const item = sub.content.find(c => c.id === textItemId);
+                    if (item) item.content += delta;
+                  });
+                }
+              }
+              break;
+            }
+          }
           const delta = typeof msg.delta === 'string' ? msg.delta : '';
           if (!delta) break;
           const localIdx = getLocalIndex(msg.index);
@@ -3175,6 +3788,40 @@
         }
 
         case 'content_end': {
+          // Sub-session routing
+          {
+            const subKey = resolveSubSessionKey(msg);
+            if (subKey && (msg.nesting_depth ?? 0) > 0) {
+              const blockMap = subBlockMapRef.current.get(subKey);
+              const subIdx = msg.index ?? 0;
+              const textItemId = blockMap ? blockMap.get('id-' + subIdx) : null;
+              const thinkItemId = blockMap ? blockMap.get('thinking-id-' + subIdx) : null;
+              const payloadText = typeof msg.text === 'string' ? msg.text : '';
+              if (textItemId) {
+                const domEl = document.getElementById(textItemId);
+                const domText = domEl ? domEl.textContent : '';
+                const finalText = payloadText || domText;
+                const parsedHtml = sanitizeHtml(marked.parse(finalText));
+                updateSubSessionContent(subKey, sub => {
+                  const item = sub.content.find(c => c.id === textItemId);
+                  if (item) {
+                    item.streaming = false;
+                    item.content = finalText;
+                    item.htmlContent = parsedHtml;
+                  }
+                });
+              } else if (thinkItemId) {
+                updateSubSessionContent(subKey, sub => {
+                  const item = sub.content.find(c => c.id === thinkItemId);
+                  if (item) {
+                    item.streaming = false;
+                    item.content = payloadText || item.content || '';
+                  }
+                });
+              }
+              break;
+            }
+          }
           const localIdx = getLocalIndex(msg.index);
           const payloadText = typeof msg.text === 'string' ? msg.text : '';
           const textItemId = blockMapRef.current['id-' + localIdx];
@@ -3246,6 +3893,17 @@
         }
 
         case 'thinking_delta': {
+          // Sub-session routing
+          {
+            const subKey = resolveSubSessionKey(msg);
+            if (subKey && (msg.nesting_depth ?? 0) > 0) {
+              updateSubSessionContent(subKey, sub => {
+                const item = sub.content.slice().reverse().find(c => c.type === 'thinking' && c.streaming);
+                if (item) item.content += msg.delta;
+              });
+              break;
+            }
+          }
           // Use state update so content accumulates even when collapsed
           setChronoItems(prev => prev.map(item =>
             item.type === 'thinking' && item.streaming
@@ -3256,6 +3914,20 @@
         }
 
         case 'thinking_final': {
+          // Sub-session routing
+          {
+            const subKey = resolveSubSessionKey(msg);
+            if (subKey && (msg.nesting_depth ?? 0) > 0) {
+              updateSubSessionContent(subKey, sub => {
+                const item = sub.content.slice().reverse().find(c => c.type === 'thinking' && c.streaming);
+                if (item) {
+                  item.content = msg.content;
+                  item.streaming = false;
+                }
+              });
+              break;
+            }
+          }
           setChronoItems(prev => prev.map(item =>
             item.type === 'thinking' && item.streaming
               ? { ...item, content: msg.content, streaming: false }
@@ -3280,6 +3952,26 @@
         }
 
         case 'tool_call': {
+          // Sub-session routing
+          {
+            const subKey = resolveSubSessionKey(msg);
+            if (subKey && (msg.nesting_depth ?? 0) > 0) {
+              const itemId = makeId();
+              // Register in toolMapRef so deeper session_forks can resolve
+              toolMapRef.current[msg.tool_call_id] = itemId;
+              addSubSessionToolCall(subKey, {
+                id: itemId,
+                type: 'tool_call',
+                toolName: msg.tool_name,
+                toolCallId: msg.tool_call_id,
+                arguments: msg.arguments || {},
+                toolStatus: 'running',
+                origin: 'sub-agent',
+                subAgentName: null,
+              });
+              break;
+            }
+          }
           // Remove client-side placeholder if tool call comes before content
           const placeholderId = placeholderIdRef.current;
           if (placeholderId) {
@@ -3309,6 +4001,31 @@
         }
 
         case 'tool_result': {
+          // Check if this result completes a sub-session (parent delegate/task finishing)
+          if (subSessionsRef.current.has(msg.tool_call_id)) {
+            endSubSession(msg.tool_call_id, msg.success ? 'complete' : 'error');
+            // Still update the tool call item status in main chronoItems
+            const itemId = toolMapRef.current[msg.tool_call_id];
+            cycleRef.current++;
+            setChronoItems(prev => prev.map(item =>
+              item.id === itemId
+                ? { ...item, toolStatus: msg.success ? 'complete' : 'error', result: msg.output, resultError: msg.error }
+                : item
+            ));
+            break;
+          }
+          // Check if this is a tool result for a tool INSIDE a sub-session
+          {
+            const subKey = resolveSubSessionKey(msg);
+            if (subKey && (msg.nesting_depth ?? 0) > 0) {
+              updateSubSessionToolCall(subKey, msg.tool_call_id, tc => {
+                tc.toolStatus = msg.success ? 'complete' : 'error';
+                tc.result = msg.output;
+                tc.resultError = msg.error;
+              });
+              break;
+            }
+          }
           const itemId = toolMapRef.current[msg.tool_call_id];
           cycleRef.current++;
           setChronoItems(prev => prev.map(item =>
@@ -3320,12 +4037,39 @@
         }
 
         case 'session_fork': {
-          const parentToolId = toolMapRef.current[msg.parent_tool_call_id];
           const childId = typeof msg.child_id === 'string' ? msg.child_id : null;
           applySessionForkLineage(msg);
-          if (parentToolId) {
-            if (childId) childToToolRef.current[childId] = parentToolId;
+
+          let parentToolCallId = msg.parent_tool_call_id || null;
+          let parentItemId = parentToolCallId ? toolMapRef.current[parentToolCallId] : null;
+
+          if (!parentItemId) {
+            // FIFO fallback: oldest pending delegate/task without a sub-session
+            const currentItems = chronoItemsRef.current;
+            for (let i = 0; i < currentItems.length; i++) {
+              const ci = currentItems[i];
+              if (ci.type === 'tool_call'
+                  && (ci.toolName === 'delegate' || ci.toolName === 'task')
+                  && (ci.toolStatus === 'pending' || ci.toolStatus === 'running')
+                  && !ci.subSessionId) {
+                parentToolCallId = ci.toolCallId;
+                parentItemId = ci.id;
+                break;
+              }
+            }
           }
+
+          if (!parentToolCallId || !parentItemId) break;
+
+          if (childId) childToToolRef.current[childId] = parentToolCallId;
+
+          createSubSession(parentToolCallId, childId, msg.agent);
+
+          setChronoItems(prev => prev.map(item =>
+            item.id === parentItemId
+              ? { ...item, subSessionId: childId }
+              : item
+          ));
           break;
         }
 
@@ -3929,6 +4673,37 @@
     }, []);
 
     // —— Send ————————————————————————————————————————————————————————
+    // — Sub-session navigation —
+    // Use a ref to access switchSession (defined later) without hook ordering issues
+    const switchSessionRef = useRef(null);
+    const navigateToSession = useCallback((sessionId) => {
+      if (!sessionId) return;
+      for (const [key, session] of sessionsRef.current.entries()) {
+        if (session && session.sessionId === sessionId) {
+          // Expand the parent session in the sidebar so the child is visible
+          const parentId = session.parentSessionId;
+          if (parentId) {
+            for (const [pKey, pSession] of sessionsRef.current.entries()) {
+              if (pSession && pSession.sessionId === parentId) {
+                setCollapsedSpawnGroups(prev => {
+                  // collapsedSpawnGroups is a plain object {key: bool}
+                  // A key with value !== false means collapsed; delete to expand
+                  const next = { ...prev };
+                  delete next[pKey];
+                  return next;
+                });
+                break;
+              }
+            }
+          }
+          if (switchSessionRef.current) {
+            switchSessionRef.current(key);
+          }
+          return;
+        }
+      }
+    }, []);
+
     const sendMessage = useCallback(async (content, images) => {
       const key = activeKeyRef.current;
       let activeSession = key ? sessionsRef.current.get(key) : null;
@@ -4125,6 +4900,7 @@
         return next;
       });
       blockMapRef.current = {};
+      resetSubSessionState();
       cycleRef.current = 0;
       localIndexRef.current = 0;
       toolMapRef.current = {};
@@ -4190,6 +4966,7 @@
         return next;
       });
       blockMapRef.current = {};
+      resetSubSessionState();
       cycleRef.current = 0;
       localIndexRef.current = 0;
       toolMapRef.current = {};
@@ -4205,10 +4982,12 @@
 
       // Fetch transcript via amplifierd REST API
       api.getTranscript(target.sessionId)
-        .then(data => {
+        .then(async (data) => {
           if (transcriptAbort.signal.aborted) return;
           const transcript = Array.isArray(data?.transcript) ? data.transcript : [];
-          const items = transcriptToChronoItems(transcript);
+          let items = transcriptToChronoItems(transcript);
+          await reconstructSubSessionsFromTranscript(items, subSessionsRef);
+          setSubSessionRevision(r => r + 1);
           const messageCount = countTranscriptMessages(transcript);
           const restoredTurns = messageCount || target.savedTurnCount || target.turnCount || 0;
           const revision = typeof data?.revision === 'string'
@@ -4327,9 +5106,11 @@
       );
 
       api.getTranscript(target.sessionId)
-        .then(data => {
+        .then(async (data) => {
           const transcript = Array.isArray(data?.transcript) ? data.transcript : [];
-          const items = transcriptToChronoItems(transcript);
+          let items = transcriptToChronoItems(transcript);
+          await reconstructSubSessionsFromTranscript(items, subSessionsRef);
+          setSubSessionRevision(r => r + 1);
           const messageCount = countTranscriptMessages(transcript);
           const nextTurns = messageCount || target.savedTurnCount || target.turnCount || 0;
           const nextCount = Number(messageCount || nextTurns || 0);
@@ -4436,6 +5217,7 @@
       setActiveKey(key);
       setMobileSidebarOpen(false);
       blockMapRef.current = {};
+      resetSubSessionState();
       cycleRef.current = 0;
       localIndexRef.current = 0;
       // E2: cancel any in-flight synthetic animations
@@ -4450,6 +5232,7 @@
         }
       }
     }, [sessions, handleWsMessage, resumeHistorySession]);
+    switchSessionRef.current = switchSession;
 
     // NOTE: pollSessionRevisions removed — consolidated into the 10s
     // history re-poll (refreshHistory).  The history endpoint now returns
@@ -4922,6 +5705,9 @@
               showJumpControls=${true}
               bottomNoticeSignal=${diskUpdateNoticeSignal}
               bottomNoticeLabel="New messages"
+              subSessionsRef=${subSessionsRef}
+              subSessionRevision=${subSessionRevision}
+              onNavigateSession=${navigateToSession}
             />
             <${InputArea}
               onSend=${sendMessage}
@@ -4945,6 +5731,9 @@
                   filterFn=${activityFilter}
                   sessionKey=${(activeKey || 'none') + ':activity'}
                   showJumpControls=${false}
+                  subSessionsRef=${subSessionsRef}
+                  subSessionRevision=${subSessionRevision}
+                  onNavigateSession=${navigateToSession}
                 />
               </div>
             </div>
