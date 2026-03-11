@@ -1599,7 +1599,10 @@
       const resp = await fetch(`${API_BASE}/sessions/${sessionId}/resume`, {
         method: 'POST',
       });
-      if (!resp.ok) throw new Error(`Resume failed: HTTP ${resp.status}`);
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => '');
+        throw new Error(`Resume failed: HTTP ${resp.status} — ${body}`);
+      }
       return resp.json();
     },
   };
@@ -5344,11 +5347,13 @@
 
           // Resume the session in amplifierd so it's live in memory
           let resumeOk = false;
+          let resumeReason = '';
           try {
             await api.resumeSession(target.sessionId);
             resumeOk = true;
           } catch (err) {
-            console.warn('[chat] session resume failed', err);
+            console.error('[chat] session resume failed', target.sessionId, err);
+            resumeReason = err?.message || String(err);
           }
 
           if (
@@ -5375,7 +5380,7 @@
             });
             setChronoItems(prev => [...prev, {
               id: makeId(), type: 'text', role: 'system',
-              content: 'Could not resume this session. You can view the history but cannot send new messages.',
+              content: `Could not resume this session. You can view the history but cannot send new messages.\n\n${resumeReason}`,
               streaming: false, order: orderCounterRef.current++,
             }]);
             setSseStatus('disconnected');
