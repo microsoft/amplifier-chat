@@ -99,8 +99,7 @@ def create_history_routes(
         sessions = [
             row
             for row in sessions
-            if (row.get("message_count") or 0) > 0
-            or row.get("last_user_message")
+            if (row.get("message_count") or 0) > 0 or row.get("last_user_message")
         ]
         for row in sessions:
             row["pinned"] = row["session_id"] in pinned_ids
@@ -121,9 +120,7 @@ def create_history_routes(
         if session_ids:
             wanted = _parse_session_id_set(session_ids.split(","))
 
-        rows = await asyncio.to_thread(
-            scan_session_revisions, projects_dir, wanted
-        )
+        rows = await asyncio.to_thread(scan_session_revisions, projects_dir, wanted)
         return {"sessions": rows[:limit]}
 
     @router.post("/api/sessions/revisions")
@@ -197,9 +194,7 @@ def create_history_routes(
                 detail="'limit' must be an integer between 1 and 5000",
             )
 
-        rows = await asyncio.to_thread(
-            scan_session_revisions, projects_dir, wanted
-        )
+        rows = await asyncio.to_thread(scan_session_revisions, projects_dir, wanted)
         found_ids = {row["session_id"] for row in rows}
 
         changed: list[dict[str, str]] = []
@@ -213,11 +208,55 @@ def create_history_routes(
 
         removed: list[str] = []
         if wanted is not None:
-            removed = sorted(
-                sid for sid in wanted if sid not in found_ids
-            )[:limit]
+            removed = sorted(sid for sid in wanted if sid not in found_ids)[:limit]
 
         return {"changed": changed, "removed": removed}
+
+    return router
+
+
+_DEFAULT_DISTRO_HOME = Path.home() / ".amplifier-distro"
+
+
+def _read_workspace_root(distro_home: Path) -> str | None:
+    """Read ``workspace_root`` from the distro settings YAML, or *None*."""
+    settings_file = distro_home / "settings.yaml"
+    try:
+        if settings_file.exists():
+            import yaml
+
+            raw = yaml.safe_load(settings_file.read_text())
+            if isinstance(raw, dict):
+                ws = raw.get("workspace_root", "")
+                if isinstance(ws, str) and ws and ws != "~":
+                    return ws
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def create_config_routes(distro_home: Path | None) -> APIRouter:
+    """Expose plugin configuration to the frontend.
+
+    Reads ``workspace_root`` from the distro settings YAML.  Tries the
+    distro-plugin-provided home first, then falls back to the well-known
+    default ``~/.amplifier-distro`` so the endpoint works even when the
+    distro plugin is not installed.  The YAML is read at request time so
+    wizard changes are picked up without a restart.
+    """
+
+    router = APIRouter(prefix="/chat", tags=["chat-config"])
+
+    @router.get("/api/config")
+    async def get_config() -> dict[str, str]:
+        # Try distro-plugin-provided path first (respects env-var override),
+        # then fall back to the well-known default location.
+        ws = None
+        if distro_home is not None:
+            ws = _read_workspace_root(Path(distro_home))
+        if ws is None:
+            ws = _read_workspace_root(_DEFAULT_DISTRO_HOME)
+        return {"default_cwd": ws or "~"}
 
     return router
 

@@ -12,6 +12,7 @@ def create_router(state: Any) -> APIRouter:
     from chat_plugin.pin_storage import PinStorage
     from chat_plugin.routes import (
         create_command_routes,
+        create_config_routes,
         create_history_routes,
         create_pin_routes,
         create_static_routes,
@@ -25,9 +26,13 @@ def create_router(state: Any) -> APIRouter:
     )
 
     # Extract projects_dir from amplifierd settings (may be None)
-    projects_dir = getattr(
-        getattr(state, "settings", None), "projects_dir", None
-    )
+    projects_dir = getattr(getattr(state, "settings", None), "projects_dir", None)
+
+    # Extract distro home from distro plugin state (may be None).
+    # The distro plugin sets state.distro = SimpleNamespace(settings=...)
+    # where settings.distro_home is the path to ~/.amplifier-distro.
+    distro_ns = getattr(state, "distro", None)
+    distro_home = getattr(getattr(distro_ns, "settings", None), "distro_home", None)
 
     router = APIRouter()
 
@@ -35,6 +40,7 @@ def create_router(state: Any) -> APIRouter:
     async def chat_health():
         return {"status": "ok", "plugin": "chat"}
 
+    router.include_router(create_config_routes(distro_home))
     router.include_router(create_pin_routes(pin_storage))
     router.include_router(create_history_routes(projects_dir, pin_storage))
     router.include_router(create_command_routes(processor))

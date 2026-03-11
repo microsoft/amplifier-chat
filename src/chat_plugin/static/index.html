@@ -3272,7 +3272,18 @@
       defaultCwdRef.current = defaultCwd;
     }, [defaultCwd]);
 
-    // amplifierd doesn't have a distro-settings endpoint; default CWD is '~'
+    // Fetch default CWD from distro settings (if distro plugin is present).
+    useEffect(() => {
+      fetch(`${API_BASE}/chat/api/config`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.default_cwd && data.default_cwd !== '~') {
+            setDefaultCwd(data.default_cwd);
+            defaultCwdRef.current = data.default_cwd;
+          }
+        })
+        .catch(() => {});
+    }, []);
 
     useEffect(() => {
       return () => {
