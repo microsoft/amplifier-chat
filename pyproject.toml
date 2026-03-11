@@ -9,8 +9,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["amplifierd @ git+https://github.com/microsoft/amplifierd", "uvicorn[standard]>=0.30"]
+standalone = [
+    "amplifierd @ git+https://github.com/microsoft/amplifierd",
+    "uvicorn[standard]>=0.30",
+    "click>=8.0",
+]
+dev = [
+    "amplifierd @ git+https://github.com/microsoft/amplifierd",
+    "uvicorn[standard]>=0.30",
+    "click>=8.0",
+]
 test = ["pytest", "pytest-anyio", "pytest-asyncio", "httpx"]
+
+[project.scripts]
+amplifier-chat = "chat_plugin.cli:main"
 
 [project.entry-points."amplifierd.plugins"]
 chat = "chat_plugin"

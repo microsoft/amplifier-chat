@@ -69,6 +69,12 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "amplifierd" },
+    { name = "click" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+standalone = [
+    { name = "amplifierd" },
+    { name = "click" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 test = [
@@ -88,6 +94,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "amplifierd", marker = "extra == 'dev'", git = "https://github.com/microsoft/amplifierd" },
+    { name = "amplifierd", marker = "extra == 'standalone'", git = "https://github.com/microsoft/amplifierd" },
+    { name = "click", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "click", marker = "extra == 'standalone'", specifier = ">=8.0" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", marker = "extra == 'test'" },
     { name = "pydantic", specifier = ">=2.0" },
@@ -96,8 +105,9 @@ requires-dist = [
     { name = "pytest-anyio", marker = "extra == 'test'" },
     { name = "pytest-asyncio", marker = "extra == 'test'" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'dev'", specifier = ">=0.30" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'standalone'", specifier = ">=0.30" },
 ]
-provides-extras = ["dev", "test"]
+provides-extras = ["standalone", "dev", "test"]
 
 [package.metadata.requires-dev]
 dev = [
