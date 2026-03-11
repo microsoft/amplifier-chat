@@ -1494,6 +1494,7 @@
 </head>
 <body>
 <script src="./vendor.js"></script>
+<script src="./feedback-widget.js"></script>
 <script>
   const { h, render } = window.preact;
   const { useState, useRef, useEffect, useCallback } = window.preactHooks;
@@ -3208,6 +3209,9 @@
       return 'dark';
     });
 
+    // Feedback widget
+    const feedbackSlotRef = useRef(null);
+
     // Refs (no re-renders)
     const orderCounterRef = useRef(0);
     const blockMapRef = useRef({});
@@ -3300,6 +3304,19 @@
         localStorage.setItem('chat-theme', theme);
       } catch {}
     }, [theme]);
+
+    // Mount shared feedback widget into header slot (once)
+    useEffect(() => {
+      const slot = feedbackSlotRef.current;
+      if (!slot || slot.childElementCount > 0) return;
+      if (window.AmplifierFeedback) {
+        window.AmplifierFeedback.init({
+          mode: 'header',
+          container: slot,
+          context: { app: 'chat' },
+        });
+      }
+    }, []);
 
     useEffect(() => {
       const onMouseMove = (e) => {
@@ -5499,6 +5516,7 @@
         <button class=${'btn' + (showSessions ? ' active' : '')} onClick=${() => setShowSessions(s => !s)}>
           Sessions
         </button>
+        <span ref=${feedbackSlotRef}></span>
         <button
           class="btn theme-toggle"
           title=${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}

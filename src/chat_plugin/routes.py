@@ -292,4 +292,9 @@ def create_static_routes() -> APIRouter:
         js = (STATIC_DIR / "vendor.js").read_text()
         return Response(content=js, media_type="application/javascript")
 
+    @router.get("/chat/feedback-widget.js")
+    async def serve_feedback_widget():
+        js = (STATIC_DIR / "feedback-widget.js").read_text()
+        return Response(content=js, media_type="application/javascript")
+
     return router
