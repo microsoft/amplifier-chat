@@ -1576,6 +1576,13 @@
       });
       return resp.json();
     },
+    async resumeSession(sessionId) {
+      const resp = await fetch(`${API_BASE}/sessions/${sessionId}/resume`, {
+        method: 'POST',
+      });
+      if (!resp.ok) throw new Error(`Resume failed: HTTP ${resp.status}`);
+      return resp.json();
+    },
   };
 
   // === SSE Manager (replaces WebSocket streaming) ===
@@ -4709,6 +4716,16 @@
       let activeSession = key ? sessionsRef.current.get(key) : null;
       let sessionId = activeSession?.sessionId || null;
 
+      // Don't send to a session that hasn't been resumed into amplifierd memory
+      if (sessionId && activeSession?.source === 'history') {
+        setChronoItems(prev => [...prev, {
+          id: makeId(), type: 'text', role: 'system',
+          content: 'Session is still loading. Please wait a moment and try again.',
+          streaming: false, order: orderCounterRef.current++,
+        }]);
+        return;
+      }
+
       // Lazy session creation: create on first real interaction
       if (!sessionId) {
         sessionId = await connect(key);
@@ -5026,7 +5043,47 @@
           orderCounterRef.current = nextOrder(items);
           setTurnCount(restoredTurns);
 
-          // Open SSE for this (already-existing) session
+          // Resume the session in amplifierd so it's live in memory
+          let resumeOk = false;
+          try {
+            await api.resumeSession(target.sessionId);
+            resumeOk = true;
+          } catch (err) {
+            console.warn('[chat] session resume failed', err);
+          }
+
+          if (
+            activeKeyRef.current !== key
+            || historyResumeTokenRef.current !== resumeToken
+          ) {
+            return;
+          }
+
+          if (resumeOk) {
+            setSessions(prev => {
+              const next = new Map(prev);
+              const cur = next.get(key) || {};
+              next.set(key, { ...cur, source: 'live', status: 'connecting' });
+              return next;
+            });
+          } else {
+            // Resume failed — leave as read-only history
+            setSessions(prev => {
+              const next = new Map(prev);
+              const cur = next.get(key) || {};
+              next.set(key, { ...cur, status: 'history', source: 'history' });
+              return next;
+            });
+            setChronoItems(prev => [...prev, {
+              id: makeId(), type: 'text', role: 'system',
+              content: 'Could not resume this session. You can view the history but cannot send new messages.',
+              streaming: false, order: orderCounterRef.current++,
+            }]);
+            setSseStatus('disconnected');
+            return;
+          }
+
+          // Open SSE for the now-live session
           const sse = createSSEManager(target.sessionId, {
             onMessage: (msg) => {
               try { handleWsMessage(msg, key); } catch {}
