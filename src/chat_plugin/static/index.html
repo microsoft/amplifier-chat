@@ -2474,6 +2474,7 @@
         content,
         toolCalls,
         orderCounter,
+        _rev: 1,
       });
 
       // Set flag on parent item for rendering
@@ -2678,6 +2679,19 @@
     const sub = subSessionsRef.current.get(parentToolCallId);
     if (!sub) return null;
 
+    // Per-sub-session render gating: skip expensive DOM rebuild when a
+    // foreign sub-session's event bumped the global revision but THIS
+    // sub-session's data hasn't changed.  Without this, completing one
+    // sub-session tears down and rebuilds dangerouslySetInnerHTML in
+    // sibling sub-sessions, causing a visible blink.
+    const lastRevRef = useRef(-1);
+    const cachedVnodeRef = useRef(null);
+    const subRev = sub._rev ?? 0;
+    if (subRev === lastRevRef.current && cachedVnodeRef.current !== null && !collapsed) {
+      return cachedVnodeRef.current;
+    }
+    lastRevRef.current = subRev;
+
     if (depth >= MAX_NESTING) {
       return html`<div class="sub-session-truncated">
         <span class="sub-session-agent">${sub.agent || 'sub-agent'}</span>
@@ -2697,7 +2711,7 @@
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const isEmpty = allItems.length === 0 && sub.status === 'running';
 
-    return html`
+    const vnode = html`
       <div class="sub-session" style=${'--nesting-depth: ' + depth}>
         <div class="sub-session-header" onClick=${() => setCollapsed(c => !c)}>
           <span class=${'sub-session-status' + statusClass}>${statusIcon}</span>
@@ -2728,6 +2742,8 @@
         `}
       </div>
     `;
+    cachedVnodeRef.current = vnode;
+    return vnode;
   }
 
   function NestedToolCallView({ item, subSessionsRef, revision, depth, onNavigateSession }) {
@@ -3694,6 +3710,7 @@
         content: [],
         toolCalls: [],
         orderCounter: 0,
+        _rev: 0,
       });
       subBlockMapRef.current.set(parentToolCallId, new Map());
       subNextIndexRef.current.set(parentToolCallId, 0);
@@ -3715,6 +3732,7 @@
       if (!sub) return;
       item.order = sub.orderCounter++;
       sub.content.push(item);
+      sub._rev = (sub._rev || 0) + 1;
       bumpSubSessionRevision();
     }
 
@@ -3722,6 +3740,7 @@
       const sub = subSessionsRef.current.get(parentToolCallId);
       if (!sub) return;
       updateFn(sub);
+      sub._rev = (sub._rev || 0) + 1;
       bumpSubSessionRevision();
     }
 
@@ -3730,6 +3749,7 @@
       if (!sub) return;
       item.order = sub.orderCounter++;
       sub.toolCalls.push(item);
+      sub._rev = (sub._rev || 0) + 1;
       bumpSubSessionRevision();
     }
 
@@ -3738,6 +3758,7 @@
       if (!sub) return;
       const tc = sub.toolCalls.find(t => t.toolCallId === toolCallId);
       if (tc) updateFn(tc);
+      sub._rev = (sub._rev || 0) + 1;
       bumpSubSessionRevision();
     }
 
@@ -3747,6 +3768,7 @@
       sub.status = status;
       subBlockMapRef.current.delete(parentToolCallId);
       subNextIndexRef.current.delete(parentToolCallId);
+      sub._rev = (sub._rev || 0) + 1;
       bumpSubSessionRevision();
     }
 
