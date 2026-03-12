@@ -592,11 +592,13 @@
       var getSessionId = opts.getSessionId;
       var currentSessionId = getSessionId ? getSessionId() : null;
       if (!currentSessionId) {
-        updateAnalysisUI('idle');
+        // No active session — skip analysis silently (nothing to analyze)
+        analysisSection.style.display = 'none';
         return;
       }
+      analysisSection.style.display = '';
       updateAnalysisUI('loading');
-      fetch(apiBase + '/feedback/analyze', {
+      fetch(apiBase + '/chat/api/feedback/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: currentSessionId }),

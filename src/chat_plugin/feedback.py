@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -159,7 +159,9 @@ def create_feedback_routes(
     router = APIRouter(prefix="/chat", tags=["chat-feedback"])
 
     @router.post("/api/feedback/analyze", response_model=AnalyzeResponse)
-    async def analyze_feedback(body: AnalyzeRequest) -> AnalyzeResponse:
+    async def analyze_feedback(
+        body: AnalyzeRequest, request: Request
+    ) -> AnalyzeResponse:
         if projects_dir is None:
             raise HTTPException(
                 status_code=503,
@@ -173,7 +175,7 @@ def create_feedback_routes(
                 detail=f"Transcript not found for session {body.session_id}",
             )
 
-        base_url = _BASE_URL_DEFAULT
+        base_url = str(request.base_url).rstrip("/")
 
         # Create a new analysis session and mark it hidden
         analysis_session_id = await _create_analysis_session(base_url)
