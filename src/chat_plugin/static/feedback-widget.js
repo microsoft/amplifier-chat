@@ -346,6 +346,41 @@
     '  background: rgba(239,68,68,0.15); color: var(--error, #ef4444);',
     '}',
 
+    /* --- Analysis log entries --- */
+    '.amp-fb-analysis-header {',
+    '  display: flex; align-items: center; justify-content: space-between;',
+    '  padding: 8px 12px; font-size: 12px; font-weight: 600;',
+    '  text-transform: uppercase; letter-spacing: 0.05em;',
+    '  color: var(--ink-fog, var(--text-muted, #555));',
+    '}',
+    '.amp-fb-analysis-log {',
+    '  display: flex; flex-direction: column; gap: 2px;',
+    '  max-height: 120px; overflow-y: auto;',
+    '  padding: 0 12px 8px;',
+    '}',
+    '.amp-fb-log-entry {',
+    '  display: flex; align-items: center; gap: 8px;',
+    '  font-size: 12px; line-height: 20px;',
+    '  color: var(--ink-slate, var(--text-secondary, #999));',
+    '  transition: opacity 200ms ease;',
+    '}',
+    '.amp-fb-log-done {',
+    '  opacity: 0.5;',
+    '  color: var(--ink-fog, var(--text-muted, #555));',
+    '}',
+    '.amp-fb-log-done .amp-fb-spinner,',
+    '.amp-fb-log-done .amp-fb-spinner-sm { display: none; }',
+    ".amp-fb-log-done::before {",
+    "  content: '\\2713'; font-size: 12px; width: 14px; text-align: center;",
+    '  color: var(--ink-fog, var(--text-muted, #555));',
+    '}',
+    '.amp-fb-spinner-sm { width: 14px; height: 14px; flex-shrink: 0; }',
+    '.amp-fb-analysis-empty {',
+    '  display: flex; align-items: center; gap: 8px;',
+    '  padding: 8px 12px; font-size: 13px;',
+    '  color: var(--ink-slate, var(--text-secondary, #999));',
+    '}',
+
     /* --- Reduced motion --- */
     '@media (prefers-reduced-motion: reduce) {',
     '  .amp-fb-fab, .amp-fb-card, .amp-fb-backdrop {',
@@ -482,16 +517,57 @@
   }
 
   function extractFindings(text) {
-    try {
-      // Strip markdown code fences (```json ... ``` or ``` ... ```)
-      var stripped = text.replace(/```[\w]*\n?/g, '').replace(/```/g, '');
-      var first = stripped.indexOf('[');
-      var last = stripped.lastIndexOf(']');
-      if (first === -1 || last === -1 || last <= first) return [];
-      return JSON.parse(stripped.substring(first, last + 1));
-    } catch (e) {
-      return [];
+    // Strip markdown code fences
+    var stripped = text.replace(/```[\w]*\n?/g, '').replace(/```/g, '').trim();
+
+    // Try parsing the outermost JSON structure
+    var objStart = stripped.indexOf('{');
+    var objEnd = stripped.lastIndexOf('}');
+    var arrStart = stripped.indexOf('[');
+    var arrEnd = stripped.lastIndexOf(']');
+
+    // Try object first if it appears before array (LLM sometimes returns nested format)
+    if (objStart !== -1 && objEnd > objStart && (arrStart === -1 || objStart < arrStart)) {
+      try {
+        var obj = JSON.parse(stripped.substring(objStart, objEnd + 1));
+        // Handle nested {source: {github: {issues: [...]}, session: {...}, server_log: {errors: [...]}}}
+        if (obj.source && typeof obj.source === 'object') {
+          var flat = [];
+          var gh = obj.source.github;
+          if (gh && gh.issues && Array.isArray(gh.issues)) {
+            gh.issues.forEach(function (f) { flat.push(Object.assign({ source: 'github' }, f)); });
+          }
+          var sess = obj.source.session;
+          if (sess) {
+            if (sess.key_errors && Array.isArray(sess.key_errors)) {
+              sess.key_errors.forEach(function (err) {
+                flat.push({ source: 'session', summary: err, event_type: 'error' });
+              });
+            } else {
+              flat.push(Object.assign({ source: 'session' }, sess));
+            }
+          }
+          var slog = obj.source.server_log;
+          if (slog && slog.errors && Array.isArray(slog.errors)) {
+            slog.errors.forEach(function (f) { flat.push(Object.assign({ source: 'server_log' }, f)); });
+          }
+          if (flat.length > 0) return flat;
+        }
+        // Handle flat array wrapped in object: {findings: [...]}
+        if (obj.findings && Array.isArray(obj.findings)) return obj.findings;
+        // Handle if it's actually an array-like object
+        if (Array.isArray(obj)) return obj;
+      } catch (e) { /* fall through to array parsing */ }
     }
+
+    // Try flat array extraction
+    if (arrStart !== -1 && arrEnd > arrStart) {
+      try {
+        return JSON.parse(stripped.substring(arrStart, arrEnd + 1));
+      } catch (e) { /* fall through */ }
+    }
+
+    return [];
   }
 
   function escapeHtml(s) {
@@ -561,41 +637,111 @@
       if (analysisSSE) { analysisSSE.close(); analysisSSE = null; }
     }
 
-    var statusTextEl = null;
+    var logContainer = null;
 
     function updateAnalysisUI(state, errorMsg) {
       analysisSection.innerHTML = '';
-      statusTextEl = null;
+      logContainer = null;
       if (state === 'loading') {
-        var spinner = el('div', { className: 'amp-fb-spinner' });
-        statusTextEl = el('span', null, ['Starting analysis\u2026']);
-        var loadingRow = el('div', { className: 'amp-fb-analysis-loading' }, [
-          spinner,
-          statusTextEl,
-        ]);
+        logContainer = el('div', { className: 'amp-fb-analysis-log' });
         var cancelBtn = el('button', {
           className: 'amp-fb-analysis-cancel',
           type: 'button',
           onClick: function () { cancelAnalysis(); updateAnalysisUI('idle'); },
         }, ['Cancel']);
-        loadingRow.appendChild(cancelBtn);
-        analysisSection.appendChild(loadingRow);
+        var headerRow = el('div', { className: 'amp-fb-analysis-header' }, [
+          el('span', null, ['Analysis']),
+          cancelBtn,
+        ]);
+        analysisSection.appendChild(headerRow);
+        analysisSection.appendChild(logContainer);
+        addLogEntry('Starting analysis\u2026');
       } else if (state === 'error') {
         analysisSection.appendChild(
-          el('div', { className: 'amp-fb-analysis-error' }, [errorMsg || 'Analysis failed.'])
+          el('div', { className: 'amp-fb-analysis-header' }, [
+            el('span', null, ['Analysis']),
+          ])
         );
+        var errorRow = el('div', { className: 'amp-fb-analysis-error' }, [
+          errorMsg || 'Analysis failed.',
+          el('button', {
+            className: 'amp-fb-analysis-cancel',
+            type: 'button',
+            onClick: function () {
+              analysisComplete = false;
+              responseText = '';
+              findings = [];
+              findingChecked = {};
+              startAnalysis();
+            },
+          }, ['Retry']),
+        ]);
+        analysisSection.appendChild(errorRow);
       } else if (state === 'complete') {
-        renderFindings();
+        transitionToFindings();
+      } else if (state === 'empty') {
+        analysisSection.appendChild(
+          el('div', { className: 'amp-fb-analysis-header' }, [
+            el('span', null, ['Analysis']),
+          ])
+        );
+        analysisSection.appendChild(
+          el('div', { className: 'amp-fb-analysis-empty' }, [
+            '\u2713 No issues found in this session',
+          ])
+        );
       } else {
         // idle
         analysisSection.innerHTML = '';
       }
     }
 
-    function updateStatusText(text) {
-      if (statusTextEl) {
-        statusTextEl.textContent = text;
+    function addLogEntry(text) {
+      if (!logContainer) return;
+      // Mark previous active entry as done
+      var active = logContainer.querySelector('.amp-fb-log-active');
+      if (active) {
+        active.classList.remove('amp-fb-log-active');
+        active.classList.add('amp-fb-log-done');
       }
+      // Add new active entry
+      var entry = el('div', { className: 'amp-fb-log-entry amp-fb-log-active' }, [
+        el('span', { className: 'amp-fb-spinner amp-fb-spinner-sm' }),
+        el('span', null, [text]),
+      ]);
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function completeLogEntry() {
+      if (!logContainer) return;
+      var active = logContainer.querySelector('.amp-fb-log-active');
+      if (active) {
+        active.classList.remove('amp-fb-log-active');
+        active.classList.add('amp-fb-log-done');
+      }
+    }
+
+    function transitionToFindings() {
+      // Complete the log
+      addLogEntry('Found ' + findings.length + ' finding' + (findings.length !== 1 ? 's' : ''));
+      completeLogEntry();
+      // Fade out log, fade in findings
+      analysisSection.style.transition = 'opacity 200ms ease';
+      analysisSection.style.opacity = '0';
+      setTimeout(function () {
+        analysisSection.innerHTML = '';
+        analysisSection.appendChild(
+          el('div', { className: 'amp-fb-analysis-header' }, [
+            el('span', null, [findings.length + ' finding' + (findings.length !== 1 ? 's' : '') + ' \u2014 uncheck to exclude']),
+          ])
+        );
+        renderFindingsInto(analysisSection);
+        analysisSection.style.opacity = '0';
+        requestAnimationFrame(function () {
+          analysisSection.style.opacity = '1';
+        });
+      }, 220);
     }
 
     function startAnalysis() {
@@ -637,7 +783,7 @@
 
       evtSource.onopen = function () {
         console.log('[feedback-analysis] SSE connected');
-        updateStatusText('Connected, waiting for analysis\u2026');
+        addLogEntry('Connected');
       };
 
       // Extract delta text from the SSE envelope.
@@ -668,7 +814,7 @@
             var partial = extractFindings(responseText);
             if (partial.length > foundingsCount) {
               foundingsCount = partial.length;
-              updateStatusText('Found ' + foundingsCount + ' finding' + (foundingsCount > 1 ? 's' : '') + ' so far\u2026');
+              addLogEntry('Found ' + foundingsCount + ' finding' + (foundingsCount > 1 ? 's' : '') + ' so far\u2026');
             }
           }
         } catch (ex) { console.warn('[feedback-analysis] delta parse error:', ex); }
@@ -683,17 +829,17 @@
           if (typeof toolInput === 'object') toolInput = JSON.stringify(toolInput);
 
           if (toolName === 'bash' && toolInput.indexOf('gh issue') !== -1) {
-            updateStatusText('Searching GitHub issues\u2026');
+            addLogEntry('Searching GitHub issues\u2026');
           } else if (toolName === 'bash' && toolInput.indexOf('gh ') !== -1) {
-            updateStatusText('Querying GitHub\u2026');
+            addLogEntry('Querying GitHub\u2026');
           } else if (toolName === 'read_file' || (toolName === 'bash' && toolInput.indexOf('transcript') !== -1)) {
-            updateStatusText('Reading session logs\u2026');
+            addLogEntry('Reading session logs\u2026');
           } else if (toolName === 'bash' && toolInput.indexOf('serve.log') !== -1) {
-            updateStatusText('Checking server logs\u2026');
+            addLogEntry('Checking server logs\u2026');
           } else if (toolName === 'grep') {
-            updateStatusText('Searching logs\u2026');
+            addLogEntry('Searching logs\u2026');
           } else if (toolName) {
-            updateStatusText('Analyzing (' + toolName + ')\u2026');
+            addLogEntry('Analyzing (' + toolName + ')\u2026');
           }
           console.log('[feedback-analysis] tool:pre', toolName);
         } catch (ex) { /* ignore */ }
@@ -709,11 +855,8 @@
         if (findings.length > 0) {
           for (var i = 0; i < findings.length; i++) { findingChecked[i] = true; }
           updateAnalysisUI('complete');
-        } else if (responseText.length > 0) {
-          // Got a response but no structured findings
-          updateAnalysisUI('idle');
         } else {
-          updateAnalysisUI('idle');
+          updateAnalysisUI('empty');
         }
       }
 
@@ -755,8 +898,7 @@
       }
     }
 
-    function renderFindings() {
-      analysisSection.innerHTML = '';
+    function renderFindingsInto(container) {
       var groups = [
         { source: 'github',     label: 'Related Issues' },
         { source: 'session',    label: 'Session Errors' },
@@ -821,7 +963,7 @@
           );
         });
 
-        analysisSection.appendChild(groupEl);
+        container.appendChild(groupEl);
       });
     }
 
@@ -915,8 +1057,10 @@
         el('label', { className: 'amp-fb-label', 'for': 'amp-fb-desc-input' }, ['Details']),
         descInput,
       ]),
-      // Analysis
-      analysisSection,
+      // Analysis findings
+      el('div', { className: 'amp-fb-field amp-fb-field-analysis' }, [
+        analysisSection,
+      ]),
       // Actions
       el('div', { className: 'amp-fb-actions' }, [
         el('button', {

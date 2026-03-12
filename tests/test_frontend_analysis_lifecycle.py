@@ -145,7 +145,7 @@ class TestExtractFindings:
         """Returns [] on parse failure."""
         src = _read(WIDGET_JS)
         fn_start = src.find("function extractFindings")
-        fn_region = src[fn_start : fn_start + 600]
+        fn_region = src[fn_start : fn_start + 2000]
         assert "[]" in fn_region
 
     def test_defined_after_buildIssueBody(self):

@@ -126,13 +126,13 @@ class TestRenderFindingsImplementation:
         src = _read()
         assert "finding(s) ready" not in src
 
-    def test_clears_innerHTML(self):
-        """Must clear analysisSection.innerHTML at the start."""
+    def test_accepts_container_parameter(self):
+        """renderFindingsInto must accept a container parameter (caller handles clearing)."""
         src = _read()
-        fn_start = src.find("function renderFindings")
+        fn_start = src.find("function renderFindingsInto")
         assert fn_start != -1
-        fn_region = src[fn_start : fn_start + 200]
-        assert "innerHTML" in fn_region
+        fn_region = src[fn_start : fn_start + 50]
+        assert "container" in fn_region
 
     def test_groups_by_source_github(self):
         """Must map 'github' source to 'Related Issues' group label."""
