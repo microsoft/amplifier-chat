@@ -1,0 +1,77 @@
+name: "feedback-analysis"
+description: "Analyze session feedback by searching GitHub issues and extracting errors from session logs."
+version: "1.0.0"
+tags: ["feedback", "analysis", "session"]
+
+context:
+  session_id: ""
+  transcript_path: ""
+  daemon_session_path: ""
+
+steps:
+  - id: "github-search"
+    agent: "foundation:explorer"
+    timeout: 120
+    prompt: |
+      Read the transcript at {{transcript_path}} for session {{session_id}}.
+
+      Extract distinct error signatures from the transcript — look for:
+      - Error types (e.g. KeyError, TypeError, ConnectionError)
+      - Tool names that failed
+      - Provider names involved in errors
+      - Key error messages
+
+      For each distinct error pattern found, search GitHub using:
+        gh issue list --repo microsoft/amplifier-distro --search "<pattern>" --state all --limit 5 --json number,title,url,state
+
+      Return a JSON array where each element has the schema:
+        {
+          "source": "github",
+          "summary": "#N - title",
+          "url": "<issue url>",
+          "status": "open|closed",
+          "relevance": "<brief explanation of why this issue matches>"
+        }
+
+      If no error signatures are found in the transcript, return an empty array: []
+    output: "github_findings"
+
+  - id: "log-analysis"
+    agent: "foundation:explorer"
+    timeout: 180
+    prompt: |
+      Read the transcript at {{transcript_path}} for session {{session_id}}.
+
+      Find ALL error events in the transcript including tool failures, provider
+      errors, timeouts, and crashes. For each session error produce an object:
+        {
+          "source": "session",
+          "summary": "<one-line description>",
+          "timestamp": "<ISO timestamp if available>",
+          "turn": <turn number if available>,
+          "event_type": "tool:error|provider:error",
+          "event_data": { <original event data> },
+          "error": {
+            "type": "<error class name>",
+            "message": "<error message>",
+            "traceback": ["<top 2-3 stack frames>"]
+          }
+        }
+
+      If daemon_session_path is available at "{{daemon_session_path}}", also
+      check the server logs there. For each server log finding produce:
+        {
+          "source": "server_log",
+          "summary": "<one-line description>",
+          "timestamp": "<ISO timestamp>",
+          "log_level": "<ERROR|WARNING|etc>",
+          "log_line": "<the raw log line>",
+          "context_lines": ["<surrounding lines for context>"]
+        }
+
+      Merge all findings with the GitHub results from the previous step:
+      {{github_findings}}
+
+      Return a single JSON array containing all findings (github + session +
+      server_log) sorted by timestamp where available.
+    output: "all_findings"
