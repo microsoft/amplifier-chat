@@ -609,16 +609,24 @@
         })
         .then(function (data) {
           analysisSessionId = data.analysis_session_id;
+          console.log('[feedback-analysis] Got analysis session:', analysisSessionId);
           subscribeToSSE(analysisSessionId);
         })
         .catch(function (err) {
+          console.error('[feedback-analysis] Analyze request failed:', err);
           updateAnalysisUI('error', err.message);
         });
     }
 
     function subscribeToSSE(sessionId) {
-      var evtSource = new EventSource('/events?session=' + encodeURIComponent(sessionId));
+      var sseUrl = '/events?session=' + encodeURIComponent(sessionId);
+      console.log('[feedback-analysis] Opening SSE:', sseUrl);
+      var evtSource = new EventSource(sseUrl);
       analysisSSE = evtSource;
+
+      evtSource.onopen = function () {
+        console.log('[feedback-analysis] SSE connected');
+      };
 
       evtSource.addEventListener('content_block:delta', function (e) {
         try {
@@ -632,14 +640,17 @@
         if (analysisComplete) return;
         analysisComplete = true;
         closeSSE();
+        console.log('[feedback-analysis] Complete. Response length:', responseText.length);
         findings = extractFindings(responseText);
+        console.log('[feedback-analysis] Extracted', findings.length, 'findings');
         renderFindings();
       }
 
       evtSource.addEventListener('orchestrator:complete', onComplete);
       evtSource.addEventListener('execution:end', onComplete);
 
-      evtSource.onerror = function () {
+      evtSource.onerror = function (evt) {
+        console.error('[feedback-analysis] SSE error:', evt, 'readyState:', evtSource.readyState);
         if (analysisComplete) return;
         // Try to parse whatever we have accumulated
         if (responseText) {
