@@ -2840,6 +2840,47 @@
     `;
   }
 
+  function TurnSeparator({ turn, isHighlighted, onClick }) {
+    const preview = turn.userItem.content
+      ? turn.userItem.content.replace(/\s+/g, ' ').trim().slice(0, 50)
+      : '';
+    const cls = 'turn-separator' + (isHighlighted ? ' turn-highlighted' : '');
+    return html`
+      <div class=${cls} data-turn-id=${turn.turnId}
+        onClick=${onClick} tabindex="0"
+        onKeyDown=${e => (e.key === 'Enter' || e.key === ' ') && onClick && onClick(e)}
+        role="button"
+        aria-label=${'Turn ' + turn.turnNumber + ': ' + preview}>
+        <span class="turn-separator-label">
+          <span class="turn-separator-number">#${turn.turnNumber}</span>
+          <span class="turn-separator-message">${preview}${turn.userItem.content && turn.userItem.content.length > 50 ? '…' : ''}</span>
+        </span>
+      </div>
+    `;
+  }
+
+  function ActivityBreadcrumb({ turnMap, scrollTurnId, onNavigateToMessage }) {
+    if (!scrollTurnId || !turnMap.has(scrollTurnId)) return null;
+    if (turnMap.size <= 1) return null;
+
+    const turn = turnMap.get(scrollTurnId);
+    const preview = turn.userItem.content
+      ? turn.userItem.content.replace(/\s+/g, ' ').trim().slice(0, 50)
+      : '';
+
+    return html`
+      <nav class="activity-breadcrumb" aria-label="Current turn context" data-turn-id=${turn.turnId}>
+        <span class="activity-breadcrumb-number">#${turn.turnNumber}</span>
+        <span style="margin: 0 2px;">·</span>
+        <span class="activity-breadcrumb-message">${preview}${turn.userItem.content && turn.userItem.content.length > 50 ? '…' : ''}</span>
+        <button class="activity-breadcrumb-nav"
+          onClick=${() => onNavigateToMessage && onNavigateToMessage(turn.turnId)}
+          title="Scroll to this message"
+          aria-label=${'Navigate to turn ' + turn.turnNumber + ' message'}>↗</button>
+      </nav>
+    `;
+  }
+
   function ToolCallCard({ item, isActivity, subSessionsRef, subSessionRevision, onNavigateSession }) {
     const [expanded, setExpanded] = useState(false);
     const statusIcon = getToolStatusIcon(item.toolStatus);
