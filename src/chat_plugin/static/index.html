@@ -2560,6 +2560,40 @@
   }
 
   /**
+   * Derive turn boundaries from chronoItems.
+   * A new turn starts at each user message. Returns:
+   * - turnMap: Map<turnId, { turnId, turnNumber, userItem, startOrder }>
+   * - itemTurnMap: Map<itemId, turnId>
+   * turnId is the id of the user message that opened the turn.
+   */
+  function deriveTurns(items) {
+    const turnMap = new Map();
+    const itemTurnMap = new Map();
+    const sorted = [...items].sort((a, b) => a.order - b.order);
+
+    let currentTurnId = null;
+    let turnNumber = 0;
+
+    for (const item of sorted) {
+      if (item.type === 'text' && item.role === 'user') {
+        turnNumber++;
+        currentTurnId = item.id;
+        turnMap.set(currentTurnId, {
+          turnId: currentTurnId,
+          turnNumber,
+          userItem: item,
+          startOrder: item.order,
+        });
+      }
+      if (currentTurnId) {
+        itemTurnMap.set(item.id, currentTurnId);
+      }
+    }
+
+    return { turnMap, itemTurnMap };
+  }
+
+  /**
    * Post-process chrono items to reconstruct sub-sessions from saved transcripts.
    * Delegation tool calls (delegate/task) with originSessionId are identified,
    * and content items belonging to child sessions are moved into SubSession entries
@@ -5978,6 +6012,11 @@
     const closeMobileSidebar = useCallback(() => {
       setMobileSidebarOpen(false);
     }, []);
+
+    // Turn correlation
+    const { turnMap, itemTurnMap } = useMemo(() => deriveTurns(chronoItems), [chronoItems]);
+    const [hoveredTurnId, setHoveredTurnId] = useState(null);
+    const [activeTurnId, setActiveTurnId] = useState(null);
 
     const mainFilter = viewMode === 'workspace' ? (i => i.type === 'text') : null;
     const activityFilter = viewMode === 'workspace' ? (i => i.type !== 'text') : null;
