@@ -3257,7 +3257,7 @@
     `;
   }
 
-  function InputArea({ onSend, onStop, executing, viewMode, setViewMode, activeKey }) {
+  function InputArea({ onSend, onStop, onQueueMessage, executing, shouldQueue, queueCount, viewMode, setViewMode, activeKey }) {
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
     const [pendingImages, setPendingImages] = useState([]);
@@ -3267,7 +3267,7 @@
 
     useEffect(() => {
       const ta = textareaRef.current;
-      if (!ta || ta.disabled) return;
+      if (!ta) return;
       const rafId = window.requestAnimationFrame(() => {
         try {
           ta.focus();
@@ -3306,20 +3306,31 @@
     }, [addImages]);
 
     const doSend = useCallback(() => {
-      if (executing) return;  // Guard against double-send
       const ta = textareaRef.current;
       if (!ta) return;
       const content = ta.value.trim();
       if (!content && pendingImages.length === 0) return;
 
-      // Strip data URL prefix from images
+      // Slash commands always bypass the queue and send directly
+      if (shouldQueue && !content.startsWith('/')) {
+        if (content || pendingImages.length > 0) {
+          onQueueMessage(content, pendingImages.map(d => d.split(',')[1]));
+          ta.value = '';
+          ta.style.height = 'auto';
+          setPendingImages([]);
+          setSlashOpen(false);
+        }
+        return;
+      }
+
+      // Normal send path
       const images = pendingImages.map(d => d.split(',')[1]);
       onSend(content, images);
       ta.value = '';
       ta.style.height = 'auto';
       setPendingImages([]);
       setSlashOpen(false);
-    }, [onSend, pendingImages, executing]);
+    }, [onSend, onQueueMessage, pendingImages, shouldQueue]);
 
     const applySlashCommand = useCallback((cmdName) => {
       const ta = textareaRef.current;
@@ -3433,10 +3444,9 @@
           <textarea
             id="message-input"
             ref=${textareaRef}
-            placeholder=${executing ? "Processing…" : "Message… (/ for commands)"}
+            placeholder=${executing ? "Queue a message…" : "Message… (/ for commands)"}
             rows="1"
-            disabled=${executing}
-            style=${{ opacity: executing ? 0.6 : 1 }}
+            style=${{ opacity: 1 }}
             aria-label="Message input"
             aria-autocomplete="list"
             aria-expanded=${slashMenuOpen ? 'true' : 'false'}
@@ -3452,10 +3462,10 @@
             <${Icon} name="paperclip" />
           </button>
           <input ref=${fileInputRef} type="file" accept="image/*" multiple style="display:none" onChange=${e => addImages(e.target.files)} />
-          ${executing
-            ? html`<button class="input-btn stop-btn" onClick=${onStop}>■ Stop</button>`
-            : html`<button class="input-btn send-btn" onClick=${doSend}>Send</button>`
-          }
+          <button class="input-btn send-btn" onClick=${doSend}>
+            ${shouldQueue ? 'Queue' : 'Send'}
+          </button>
+          ${executing && html`<button class="input-btn stop-btn" onClick=${onStop}>■ Stop</button>`}
         </div>
       </div>
     `;
@@ -6180,7 +6190,10 @@
             <${InputArea}
               onSend=${sendMessage}
               onStop=${stopExecution}
+              onQueueMessage=${pushToQueue}
               executing=${executing}
+              shouldQueue=${executing || getQueueDrainState() === 'countdown'}
+              queueCount=${getQueue().length}
               viewMode=${viewMode}
               setViewMode=${setViewMode}
               activeKey=${activeKey}
