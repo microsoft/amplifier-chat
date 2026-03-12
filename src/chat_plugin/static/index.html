@@ -3175,7 +3175,7 @@
     `;
   }
 
-  function SessionCard({ session, isActive, onClick, setSessions, onTogglePin, isPinned }) {
+  function SessionCard({ session, isActive, onClick, setSessions, onTogglePin, isPinned, queueCount }) {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
     const [shaking, setShaking] = useState(false);
@@ -3350,6 +3350,9 @@
           <span>${metaText}</span>
           ${session.hasExternalUpdate
             ? html`<span class="session-stale-badge ${session.isNewSession ? 'new-session' : ''}">${session.isNewSession ? 'New' : 'Updated'}</span>`
+            : null}
+          ${queueCount > 0
+            ? html`<span class="session-stale-badge">${queueCount} queued</span>`
             : null}
         </div>
         ${preview ? html`<div class="session-card-cwd" title=${session.lastUserMessage || ''}>${preview}</div>` : null}
@@ -5522,6 +5525,8 @@
       setChronoItems([]);
       orderCounterRef.current = 0;
       setTurnCount(0);
+      // Cancel any countdown from the previous session and clear new session queue
+      cancelCountdown();
       setExecuting(false);
       setPendingApproval(null);
       placeholderIdRef.current = null;
@@ -5876,6 +5881,8 @@
           return next;
         });
       }
+      // Cancel any active countdown when switching away
+      cancelCountdown();
 
       // Load target session
       const targetItems = target.savedItems || [];
@@ -5883,6 +5890,10 @@
       orderCounterRef.current = nextOrder(targetItems);
       setTurnCount(target.savedTurnCount || 0);
       setExecuting(target.status === 'running');
+      // If the target session had an active countdown, restart it
+      if (getQueueDrainState(key) === 'countdown') {
+        tryDrainQueue();
+      }
       setPendingApproval(null);
       placeholderIdRef.current = null;
       setSessionId(target.sessionId || null);
@@ -6032,6 +6043,7 @@
                 setSessions=${setSessions}
                 onTogglePin=${handleTogglePin}
                 isPinned=${!!(session && session.sessionId && pinnedSessionIds.has(session.sessionId))}
+                queueCount=${(msgQueueRef.current.get(key) || []).length}
               />
             </div>
           </div>
