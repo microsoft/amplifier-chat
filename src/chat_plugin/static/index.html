@@ -5446,6 +5446,8 @@
           }
           case '/clear':
             setChronoItems([]);
+            setHoveredTurnId(null);
+            setActiveTurnId(null);
             return;
           case '/workspace':
             setViewMode(m => m === 'workspace' ? 'chat' : 'workspace');
@@ -5581,6 +5583,8 @@
       setChronoItems([]);
       orderCounterRef.current = 0;
       setTurnCount(0);
+      setHoveredTurnId(null);
+      setActiveTurnId(null);
       setExecuting(false);
       setPendingApproval(null);
       placeholderIdRef.current = null;
