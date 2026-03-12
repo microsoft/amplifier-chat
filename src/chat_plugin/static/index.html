@@ -2671,7 +2671,7 @@
 
   function SubSessionView({ parentToolCallId, subSessionsRef, revision, depth = 0, onNavigateSession }) {
     const MAX_NESTING = 4;
-    const [collapsed, setCollapsed] = useState(true);
+    const [collapsed, setCollapsed] = useState(false);
     const sub = subSessionsRef.current.get(parentToolCallId);
     if (!sub) return null;
 
@@ -2743,7 +2743,7 @@
   }
 
   function NestedToolCallView({ item, subSessionsRef, revision, depth, onNavigateSession }) {
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const statusIcon = getToolStatusIcon(item.toolStatus);
     const isRunning = item.toolStatus === 'running';
     const argPreview = getArgPreview(item.toolName, item.arguments || {});

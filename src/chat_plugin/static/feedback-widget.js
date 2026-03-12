@@ -598,7 +598,7 @@
       }
       analysisSection.style.display = '';
       updateAnalysisUI('loading');
-      fetch(apiBase + '/chat/api/feedback/analyze', {
+      fetch(apiBase + '/feedback/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: currentSessionId }),
