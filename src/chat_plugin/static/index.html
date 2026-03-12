@@ -38,6 +38,11 @@
       --sub-border-left: rgba(99, 102, 241, 0.4);
       --sub-text: #aaa;
       --sub-text-muted: #666;
+
+      /* Turn correlation */
+      --turn-highlight: rgba(59, 130, 246, 0.04);
+      --turn-highlight-border: rgba(59, 130, 246, 0.25);
+      --turn-pulse-peak: rgba(59, 130, 246, 0.12);
     }
 
     body[data-theme="light"] {
@@ -66,6 +71,10 @@
       --sub-border-left: rgba(99, 102, 241, 0.35);
       --sub-text: #4a5568;
       --sub-text-muted: #718096;
+
+      --turn-highlight: rgba(37, 99, 235, 0.05);
+      --turn-highlight-border: rgba(37, 99, 235, 0.2);
+      --turn-pulse-peak: rgba(37, 99, 235, 0.1);
     }
 
     body {
@@ -659,6 +668,154 @@
       flex-shrink: 0;
     }
     .activity-scroll { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 8px; }
+
+    /* Turn separators in activity panel */
+    .turn-separator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 0 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .turn-separator:first-child {
+      padding-top: 0;
+    }
+    .turn-separator::before,
+    .turn-separator::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+      transition: background 150ms ease;
+    }
+    .turn-separator:hover::before,
+    .turn-separator:hover::after {
+      background: var(--turn-highlight-border);
+    }
+    .turn-separator-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      max-width: 85%;
+    }
+    .turn-separator-number {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .turn-separator-message {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .turn-separator:hover .turn-separator-message {
+      color: var(--text-primary);
+    }
+    .turn-separator:hover .turn-separator-number {
+      color: var(--accent-blue);
+    }
+
+    /* Sticky turn breadcrumb in activity panel */
+    .activity-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      min-height: 24px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+      z-index: 2;
+      position: relative;
+    }
+    .activity-breadcrumb.hidden { display: none; }
+    .activity-breadcrumb-number {
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .activity-breadcrumb-message {
+      color: var(--text-secondary);
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+    .activity-breadcrumb-nav {
+      opacity: 0;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: opacity 100ms ease, color 100ms ease;
+      background: none;
+      border: none;
+    }
+    .activity-breadcrumb:hover .activity-breadcrumb-nav {
+      opacity: 1;
+    }
+    .activity-breadcrumb-nav:hover {
+      color: var(--accent-blue);
+      background: var(--bg-tertiary);
+    }
+    body[data-theme="light"] .activity-breadcrumb {
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Turn hover cross-highlight */
+    .turn-highlighted {
+      background: var(--turn-highlight);
+      transition: background 120ms ease-out;
+    }
+    .turn-highlighted.turn-highlighted-border {
+      border-left: 2px solid var(--turn-highlight-border);
+    }
+    .turn-dimmed {
+      opacity: 0.4;
+      transition: opacity 150ms ease-out;
+    }
+    .turn-separator.turn-highlighted::before,
+    .turn-separator.turn-highlighted::after {
+      background: var(--turn-highlight-border);
+    }
+    .turn-separator.turn-highlighted .turn-separator-number {
+      color: var(--accent-blue);
+    }
+
+    /* Click-to-scroll arrival pulse */
+    @keyframes turn-pulse {
+      0%   { background: var(--turn-pulse-peak); }
+      40%  { background: var(--turn-highlight); }
+      100% { background: transparent; }
+    }
+    .turn-scroll-target {
+      animation: turn-pulse 800ms ease-out forwards;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .turn-highlighted,
+      .turn-dimmed {
+        transition: none;
+      }
+      .turn-scroll-target {
+        animation: none;
+        background: var(--turn-highlight);
+      }
+    }
 
     /* —— Message List ————————————————————————————————————————————— */
     #message-list {
