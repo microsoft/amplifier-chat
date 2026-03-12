@@ -876,7 +876,27 @@
       }
 
       evtSource.addEventListener('orchestrator:complete', onComplete);
-      evtSource.addEventListener('execution:end', onComplete);
+
+      // execution:end carries the full response in data.response — this is
+      // the authoritative source since content_block:delta events are NOT
+      // published to the EventBus SSE stream (the streaming orchestrator
+      // batches them internally).
+      evtSource.addEventListener('execution:end', function (e) {
+        try {
+          var raw = JSON.parse(e.data);
+          var payload = raw.data || raw;
+          if (payload.response && typeof payload.response === 'string') {
+            console.log('[feedback-analysis] execution:end response length:', payload.response.length);
+            // Prefer execution:end response over accumulated deltas
+            if (!responseText || payload.response.length > responseText.length) {
+              responseText = payload.response;
+            }
+          }
+        } catch (ex) {
+          console.warn('[feedback-analysis] execution:end parse error:', ex);
+        }
+        onComplete();
+      });
 
       evtSource.onerror = function (evt) {
         console.error('[feedback-analysis] SSE error, readyState:', evtSource.readyState);
