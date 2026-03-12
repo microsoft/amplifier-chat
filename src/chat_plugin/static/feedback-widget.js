@@ -347,12 +347,11 @@
     '}',
 
     /* --- Analysis log entries --- */
-    '.amp-fb-analysis-header {',
+    '.amp-fb-analysis-label-row {',
     '  display: flex; align-items: center; justify-content: space-between;',
-    '  padding: 8px 12px; font-size: 12px; font-weight: 600;',
-    '  text-transform: uppercase; letter-spacing: 0.05em;',
-    '  color: var(--ink-fog, var(--text-muted, #555));',
+    '  margin-bottom: 6px;',
     '}',
+    '.amp-fb-analysis-label-row .amp-fb-label { margin: 0; }',
     '.amp-fb-analysis-log {',
     '  display: flex; flex-direction: column; gap: 2px;',
     '  max-height: 120px; overflow-y: auto;',
@@ -656,6 +655,9 @@
     var findings = [];
     var findingChecked = {}; // Tracks per-finding checkbox state by index
     var analysisSection = el('div', { className: 'amp-fb-analysis' });
+    var analysisLabelRow = el('div', { className: 'amp-fb-analysis-label-row' }, [
+      el('label', { className: 'amp-fb-label' }, ['Analysis']),
+    ]);
 
     function closeSSE() {
       if (analysisSSE) { analysisSSE.close(); analysisSSE = null; }
@@ -665,36 +667,40 @@
 
     function updateAnalysisUI(state, errorMsg) {
       analysisSection.innerHTML = '';
+      // Update the label row: "Analysis" + optional action button
+      analysisLabelRow.innerHTML = '';
+      analysisLabelRow.appendChild(el('label', { className: 'amp-fb-label' }, ['Analysis']));
       logContainer = null;
+
       if (state === 'loading') {
-        logContainer = el('div', { className: 'amp-fb-analysis-log' });
-        var cancelBtn = el('button', {
+        // Cancel sits next to "Analysis" label, outside the box
+        analysisLabelRow.appendChild(el('button', {
           className: 'amp-fb-analysis-cancel',
           type: 'button',
           onClick: function () { cancelAnalysis(); updateAnalysisUI('idle'); },
-        }, ['Cancel']);
-        var headerRow = el('div', { className: 'amp-fb-analysis-header' }, [
-          cancelBtn,
-        ]);
-        analysisSection.appendChild(headerRow);
+        }, ['Cancel']));
+        // Box contains only the log
+        logContainer = el('div', { className: 'amp-fb-analysis-log' });
         analysisSection.appendChild(logContainer);
         addLogEntry('Starting analysis\u2026');
       } else if (state === 'error') {
-        var errorRow = el('div', { className: 'amp-fb-analysis-error' }, [
-          errorMsg || 'Analysis failed.',
-          el('button', {
-            className: 'amp-fb-analysis-cancel',
-            type: 'button',
-            onClick: function () {
-              analysisComplete = false;
-              responseText = '';
-              findings = [];
-              findingChecked = {};
-              startAnalysis();
-            },
-          }, ['Retry']),
-        ]);
-        analysisSection.appendChild(errorRow);
+        // Retry sits next to "Analysis" label
+        analysisLabelRow.appendChild(el('button', {
+          className: 'amp-fb-analysis-cancel',
+          type: 'button',
+          onClick: function () {
+            analysisComplete = false;
+            responseText = '';
+            findings = [];
+            findingChecked = {};
+            startAnalysis();
+          },
+        }, ['Retry']));
+        analysisSection.appendChild(
+          el('div', { className: 'amp-fb-analysis-error' }, [
+            errorMsg || 'Analysis failed.',
+          ])
+        );
       } else if (state === 'complete') {
         transitionToFindings();
       } else if (state === 'empty') {
@@ -1072,7 +1078,7 @@
       ]),
       // Analysis findings
       el('div', { className: 'amp-fb-field amp-fb-field-analysis' }, [
-        el('label', { className: 'amp-fb-label' }, ['Analysis']),
+        analysisLabelRow,
         analysisSection,
       ]),
       // Actions
