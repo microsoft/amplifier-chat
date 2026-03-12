@@ -2709,7 +2709,7 @@
 
   function SubSessionView({ parentToolCallId, subSessionsRef, revision, depth = 0, onNavigateSession }) {
     const MAX_NESTING = 4;
-    const [collapsed, setCollapsed] = useState(true);
+    const [collapsed, setCollapsed] = useState(false);
     const sub = subSessionsRef.current.get(parentToolCallId);
     if (!sub) return null;
 
@@ -2781,7 +2781,7 @@
   }
 
   function NestedToolCallView({ item, subSessionsRef, revision, depth, onNavigateSession }) {
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const statusIcon = getToolStatusIcon(item.toolStatus);
     const isRunning = item.toolStatus === 'running';
     const argPreview = getArgPreview(item.toolName, item.arguments || {});
@@ -3467,6 +3467,7 @@
     const [executing, setExecuting] = useState(false);
     const [pendingApproval, setPendingApproval] = useState(null);
     const [sessionId, setSessionId] = useState(null);
+    const sessionIdRef = useRef(null);
     const [cwd, setCwd] = useState('~');
     const [defaultCwd, setDefaultCwd] = useState('~');
     const [turnCount, setTurnCount] = useState(0);
@@ -3506,6 +3507,8 @@
       } catch {}
       return 'dark';
     });
+
+    useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
 
     // Feedback widget
     const feedbackSlotRef = useRef(null);
@@ -3612,6 +3615,7 @@
           mode: 'header',
           container: slot,
           context: { app: 'chat' },
+          getSessionId: function() { return sessionIdRef.current; },
         });
       }
     }, []);

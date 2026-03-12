@@ -5,18 +5,24 @@ from chat_plugin.session_history import scan_session_revisions, scan_sessions
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
-def _make_session(projects_dir, session_id, slug="-Users-test", transcript=None, metadata=None):
+
+def _make_session(
+    projects_dir, session_id, slug="-Users-test", transcript=None, metadata=None
+):
     """Create a session in the two-level projects/{slug}/sessions/{id}/ layout."""
     session_dir = projects_dir / slug / "sessions" / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
     if transcript is not None:
         (session_dir / "transcript.jsonl").write_text(transcript, encoding="utf-8")
     if metadata is not None:
-        (session_dir / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+        (session_dir / "metadata.json").write_text(
+            json.dumps(metadata), encoding="utf-8"
+        )
     return session_dir
 
 
 # ── basic coverage ────────────────────────────────────────────────────────────
+
 
 def test_scan_sessions_none_dir():
     sessions, total = scan_sessions(None)
@@ -35,8 +41,10 @@ def test_scan_sessions_with_transcript(tmp_path):
         tmp_path,
         "sess-abc",
         transcript=(
-            json.dumps({"role": "user", "content": "Hello"}) + "\n"
-            + json.dumps({"role": "assistant", "content": "Hi"}) + "\n"
+            json.dumps({"role": "user", "content": "Hello"})
+            + "\n"
+            + json.dumps({"role": "assistant", "content": "Hi"})
+            + "\n"
         ),
     )
     results, total = scan_sessions(tmp_path)
@@ -169,11 +177,46 @@ def test_scan_sessions_cwd_from_slug(tmp_path):
 
 def test_scan_sessions_multiple_projects(tmp_path):
     """Sessions from different project slugs are all returned."""
-    _make_session(tmp_path, "sess-1", slug="-Users-alice-projA",
-                  transcript='{"role": "user", "content": "a"}\n')
-    _make_session(tmp_path, "sess-2", slug="-Users-bob-projB",
-                  transcript='{"role": "user", "content": "b"}\n')
+    _make_session(
+        tmp_path,
+        "sess-1",
+        slug="-Users-alice-projA",
+        transcript='{"role": "user", "content": "a"}\n',
+    )
+    _make_session(
+        tmp_path,
+        "sess-2",
+        slug="-Users-bob-projB",
+        transcript='{"role": "user", "content": "b"}\n',
+    )
     results, total = scan_sessions(tmp_path)
     assert total == 2
     ids = {r["session_id"] for r in results}
     assert ids == {"sess-1", "sess-2"}
+
+
+def test_scan_sessions_hidden_flag(tmp_path):
+    """Sessions with hidden: true in metadata surface the flag."""
+    _make_session(
+        tmp_path,
+        "sess-hidden",
+        transcript='{"role": "user", "content": "secret"}\n',
+        metadata={"hidden": True},
+    )
+    results, total = scan_sessions(tmp_path)
+    assert total == 1
+    assert len(results) == 1
+    assert results[0]["hidden"] is True
+
+
+def test_scan_sessions_not_hidden_by_default(tmp_path):
+    """Sessions without hidden metadata default to False."""
+    _make_session(
+        tmp_path,
+        "sess-normal",
+        transcript='{"role": "user", "content": "hello"}\n',
+    )
+    results, total = scan_sessions(tmp_path)
+    assert total == 1
+    assert len(results) == 1
+    assert results[0]["hidden"] is False

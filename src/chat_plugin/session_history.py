@@ -111,6 +111,7 @@ def _read_session_meta(
     spawn_agent: str | None = None
     session_name: str | None = None
     session_description: str | None = None
+    hidden: bool = False
     metadata_path = session_dir / METADATA_FILENAME
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -131,6 +132,9 @@ def _read_session_meta(
             raw_desc = metadata.get("description")
             if isinstance(raw_desc, str) and raw_desc:
                 session_description = raw_desc
+            raw_hidden = metadata.get("hidden")
+            if raw_hidden is True:
+                hidden = True
             # Fallback: CWD from metadata if not found in session-info.json
             if cwd is None:
                 raw_cwd = metadata.get("working_dir")
@@ -194,6 +198,7 @@ def _read_session_meta(
         "revision": revision,
         "name": session_name,
         "description": session_description,
+        "hidden": hidden,
     }
 
 

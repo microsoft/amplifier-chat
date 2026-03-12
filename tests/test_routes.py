@@ -111,3 +111,46 @@ def test_history_with_sessions_on_disk(client, tmp_path, state):
     ids = [s["session_id"] for s in data["sessions"]]
     assert "my-session" in ids
     assert "total_count" in data
+
+
+def test_hidden_sessions_excluded_from_history(client, tmp_path, state):
+    import json
+
+    state.settings.projects_dir = tmp_path
+
+    # Create a normal session with content
+    normal_dir = tmp_path / "-Users-test" / "sessions" / "normal-session"
+    normal_dir.mkdir(parents=True)
+    (normal_dir / "transcript.jsonl").write_text(
+        json.dumps({"role": "user", "content": "visible"}) + "\n",
+        encoding="utf-8",
+    )
+
+    # Create a hidden session with content and hidden metadata
+    hidden_dir = tmp_path / "-Users-test" / "sessions" / "hidden-session"
+    hidden_dir.mkdir(parents=True)
+    (hidden_dir / "transcript.jsonl").write_text(
+        json.dumps({"role": "user", "content": "secret"}) + "\n",
+        encoding="utf-8",
+    )
+    (hidden_dir / "metadata.json").write_text(
+        json.dumps({"hidden": True}),
+        encoding="utf-8",
+    )
+
+    # Re-create app with projects_dir set
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from chat_plugin import create_router
+
+    app = FastAPI()
+    router = create_router(state)
+    app.include_router(router)
+    c = TestClient(app)
+
+    resp = c.get("/chat/api/sessions/history")
+    assert resp.status_code == 200
+    data = resp.json()
+    ids = [s["session_id"] for s in data["sessions"]]
+    assert "normal-session" in ids
+    assert "hidden-session" not in ids

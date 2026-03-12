@@ -95,11 +95,12 @@ def create_history_routes(
         )
         pinned_ids = pin_storage.list_pins()
 
-        # Filter: only include sessions with actual content
+        # Filter: only include sessions with actual content, exclude hidden
         sessions = [
             row
             for row in sessions
-            if (row.get("message_count") or 0) > 0 or row.get("last_user_message")
+            if ((row.get("message_count") or 0) > 0 or row.get("last_user_message"))
+            and not row.get("hidden")
         ]
         for row in sessions:
             row["pinned"] = row["session_id"] in pinned_ids

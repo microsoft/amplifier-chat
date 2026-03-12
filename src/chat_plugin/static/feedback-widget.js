@@ -131,7 +131,8 @@
     '  background: var(--canvas-warm, var(--bg-secondary, #1E1E1E));',
     '  border: 1px solid var(--canvas-mist, var(--border, rgba(255,255,255,0.08)));',
     '  border-radius: var(--radius-card, 20px);',
-    '  padding: 28px; width: 90%; max-width: 440px;',
+    '  padding: 28px; width: 90%; max-width: 640px;',
+    '  max-height: 85vh; overflow-y: auto;',
     '  box-shadow: var(--shadow-float, 0 8px 24px rgba(0,0,0,0.35));',
     '  animation: amp-fb-card-enter 300ms cubic-bezier(0.22,1,0.36,1);',
     '  position: relative;',
@@ -255,7 +256,7 @@
     '@media (max-width: 768px) {',
     '  .amp-fb-backdrop { align-items: flex-end; }',
     '  .amp-fb-card {',
-    '    width: 100%; max-width: none;',
+    '    width: 100%; max-width: none; max-height: 85vh; overflow-y: auto;',
     '    border-radius: var(--radius-card, 20px) var(--radius-card, 20px) 0 0;',
     '    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));',
     '    animation-name: amp-fb-sheet-enter;',
@@ -265,6 +266,123 @@
     '@keyframes amp-fb-sheet-enter {',
     '  from { opacity: 0; transform: translateY(100%); }',
     '  to   { opacity: 1; transform: translateY(0); }',
+    '}',
+
+    /* --- Analysis section --- */
+    '.amp-fb-analysis {',
+    '  margin-top: 16px; padding: 12px;',
+    '  border: 1px solid var(--canvas-mist, var(--border, rgba(255,255,255,0.08)));',
+    '  border-radius: var(--radius-input, 10px);',
+    '  background: var(--canvas, var(--bg-primary, #0d0d0d));',
+    '  font-size: 13px; color: var(--ink-slate, var(--text-secondary, #999));',
+    '  min-height: 48px;',
+    '}',
+    '.amp-fb-analysis-loading {',
+    '  display: flex; align-items: center; gap: 10px;',
+    '}',
+    '.amp-fb-spinner {',
+    '  width: 18px; height: 18px; border-radius: 50%;',
+    '  border: 2px solid var(--canvas-mist, var(--border, rgba(255,255,255,0.08)));',
+    '  border-top-color: var(--signal, var(--accent, #5B4DE3));',
+    '  animation: amp-fb-spin 0.8s linear infinite;',
+    '}',
+    '@keyframes amp-fb-spin {',
+    '  to { transform: rotate(360deg); }',
+    '}',
+    '.amp-fb-analysis-cancel {',
+    '  background: none; border: none; color: var(--ink-fog, var(--text-muted, #555));',
+    '  font-size: 12px; cursor: pointer; text-decoration: underline;',
+    '  margin-left: auto; padding: 0;',
+    '}',
+    '.amp-fb-analysis-cancel:hover { color: var(--ink, var(--text-primary, #e8e8e8)); }',
+    '.amp-fb-analysis-error {',
+    '  color: var(--error, #ef4444); font-size: 13px;',
+    '}',
+    '.amp-fb-findings-group {',
+    '  margin-top: 8px;',
+    '}',
+    '.amp-fb-findings-group-header {',
+    '  font-size: 12px; font-weight: 600; margin-bottom: 6px;',
+    '  color: var(--ink-slate, var(--text-secondary, #999));',
+    '}',
+    '.amp-fb-finding {',
+    '  display: flex; align-items: flex-start; gap: 8px;',
+    '  padding: 6px 0; border-bottom: 1px solid var(--canvas-mist, var(--border, rgba(255,255,255,0.08)));',
+    '}',
+    '.amp-fb-finding:last-child { border-bottom: none; }',
+    '.amp-fb-finding input[type=checkbox] {',
+    '  margin-top: 3px; accent-color: var(--signal, var(--accent, #5B4DE3));',
+    '}',
+    '.amp-fb-finding-content {',
+    '  flex: 1; min-width: 0;',
+    '}',
+    '.amp-fb-finding-summary {',
+    '  font-size: 13px; font-weight: 500;',
+    '  color: var(--ink, var(--text-primary, #e8e8e8));',
+    '}',
+    '.amp-fb-finding-detail {',
+    '  font-size: 12px; color: var(--ink-slate, var(--text-secondary, #999));',
+    '  margin-top: 4px;',
+    '}',
+    '.amp-fb-finding-detail pre {',
+    '  white-space: pre; overflow-x: auto;',
+    '  font-family: var(--font-mono, "Fira Code", monospace);',
+    '  font-size: 11px; margin-top: 4px;',
+    '  padding: 6px; border-radius: 4px;',
+    '  background: var(--canvas-warm, var(--bg-secondary, #1E1E1E));',
+    '}',
+    '.amp-fb-finding-link {',
+    '  font-size: 12px; color: var(--signal, var(--accent, #5B4DE3));',
+    '  text-decoration: none;',
+    '}',
+    '.amp-fb-finding-link:hover { text-decoration: underline; }',
+    '.amp-fb-finding-status {',
+    '  font-size: 11px; font-weight: 600; padding: 1px 6px;',
+    '  border-radius: 4px; display: inline-block; margin-left: 6px;',
+    '}',
+    '.amp-fb-finding-status.open {',
+    '  background: rgba(34,197,94,0.15); color: var(--accent-green, #22c55e);',
+    '}',
+    '.amp-fb-finding-status.closed {',
+    '  background: rgba(239,68,68,0.15); color: var(--error, #ef4444);',
+    '}',
+
+    /* --- Analysis log entries --- */
+    '.amp-fb-analysis-label-row {',
+    '  display: flex; align-items: center; justify-content: space-between;',
+    '  margin-bottom: 6px;',
+    '}',
+    '.amp-fb-analysis-label-row .amp-fb-label { margin: 0; }',
+    '.amp-fb-analysis-log {',
+    '  display: flex; flex-direction: column; gap: 2px;',
+    '  max-height: 120px; overflow-y: auto;',
+    '  padding: 0 12px 8px;',
+    '}',
+    '.amp-fb-log-entry {',
+    '  display: flex; align-items: center; gap: 8px;',
+    '  font-size: 12px; line-height: 20px;',
+    '  color: var(--ink-slate, var(--text-secondary, #999));',
+    '  transition: opacity 200ms ease;',
+    '}',
+    '.amp-fb-log-done {',
+    '  opacity: 0.5;',
+    '  color: var(--ink-fog, var(--text-muted, #555));',
+    '}',
+    '.amp-fb-log-done .amp-fb-spinner,',
+    '.amp-fb-log-done .amp-fb-spinner-sm { display: none; }',
+    ".amp-fb-log-done::before {",
+    "  content: '\\2713'; font-size: 12px; width: 14px; text-align: center;",
+    '  color: var(--ink-fog, var(--text-muted, #555));',
+    '}',
+    '.amp-fb-spinner-sm { width: 14px; height: 14px; flex-shrink: 0; }',
+    '.amp-fb-analysis-summary {',
+    '  padding: 8px 12px; font-size: 12px;',
+    '  color: var(--ink-slate, var(--text-secondary, #999));',
+    '}',
+    '.amp-fb-analysis-empty {',
+    '  display: flex; align-items: center; gap: 8px;',
+    '  padding: 8px 12px; font-size: 13px;',
+    '  color: var(--ink-slate, var(--text-secondary, #999));',
     '}',
 
     /* --- Reduced motion --- */
@@ -326,16 +444,574 @@
     return lines.join('\n');
   }
 
+  function serializeFindings(allFindings, checkedMap) {
+    var checked = allFindings.filter(function (f, i) {
+      return checkedMap[i] !== false;
+    });
+    if (!checked.length) return '';
+
+    var lines = ['\n## Automated Findings'];
+
+    var groups = [
+      { source: 'github',     header: '### Related Issues' },
+      { source: 'session',    header: '### Session Errors' },
+      { source: 'server_log', header: '### Server Logs' },
+    ];
+
+    groups.forEach(function (group) {
+      var groupFindings = checked.filter(function (f) {
+        return f.source === group.source;
+      });
+      if (!groupFindings.length) return;
+
+      lines.push('');
+      lines.push(group.header);
+      lines.push('');
+
+      groupFindings.forEach(function (f) {
+        if (group.source === 'github') {
+          var summary = f.title || f.summary || f.url || '';
+          var url = f.url || '';
+          var entry = '- [' + summary + '](' + url + ')';
+          if (f.state) {
+            entry += ' `' + f.state + '`';
+          }
+          lines.push(entry);
+          if (f.relevance) {
+            lines.push('> ' + f.relevance);
+          }
+        } else if (group.source === 'session') {
+          var sessionSummary = f.title || f.summary || '';
+          var item = '- **' + sessionSummary + '**';
+          if (f.error && f.error.type) {
+            item += ' `' + f.error.type + '`';
+          }
+          lines.push(item);
+          if (f.error) {
+            if (f.error.message) {
+              lines.push('  ' + f.error.message);
+            }
+            if (f.error.traceback && f.error.traceback.length) {
+              lines.push('  ```');
+              f.error.traceback.forEach(function (frame) {
+                lines.push('  ' + frame);
+              });
+              lines.push('  ```');
+            }
+          }
+        } else if (group.source === 'server_log') {
+          var logSummary = f.title || f.summary || '';
+          lines.push('- **' + logSummary + '**');
+          if (f.context_lines && f.context_lines.length) {
+            lines.push('  ```');
+            f.context_lines.forEach(function (line) {
+              lines.push('  ' + line);
+            });
+            lines.push('  ```');
+          } else if (f.log_line) {
+            lines.push('  ```');
+            lines.push('  ' + f.log_line);
+            lines.push('  ```');
+          }
+        }
+      });
+    });
+
+    return lines.join('\n');
+  }
+
+  function extractFindings(text) {
+    // Strip markdown code fences
+    var stripped = text.replace(/```[\w]*\n?/g, '').replace(/```/g, '').trim();
+    console.log('[feedback-analysis] extractFindings input length:', text.length,
+      'stripped length:', stripped.length);
+
+    // Try parsing the outermost JSON structure
+    var objStart = stripped.indexOf('{');
+    var objEnd = stripped.lastIndexOf('}');
+    var arrStart = stripped.indexOf('[');
+    var arrEnd = stripped.lastIndexOf(']');
+
+    console.log('[feedback-analysis] JSON markers: obj={' + objStart + ',' + objEnd +
+      '} arr=[' + arrStart + ',' + arrEnd + ']');
+
+    // Try object first if it appears before array (LLM sometimes returns nested format)
+    if (objStart !== -1 && objEnd > objStart && (arrStart === -1 || objStart < arrStart)) {
+      try {
+        var obj = JSON.parse(stripped.substring(objStart, objEnd + 1));
+        console.log('[feedback-analysis] Parsed as object. Keys:', Object.keys(obj).join(', '));
+        // Handle nested {source: {github: {issues: [...]}, session: {...}, server_log: {errors: [...]}}}
+        if (obj.source && typeof obj.source === 'object') {
+          var flat = [];
+          var gh = obj.source.github;
+          if (gh && gh.issues && Array.isArray(gh.issues)) {
+            gh.issues.forEach(function (f) { flat.push(Object.assign({ source: 'github' }, f)); });
+          }
+          var sess = obj.source.session;
+          if (sess) {
+            if (sess.key_errors && Array.isArray(sess.key_errors)) {
+              sess.key_errors.forEach(function (err) {
+                flat.push({ source: 'session', summary: err, event_type: 'error' });
+              });
+            } else {
+              flat.push(Object.assign({ source: 'session' }, sess));
+            }
+          }
+          var slog = obj.source.server_log;
+          if (slog && slog.errors && Array.isArray(slog.errors)) {
+            slog.errors.forEach(function (f) { flat.push(Object.assign({ source: 'server_log' }, f)); });
+          }
+          console.log('[feedback-analysis] Flattened nested object:', flat.length, 'findings');
+          if (flat.length > 0) return flat;
+        }
+        // Handle flat array wrapped in object: {findings: [...]}
+        if (obj.findings && Array.isArray(obj.findings)) {
+          console.log('[feedback-analysis] Found {findings: [...]}: ', obj.findings.length);
+          return obj.findings;
+        }
+        // Handle if it's actually an array-like object
+        if (Array.isArray(obj)) return obj;
+        console.log('[feedback-analysis] Object parsed but no recognized structure');
+      } catch (e) {
+        console.warn('[feedback-analysis] Object parse failed:', e.message);
+        // fall through to array parsing
+      }
+    }
+
+    // Try flat array extraction
+    if (arrStart !== -1 && arrEnd > arrStart) {
+      try {
+        var arr = JSON.parse(stripped.substring(arrStart, arrEnd + 1));
+        console.log('[feedback-analysis] Parsed as flat array:', arr.length, 'items');
+        return arr;
+      } catch (e) {
+        console.warn('[feedback-analysis] Array parse failed:', e.message);
+      }
+    }
+
+    console.log('[feedback-analysis] No parseable JSON found. First 500 chars:', stripped.substring(0, 500));
+
+    return [];
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function buildFindingDetail(f, source) {
+    var parts = [];
+    if (source === 'github') {
+      if (f.relevance) {
+        parts.push('<p>' + escapeHtml(f.relevance) + '</p>');
+      }
+    } else if (source === 'session') {
+      if (f.event_type) {
+        parts.push('<div><strong>Event:</strong> ' + escapeHtml(f.event_type) + '</div>');
+      }
+      if (f.turn != null) {
+        parts.push('<div><strong>Turn:</strong> ' + escapeHtml(String(f.turn)) + '</div>');
+      }
+      if (f.error) {
+        if (f.error.type) {
+          parts.push('<div><strong>Type:</strong> ' + escapeHtml(f.error.type) + '</div>');
+        }
+        if (f.error.message) {
+          parts.push('<div>' + escapeHtml(f.error.message) + '</div>');
+        }
+        if (f.error.traceback && f.error.traceback.length) {
+          var frames = f.error.traceback.map(function (frame) { return escapeHtml(frame); });
+          parts.push('<pre>' + frames.join('\n') + '</pre>');
+        }
+      }
+    } else if (source === 'server_log') {
+      if (f.log_level) {
+        parts.push('<div><strong>Level:</strong> ' + escapeHtml(f.log_level) + '</div>');
+      }
+      if (f.context_lines && f.context_lines.length) {
+        var lines = f.context_lines.map(function (line) { return escapeHtml(line); });
+        parts.push('<pre>' + lines.join('\n') + '</pre>');
+      } else if (f.log_line) {
+        parts.push('<pre>' + escapeHtml(f.log_line) + '</pre>');
+      }
+    }
+    return parts.length ? parts.join('') : null;
+  }
+
   /* ------------------------------------------------------------------ */
   /*  Modal                                                              */
   /* ------------------------------------------------------------------ */
 
   function openModal(opts) {
     var category = 'general';
+
+    // Analysis lifecycle state
+    var apiBase = (window.location.origin || '') + '/chat/api';
+    var analysisSessionId = null;
+    var analysisSSE = null;
+    var analysisComplete = false;
+    var responseText = '';
+    var findings = [];
+    var findingChecked = {}; // Tracks per-finding checkbox state by index
+    var analysisSection = el('div', { className: 'amp-fb-analysis' });
+    var analysisLabelRow = el('div', { className: 'amp-fb-analysis-label-row' }, [
+      el('label', { className: 'amp-fb-label' }, ['Analysis']),
+    ]);
+
+    function closeSSE() {
+      if (analysisSSE) { analysisSSE.close(); analysisSSE = null; }
+    }
+
+    var logContainer = null;
+
+    function updateAnalysisUI(state, errorMsg) {
+      analysisSection.innerHTML = '';
+      // Update the label row: "Analysis" + optional action button
+      analysisLabelRow.innerHTML = '';
+      analysisLabelRow.appendChild(el('label', { className: 'amp-fb-label' }, ['Analysis']));
+      logContainer = null;
+
+      if (state === 'loading') {
+        // Cancel sits next to "Analysis" label, outside the box
+        analysisLabelRow.appendChild(el('button', {
+          className: 'amp-fb-analysis-cancel',
+          type: 'button',
+          onClick: function () { cancelAnalysis(); updateAnalysisUI('idle'); },
+        }, ['Cancel']));
+        // Box contains only the log
+        logContainer = el('div', { className: 'amp-fb-analysis-log' });
+        analysisSection.appendChild(logContainer);
+        addLogEntry('Starting analysis\u2026');
+      } else if (state === 'error') {
+        // Retry sits next to "Analysis" label
+        analysisLabelRow.appendChild(el('button', {
+          className: 'amp-fb-analysis-cancel',
+          type: 'button',
+          onClick: function () {
+            analysisComplete = false;
+            responseText = '';
+            findings = [];
+            findingChecked = {};
+            startAnalysis();
+          },
+        }, ['Retry']));
+        analysisSection.appendChild(
+          el('div', { className: 'amp-fb-analysis-error' }, [
+            errorMsg || 'Analysis failed.',
+          ])
+        );
+      } else if (state === 'complete') {
+        transitionToFindings();
+      } else if (state === 'empty') {
+        analysisSection.appendChild(
+          el('div', { className: 'amp-fb-analysis-empty' }, [
+            '\u2713 No issues found in this session',
+          ])
+        );
+      } else {
+        // idle
+        analysisSection.innerHTML = '';
+      }
+    }
+
+    function addLogEntry(text) {
+      if (!logContainer) return;
+      // Mark previous active entry as done
+      var active = logContainer.querySelector('.amp-fb-log-active');
+      if (active) {
+        active.classList.remove('amp-fb-log-active');
+        active.classList.add('amp-fb-log-done');
+      }
+      // Add new active entry
+      var entry = el('div', { className: 'amp-fb-log-entry amp-fb-log-active' }, [
+        el('span', { className: 'amp-fb-spinner amp-fb-spinner-sm' }),
+        el('span', null, [text]),
+      ]);
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function completeLogEntry() {
+      if (!logContainer) return;
+      var active = logContainer.querySelector('.amp-fb-log-active');
+      if (active) {
+        active.classList.remove('amp-fb-log-active');
+        active.classList.add('amp-fb-log-done');
+      }
+    }
+
+    function transitionToFindings() {
+      // Complete the log
+      addLogEntry('Found ' + findings.length + ' finding' + (findings.length !== 1 ? 's' : ''));
+      completeLogEntry();
+      // Fade out log, fade in findings
+      analysisSection.style.transition = 'opacity 200ms ease';
+      analysisSection.style.opacity = '0';
+      setTimeout(function () {
+        analysisSection.innerHTML = '';
+        analysisSection.appendChild(
+          el('div', { className: 'amp-fb-analysis-summary' }, [
+            findings.length + ' finding' + (findings.length !== 1 ? 's' : '') + ' \u2014 uncheck to exclude',
+          ])
+        );
+        renderFindingsInto(analysisSection);
+        analysisSection.style.opacity = '0';
+        requestAnimationFrame(function () {
+          analysisSection.style.opacity = '1';
+        });
+      }, 220);
+    }
+
+    function startAnalysis() {
+      var getSessionId = opts.getSessionId;
+      var currentSessionId = getSessionId ? getSessionId() : null;
+      if (!currentSessionId) {
+        // No active session — skip analysis silently (nothing to analyze)
+        analysisSection.style.display = 'none';
+        return;
+      }
+      analysisSection.style.display = '';
+      updateAnalysisUI('loading');
+      fetch(apiBase + '/feedback/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: currentSessionId }),
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error('Analysis request failed: ' + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          analysisSessionId = data.analysis_session_id;
+          console.log('[feedback-analysis] Got analysis session:', analysisSessionId);
+          subscribeToSSE(analysisSessionId);
+        })
+        .catch(function (err) {
+          console.error('[feedback-analysis] Analyze request failed:', err);
+          updateAnalysisUI('error', err.message);
+        });
+    }
+
+    function subscribeToSSE(sessionId) {
+      var sseUrl = '/events?session=' + encodeURIComponent(sessionId);
+      console.log('[feedback-analysis] Opening SSE:', sseUrl);
+      var evtSource = new EventSource(sseUrl);
+      analysisSSE = evtSource;
+      var foundingsCount = 0;
+
+      evtSource.onopen = function () {
+        console.log('[feedback-analysis] SSE connected');
+        addLogEntry('Connected');
+      };
+
+      // No longer needed — delta extraction is inline in the event handler.
+
+      var deltaCount = 0;
+      evtSource.addEventListener('content_block:delta', function (e) {
+        try {
+          var raw = JSON.parse(e.data);
+          // amplifierd envelope: {event, session_id, data: {delta: {text: "..."}}}
+          var payload = raw.data || raw;
+          var delta = payload.delta;
+          var text = '';
+          if (typeof delta === 'string') {
+            text = delta;
+          } else if (delta && typeof delta === 'object') {
+            text = delta.text || delta.thinking || '';
+          }
+          deltaCount++;
+          if (deltaCount <= 5 || deltaCount % 50 === 0) {
+            console.log('[feedback-analysis] delta #' + deltaCount,
+              'text=' + (text ? text.length + 'ch' : '(empty)'),
+              'total=' + (responseText.length + text.length) + 'ch',
+              deltaCount <= 2 ? JSON.stringify(raw).substring(0, 200) : '');
+          }
+          if (text) {
+            responseText += text;
+          }
+        } catch (ex) { console.warn('[feedback-analysis] delta parse error:', ex); }
+      });
+
+      // Show progress based on tool calls
+      evtSource.addEventListener('tool:pre', function (e) {
+        try {
+          var raw = JSON.parse(e.data);
+          var p = raw.data || raw;  // unwrap envelope
+          var toolName = p.tool_name || p.name || '';
+          var toolInput = p.tool_input || p.arguments || '';
+          if (typeof toolInput === 'object') toolInput = JSON.stringify(toolInput);
+
+          if (toolName === 'bash' && toolInput.indexOf('gh issue') !== -1) {
+            addLogEntry('Searching GitHub issues\u2026');
+          } else if (toolName === 'bash' && toolInput.indexOf('gh ') !== -1) {
+            addLogEntry('Querying GitHub\u2026');
+          } else if (toolName === 'read_file' || (toolName === 'bash' && toolInput.indexOf('transcript') !== -1)) {
+            addLogEntry('Reading session logs\u2026');
+          } else if (toolName === 'bash' && toolInput.indexOf('serve.log') !== -1) {
+            addLogEntry('Checking server logs\u2026');
+          } else if (toolName === 'grep') {
+            addLogEntry('Searching logs\u2026');
+          } else if (toolName) {
+            addLogEntry('Analyzing (' + toolName + ')\u2026');
+          }
+          console.log('[feedback-analysis] tool:pre', toolName);
+        } catch (ex) { /* ignore */ }
+      });
+
+      function onComplete() {
+        if (analysisComplete) return;
+        analysisComplete = true;
+        closeSSE();
+        console.log('[feedback-analysis] Complete. Response length:', responseText.length);
+        findings = extractFindings(responseText);
+        console.log('[feedback-analysis] Extracted', findings.length, 'findings');
+        if (findings.length > 0) {
+          for (var i = 0; i < findings.length; i++) { findingChecked[i] = true; }
+          updateAnalysisUI('complete');
+        } else {
+          updateAnalysisUI('empty');
+        }
+      }
+
+      evtSource.addEventListener('orchestrator:complete', onComplete);
+
+      // execution:end carries the full response in data.response — this is
+      // the authoritative source since content_block:delta events are NOT
+      // published to the EventBus SSE stream (the streaming orchestrator
+      // batches them internally).
+      evtSource.addEventListener('execution:end', function (e) {
+        try {
+          var raw = JSON.parse(e.data);
+          var payload = raw.data || raw;
+          if (payload.response && typeof payload.response === 'string') {
+            console.log('[feedback-analysis] execution:end response length:', payload.response.length);
+            // Prefer execution:end response over accumulated deltas
+            if (!responseText || payload.response.length > responseText.length) {
+              responseText = payload.response;
+            }
+          }
+        } catch (ex) {
+          console.warn('[feedback-analysis] execution:end parse error:', ex);
+        }
+        onComplete();
+      });
+
+      evtSource.onerror = function (evt) {
+        console.error('[feedback-analysis] SSE error, readyState:', evtSource.readyState);
+        if (analysisComplete) return;
+        // readyState 0 = CONNECTING (retry), 2 = CLOSED
+        if (evtSource.readyState === 2) {
+          // Connection closed — try to parse what we have
+          if (responseText) {
+            findings = extractFindings(responseText);
+            if (findings.length > 0) {
+              for (var i = 0; i < findings.length; i++) { findingChecked[i] = true; }
+              analysisComplete = true;
+              closeSSE();
+              updateAnalysisUI('complete');
+              return;
+            }
+          }
+          updateAnalysisUI('error', 'Analysis connection closed.');
+          closeSSE();
+        }
+        // readyState 0 = still trying to reconnect, let it retry
+      };
+    }
+
+    function cancelAnalysis() {
+      closeSSE();
+      if (analysisSessionId && !analysisComplete) {
+        // Cancel endpoint is at server root, not under apiBase (/chat/api)
+        fetch('/sessions/' + encodeURIComponent(analysisSessionId) + '/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ immediate: true }),
+        }).catch(function () { /* best effort */ });
+      }
+    }
+
+    function renderFindingsInto(container) {
+      var groups = [
+        { source: 'github',     label: 'Related Issues' },
+        { source: 'session',    label: 'Session Errors' },
+        { source: 'server_log', label: 'Server Logs' },
+      ];
+
+      groups.forEach(function (group) {
+        var groupFindings = findings.filter(function (f) {
+          return f.source === group.source;
+        });
+        if (!groupFindings.length) return;
+
+        var groupEl = el('div', { className: 'amp-fb-findings-group' });
+        groupEl.appendChild(
+          el('div', { className: 'amp-fb-findings-group-header' }, [group.label])
+        );
+
+        groupFindings.forEach(function (f) {
+          var idx = findings.indexOf(f);
+
+          var cb = el('input', { type: 'checkbox' });
+          cb.checked = findingChecked[idx] !== false;
+          cb.addEventListener('change', function () {
+            findingChecked[idx] = cb.checked;
+          });
+
+          var summaryEl;
+          if (group.source === 'github') {
+            var link = el('a', {
+              className: 'amp-fb-finding-link',
+              href: f.url || '#',
+              target: '_blank',
+              rel: 'noopener',
+            }, [f.title || f.url || '']);
+            var statusClass = 'amp-fb-finding-status ' + (f.state === 'closed' ? 'closed' : 'open');
+            var badge = el('span', { className: statusClass }, [f.state || 'open']);
+            summaryEl = el('span', { className: 'amp-fb-finding-summary' }, [link, badge]);
+          } else {
+            summaryEl = el('span', { className: 'amp-fb-finding-summary' }, [
+              f.title || f.summary || '',
+            ]);
+          }
+
+          var contentChildren = [summaryEl];
+          var detailHtml = buildFindingDetail(f, group.source);
+          if (detailHtml) {
+            var detailsEl = el('details', null);
+            detailsEl.appendChild(el('summary', null, ['Details']));
+            var inner = document.createElement('div');
+            inner.innerHTML = detailHtml;
+            detailsEl.appendChild(inner);
+            contentChildren.push(
+              el('div', { className: 'amp-fb-finding-detail' }, [detailsEl])
+            );
+          }
+
+          groupEl.appendChild(
+            el('div', { className: 'amp-fb-finding' }, [
+              cb,
+              el('div', { className: 'amp-fb-finding-content' }, contentChildren),
+            ])
+          );
+        });
+
+        container.appendChild(groupEl);
+      });
+    }
+
     var backdrop = el('div', {
       className: 'amp-fb-backdrop',
       role: 'presentation',
-      onClick: function (e) { if (e.target === backdrop) { closeModal(); } },
+      onClick: function (e) {
+        if (e.target !== backdrop) return;
+        // If analysis is still running, ignore backdrop click
+        // (user must use Cancel or X button to dismiss intentionally)
+        if (!analysisComplete && analysisSessionId) return;
+        closeModal();
+      },
     });
 
     var titleInput = el('input', {
@@ -422,6 +1098,11 @@
         el('label', { className: 'amp-fb-label', 'for': 'amp-fb-desc-input' }, ['Details']),
         descInput,
       ]),
+      // Analysis findings
+      el('div', { className: 'amp-fb-field amp-fb-field-analysis' }, [
+        analysisLabelRow,
+        analysisSection,
+      ]),
       // Actions
       el('div', { className: 'amp-fb-actions' }, [
         el('button', {
@@ -441,9 +1122,26 @@
     // Focus management
     titleInput.focus();
 
+    // Kick off analysis
+    startAnalysis();
+
+    // Debug: listen for simulated findings (from AmplifierFeedback.simulateFindings())
+    function onSimulate(e) {
+      findings = e.detail || [];
+      for (var i = 0; i < findings.length; i++) { findingChecked[i] = true; }
+      analysisComplete = true;
+      closeSSE();
+      updateAnalysisUI('complete');
+    }
+    window.addEventListener('amp-fb-simulate', onSimulate);
+
     // Keyboard handling
     function onKey(e) {
-      if (e.key === 'Escape') { closeModal(); }
+      if (e.key === 'Escape') {
+        // If analysis is running, ignore ESC (use Cancel or X button)
+        if (!analysisComplete && analysisSessionId) return;
+        closeModal();
+      }
       if (e.key === 'Tab') {
         // Simple focus trap
         var focusable = card.querySelectorAll(
@@ -466,7 +1164,9 @@
     var triggerEl = opts._triggerEl;
 
     function closeModal() {
+      cancelAnalysis();
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('amp-fb-simulate', onSimulate);
       if (backdrop.parentNode) { backdrop.parentNode.removeChild(backdrop); }
       if (triggerEl) { try { triggerEl.focus(); } catch (e) { /* noop */ } }
     }
@@ -484,11 +1184,17 @@
         }
       );
 
+      if (findings.length > 0) {
+        body += serializeFindings(findings, findingChecked);
+      }
+
       var surface = opts.context && opts.context.app || '';
       var url = buildGitHubUrl(category, title, body, opts.repo || REPO, surface);
 
       submitBtn.textContent = 'Opening GitHub\u2026';
       submitBtn.setAttribute('disabled', 'true');
+
+      if (!analysisComplete) { cancelAnalysis(); }
 
       window.open(url, '_blank', 'noopener');
 
@@ -576,5 +1282,20 @@
   /*  Export                                                              */
   /* ------------------------------------------------------------------ */
 
-  window.AmplifierFeedback = { init: init };
+  window.AmplifierFeedback = {
+    init: init,
+    // Debug: simulate findings in an open modal. Run from browser console:
+    //   AmplifierFeedback.simulateFindings()
+    simulateFindings: function () {
+      var fake = [
+        { source: 'github', number: 42, title: 'Session crashes when delegate tool times out', url: 'https://github.com/microsoft/amplifier-distro/issues/42', state: 'open', relevance: 'Same tool:error timeout pattern on foundation:explorer' },
+        { source: 'session', summary: 'tool:error - delegate to foundation:explorer timed out (turn 7)', timestamp: '2026-03-11T15:23:41Z', turn: 7, event_type: 'tool:error', error: { type: 'asyncio.TimeoutError', message: 'Task timed out after 300.0 seconds', traceback: ['coordinator.py:287 in _execute_tool', 'tasks.py:512 in wait_for -> raise TimeoutError()'] } },
+        { source: 'session', summary: 'Provider returned 529 overloaded (turn 4)', timestamp: '2026-03-11T15:21:12Z', turn: 4, event_type: 'provider:error', error: { type: 'anthropic.OverloadedError', message: 'Overloaded: Too many requests', traceback: ['provider.py:142 in complete', '_base_client.py:1468 in _request'] } },
+        { source: 'server_log', summary: 'ConnectionResetError on SSE stream', timestamp: '2026-03-11T15:23:42Z', log_level: 'ERROR', log_line: 'ERROR 2026-03-11 15:23:42 uvicorn.error - ConnectionResetError: [Errno 54]', context_lines: ['INFO 15:23:41 POST /sessions/abc123/execute/stream 200', 'ERROR 15:23:42 ConnectionResetError: [Errno 54] Connection reset by peer', 'INFO 15:23:42 SSE subscriber removed for session abc123'] },
+      ];
+      // Dispatch a custom event that the open modal can pick up
+      window.dispatchEvent(new CustomEvent('amp-fb-simulate', { detail: fake }));
+      console.log('[feedback-analysis] Simulated', fake.length, 'findings. Open the feedback modal first.');
+    },
+  };
 })();

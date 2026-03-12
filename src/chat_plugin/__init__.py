@@ -8,8 +8,11 @@ from fastapi import APIRouter
 
 def create_router(state: Any) -> APIRouter:
     """Plugin entry point. Called by amplifierd plugin discovery."""
+    import os
+
     from chat_plugin.commands import CommandProcessor
     from chat_plugin.config import ChatPluginSettings
+    from chat_plugin.feedback import create_feedback_routes
     from chat_plugin.pin_storage import PinStorage
     from chat_plugin.routes import (
         create_command_routes,
@@ -53,9 +56,13 @@ def create_router(state: Any) -> APIRouter:
     async def chat_health():
         return {"status": "ok", "plugin": "chat"}
 
+    # Daemon session path for server-log analysis (may be None)
+    daemon_session_path = os.environ.get("AMPLIFIERD_DAEMON_SESSION_PATH")
+
     router.include_router(create_config_routes(distro_home))
     router.include_router(create_pin_routes(pin_storage))
     router.include_router(create_history_routes(projects_dir, pin_storage))
     router.include_router(create_command_routes(processor))
+    router.include_router(create_feedback_routes(projects_dir, daemon_session_path))
     router.include_router(create_static_routes())
     return router
