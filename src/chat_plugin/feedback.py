@@ -102,7 +102,7 @@ async def _create_analysis_session(base_url: str = _BASE_URL_DEFAULT) -> str:
     """Create a new session via POST /sessions and return its ID."""
     logger.info("[feedback-analysis] Creating analysis session via %s", base_url)
     async with httpx.AsyncClient(base_url=base_url, timeout=30) as client:
-        resp = await client.post("/sessions")
+        resp = await client.post("/sessions", json={})
         resp.raise_for_status()
         data: dict[str, Any] = resp.json()
         sid = data["session_id"]
@@ -111,13 +111,25 @@ async def _create_analysis_session(base_url: str = _BASE_URL_DEFAULT) -> str:
 
 
 async def _mark_session_hidden(base_url: str, session_id: str) -> None:
-    """Mark a session as hidden via PATCH /sessions/{id}/metadata."""
+    """Mark a session as hidden via PATCH /sessions/{id}/metadata.
+
+    Best-effort: if the session directory doesn't exist on disk yet (404),
+    we log a warning and continue. The session will still work; it just
+    won't be hidden from the history sidebar until metadata is written.
+    """
     logger.info("[feedback-analysis] Marking session %s as hidden", session_id)
     async with httpx.AsyncClient(base_url=base_url, timeout=30) as client:
         resp = await client.patch(
             f"/sessions/{session_id}/metadata",
             json={"hidden": True},
         )
+        if resp.status_code == 404:
+            logger.warning(
+                "[feedback-analysis] Session dir not yet on disk for %s; "
+                "hidden flag skipped (best-effort)",
+                session_id,
+            )
+            return
         resp.raise_for_status()
         logger.info("[feedback-analysis] Session %s marked hidden", session_id)
 
@@ -211,7 +223,19 @@ def create_feedback_routes(
 
         logger.info("[feedback-analysis] Found transcript at %s", transcript_path)
 
-        base_url = str(request.base_url).rstrip("/")
+        _burl = request.base_url
+        _host = _burl.hostname or "127.0.0.1"
+        # Normalise bind-all wildcard addresses to loopback so that httpx can
+        # actually connect.  amplifierd always listens on the same host, so
+        # 127.0.0.1 is always correct for intra-process calls.
+        if _host in ("0.0.0.0", "::"):
+            _host = "127.0.0.1"
+        _port = _burl.port
+        base_url = (
+            f"{_burl.scheme}://{_host}:{_port}"
+            if _port
+            else f"{_burl.scheme}://{_host}"
+        )
 
         # Create a new analysis session and mark it hidden
         analysis_session_id = await _create_analysis_session(base_url)
