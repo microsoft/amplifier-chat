@@ -1524,6 +1524,107 @@
         animation-delay: 0ms !important;
       }
     }
+    /* — Message Queue Panel — */
+    .queue-panel {
+      max-height: 30vh;
+      overflow-y: auto;
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-secondary, var(--bg));
+    }
+    @media (max-width: 768px) {
+      .queue-panel { max-height: 25vh; }
+    }
+    .queue-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--text-secondary, #888);
+    }
+    .queue-panel-header span {
+      font-weight: 600;
+    }
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      background: var(--bg-tertiary, var(--bg));
+      font-size: 13px;
+      color: var(--text);
+      border-left: 3px solid transparent;
+    }
+    .queue-item--countdown {
+      border-left: 3px solid var(--accent-blue, #3b82f6);
+      animation: pulse-border 1s ease-in-out infinite;
+    }
+    @keyframes pulse-border {
+      0%, 100% { border-left-color: var(--accent-blue, #3b82f6); }
+      50% { border-left-color: transparent; }
+    }
+    .queue-item--paused {
+      opacity: 0.5;
+    }
+    .queue-item-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .queue-item-image {
+      font-size: 11px;
+      color: var(--text-secondary, #888);
+      margin-left: 4px;
+    }
+    .queue-item-countdown-label {
+      font-size: 11px;
+      color: var(--accent-blue, #3b82f6);
+      white-space: nowrap;
+      margin-right: 4px;
+    }
+    .queue-item-remove {
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--text-secondary, #888);
+      cursor: pointer;
+      font-size: 16px;
+      flex-shrink: 0;
+      border-radius: 4px;
+      /* 44px min tap target for accessibility */
+    }
+    .queue-item-remove:hover {
+      color: var(--text);
+      background: var(--bg-hover, rgba(128,128,128,0.1));
+    }
+    .queue-panel-btn {
+      min-height: 44px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      margin-top: 4px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      /* 44px min tap target for accessibility */
+    }
+    .queue-panel-btn:hover {
+      background: var(--bg-hover, rgba(128,128,128,0.1));
+    }
   </style>
 </head>
 <body>
@@ -3253,6 +3354,41 @@
         </div>
         ${preview ? html`<div class="session-card-cwd" title=${session.lastUserMessage || ''}>${preview}</div>` : null}
         <div aria-live="polite" class="sr-only">${announcement}</div>
+      </div>
+    `;
+  }
+
+  function QueuePanel({ queue, drainState, countdownSecs, onRemove, onResume }) {
+    if (!queue || queue.length === 0) return null;
+    const isPaused = drainState === 'paused';
+    const isCountdown = drainState === 'countdown';
+
+    return html`
+      <div class="queue-panel">
+        <div class="queue-panel-header">
+          <span>Queued messages (${queue.length})</span>
+        </div>
+        ${queue.map((msg, idx) => {
+          const isFirst = idx === 0;
+          const showCountdown = isFirst && isCountdown && countdownSecs !== null;
+          let cls = 'queue-item';
+          if (showCountdown) cls += ' queue-item--countdown';
+          if (isPaused) cls += ' queue-item--paused';
+          return html`
+            <div class=${cls} key=${msg.id}>
+              ${showCountdown && html`<span class="queue-item-countdown-label">Sending in ${countdownSecs}s…</span>`}
+              <span class="queue-item-text">
+                ${msg.content || ''}${msg.images && msg.images.length > 0 && html`<span class="queue-item-image"> [image]</span>`}
+              </span>
+              <button class="queue-item-remove" onClick=${() => onRemove(msg.id)} aria-label="Remove queued message" title="Remove">×</button>
+            </div>
+          `;
+        })}
+        ${isPaused && html`
+          <button class="queue-panel-btn" onClick=${onResume}>
+            Resume queue (${queue.length} remaining)
+          </button>
+        `}
       </div>
     `;
   }
@@ -6186,6 +6322,28 @@
               subSessionsRef=${subSessionsRef}
               subSessionRevision=${subSessionRevision}
               onNavigateSession=${navigateToSession}
+            />
+            <${QueuePanel}
+              queue=${getQueue()}
+              drainState=${getQueueDrainState()}
+              countdownSecs=${countdownRemaining}
+              onRemove=${(msgId) => {
+                const q = getQueue();
+                const isFirst = q.length > 0 && q[0].id === msgId;
+                if (isFirst && getQueueDrainState() === 'countdown') {
+                  if (countdownTimerRef.current) { clearTimeout(countdownTimerRef.current); countdownTimerRef.current = null; }
+                  setCountdownRemaining(null);
+                  removeFromQueue(msgId);
+                  // tryDrainQueue will be wired in a later task — for now just go idle
+                  setQueueDrainStateFn('idle');
+                } else {
+                  removeFromQueue(msgId);
+                }
+              }}
+              onResume=${() => {
+                // resumeQueue will be wired in a later task — for now just set drain state
+                setQueueDrainStateFn('idle');
+              }}
             />
             <${InputArea}
               onSend=${sendMessage}
