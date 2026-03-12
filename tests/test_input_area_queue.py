@@ -11,7 +11,13 @@ These tests verify the HTML file contains the expected code for:
 import pathlib
 import pytest
 
-INDEX_HTML = pathlib.Path(__file__).parent.parent / "src" / "chat_plugin" / "static" / "index.html"
+INDEX_HTML = (
+    pathlib.Path(__file__).parent.parent
+    / "src"
+    / "chat_plugin"
+    / "static"
+    / "index.html"
+)
 
 
 @pytest.fixture
@@ -21,8 +27,11 @@ def html_content():
 
 class TestTask3InputAreaSignature:
     def test_inputarea_signature_has_onqueuemessage(self, html_content):
-        """InputArea function signature includes onQueueMessage prop."""
-        assert "function InputArea({ onSend, onStop, onQueueMessage, executing, shouldQueue, queueCount, viewMode, setViewMode, activeKey })" in html_content
+        """InputArea function signature includes onQueueMessage prop (queueCount removed as unused)."""
+        assert (
+            "function InputArea({ onSend, onStop, onQueueMessage, executing, shouldQueue, viewMode, setViewMode, activeKey })"
+            in html_content
+        )
 
     def test_chatapp_render_passes_onqueuemessage(self, html_content):
         """ChatApp renders InputArea with onQueueMessage prop bound to pushToQueue."""
@@ -30,11 +39,14 @@ class TestTask3InputAreaSignature:
 
     def test_chatapp_render_passes_shouldqueue(self, html_content):
         """ChatApp renders InputArea with shouldQueue prop."""
-        assert "shouldQueue=${executing || getQueueDrainState() === 'countdown'}" in html_content
+        assert (
+            "shouldQueue=${executing || getQueueDrainState() === 'countdown'}"
+            in html_content
+        )
 
-    def test_chatapp_render_passes_queuecount(self, html_content):
-        """ChatApp renders InputArea with queueCount prop."""
-        assert "queueCount=${getQueue().length}" in html_content
+    def test_chatapp_render_no_queuecount(self, html_content):
+        """ChatApp no longer passes queueCount to InputArea (unused prop removed)."""
+        assert "queueCount=${getQueue().length}" not in html_content
 
 
 class TestTask4DoSendQueueRouting:
@@ -44,7 +56,10 @@ class TestTask4DoSendQueueRouting:
 
     def test_dosend_calls_onqueuemessage(self, html_content):
         """doSend calls onQueueMessage with content and images."""
-        assert "onQueueMessage(content, pendingImages.map(d => d.split(',')[1]));" in html_content
+        assert (
+            "onQueueMessage(content, pendingImages.map(d => d.split(',')[1]));"
+            in html_content
+        )
 
     def test_dosend_no_longer_guards_on_executing(self, html_content):
         """doSend no longer returns early on executing (old guard removed)."""
@@ -56,14 +71,20 @@ class TestTask4DoSendQueueRouting:
 
     def test_dosend_slash_commands_bypass_queue(self, html_content):
         """The comment about slash commands bypassing queue is present."""
-        assert "Slash commands always bypass the queue and send directly" in html_content
+        assert (
+            "Slash commands always bypass the queue and send directly" in html_content
+        )
 
 
 class TestTask5TextareaEnabled:
     def test_textarea_placeholder_says_queue(self, html_content):
         """Textarea placeholder says 'Queue a message…' when executing."""
-        assert 'placeholder=${executing ? "Queue a message\\u2026" : "Message\\u2026 (/ for commands)"}' in html_content \
-            or 'placeholder=${executing ? "Queue a message\u2026" : "Message\u2026 (/ for commands)"}' in html_content
+        assert (
+            'placeholder=${executing ? "Queue a message\\u2026" : "Message\\u2026 (/ for commands)"}'
+            in html_content
+            or 'placeholder=${executing ? "Queue a message\u2026" : "Message\u2026 (/ for commands)"}'
+            in html_content
+        )
 
     def test_textarea_not_disabled(self, html_content):
         """Textarea no longer has disabled=${executing} attribute."""
@@ -90,9 +111,16 @@ class TestTask6SeparateButtons:
 
     def test_stop_button_conditional_on_executing(self, html_content):
         """Stop button is shown only when executing (not via ternary toggling Send off)."""
-        assert "${executing && html`<button class=\"input-btn stop-btn\" onClick=${onStop}>\\u25a0 Stop</button>`}" in html_content \
-            or "${executing && html`<button class=\"input-btn stop-btn\" onClick=${onStop}>\u25a0 Stop</button>`}" in html_content
+        assert (
+            '${executing && html`<button class="input-btn stop-btn" onClick=${onStop}>\\u25a0 Stop</button>`}'
+            in html_content
+            or '${executing && html`<button class="input-btn stop-btn" onClick=${onStop}>\u25a0 Stop</button>`}'
+            in html_content
+        )
 
     def test_old_ternary_removed(self, html_content):
         """The old executing ternary that showed EITHER Send OR Stop is removed."""
-        assert "${executing\n            ? html`<button class=\"input-btn stop-btn\"" not in html_content
+        assert (
+            '${executing\n            ? html`<button class="input-btn stop-btn"'
+            not in html_content
+        )

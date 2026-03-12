@@ -3396,7 +3396,7 @@
     `;
   }
 
-  function InputArea({ onSend, onStop, onQueueMessage, executing, shouldQueue, queueCount, viewMode, setViewMode, activeKey }) {
+  function InputArea({ onSend, onStop, onQueueMessage, executing, shouldQueue, viewMode, setViewMode, activeKey }) {
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
     const [pendingImages, setPendingImages] = useState([]);
@@ -5525,8 +5525,9 @@
       setChronoItems([]);
       orderCounterRef.current = 0;
       setTurnCount(0);
-      // Cancel any countdown from the previous session and clear new session queue
+      // Cancel any countdown and clear queue from the previous session
       cancelCountdown();
+      if (prevKey) clearSessionQueue(prevKey);
       setExecuting(false);
       setPendingApproval(null);
       placeholderIdRef.current = null;
@@ -5883,6 +5884,7 @@
       }
       // Cancel any active countdown when switching away
       cancelCountdown();
+      activeKeyRef.current = key;
 
       // Load target session
       const targetItems = target.savedItems || [];
@@ -6411,8 +6413,7 @@
                 const q = getQueue();
                 const isFirst = q.length > 0 && q[0].id === msgId;
                 if (isFirst && getQueueDrainState() === 'countdown') {
-                  if (countdownTimerRef.current) { clearTimeout(countdownTimerRef.current); countdownTimerRef.current = null; }
-                  setCountdownRemaining(null);
+                  cancelCountdown();
                   removeFromQueue(msgId);
                   tryDrainQueue();
                 } else {
@@ -6427,7 +6428,6 @@
               onQueueMessage=${pushToQueue}
               executing=${executing}
               shouldQueue=${executing || getQueueDrainState() === 'countdown'}
-              queueCount=${getQueue().length}
               viewMode=${viewMode}
               setViewMode=${setViewMode}
               activeKey=${activeKey}

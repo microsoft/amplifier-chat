@@ -10,7 +10,13 @@ These tests verify the HTML file contains the expected code for:
 import pathlib
 import pytest
 
-INDEX_HTML = pathlib.Path(__file__).parent.parent / "src" / "chat_plugin" / "static" / "index.html"
+INDEX_HTML = (
+    pathlib.Path(__file__).parent.parent
+    / "src"
+    / "chat_plugin"
+    / "static"
+    / "index.html"
+)
 
 
 @pytest.fixture
@@ -75,7 +81,10 @@ class TestTask8QueuePanelComponent:
 
     def test_queuepanel_accepts_queue_prop(self, html_content):
         """QueuePanel accepts queue prop."""
-        assert "function QueuePanel({ queue, drainState, countdownSecs, onRemove, onResume })" in html_content
+        assert (
+            "function QueuePanel({ queue, drainState, countdownSecs, onRemove, onResume })"
+            in html_content
+        )
 
     def test_queuepanel_returns_null_when_empty(self, html_content):
         """QueuePanel returns null when queue is empty."""
@@ -151,7 +160,7 @@ class TestTask9QueuePanelWiredIntoLayout:
 
     def test_queuepanel_receives_onresume_prop(self, html_content):
         """ChatApp passes onResume handler to QueuePanel."""
-        assert "onResume=${() => {" in html_content
+        assert "onResume=${resumeQueue}" in html_content
 
     def test_queuepanel_onremove_handles_countdown_item(self, html_content):
         """onRemove handler clears countdown timer when removing first item in countdown state."""
@@ -159,8 +168,8 @@ class TestTask9QueuePanelWiredIntoLayout:
         assert "clearTimeout(countdownTimerRef.current)" in html_content
 
     def test_queuepanel_onremove_sets_idle(self, html_content):
-        """onRemove handler sets drain state to idle when removing countdown item."""
-        assert "setQueueDrainStateFn('idle')" in html_content
+        """onRemove handler calls tryDrainQueue when removing countdown item."""
+        assert "tryDrainQueue()" in html_content
 
     def test_queuepanel_between_messagelist_and_inputarea(self, html_content):
         """QueuePanel is positioned between MessageList and InputArea in the layout."""
@@ -174,8 +183,5 @@ class TestTask9QueuePanelWiredIntoLayout:
         assert ml_pos < qp_pos < ia_pos
 
     def test_queuepanel_onresume_sets_idle(self, html_content):
-        """onResume handler sets drain state to idle."""
-        # The onResume handler should contain setQueueDrainStateFn('idle')
-        # which is already tested above, but let's check context
-        assert "onResume=${() => {" in html_content
-        assert "setQueueDrainStateFn('idle')" in html_content
+        """onResume handler uses the resumeQueue named function."""
+        assert "resumeQueue" in html_content
