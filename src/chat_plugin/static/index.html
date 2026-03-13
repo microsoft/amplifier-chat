@@ -979,6 +979,124 @@
       opacity: 1;
     }
 
+    /* — Welcome / Launch Pad ——————————————————————————————————— */
+    .welcome-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      min-height: 0;
+      padding: 32px 24px;
+      user-select: none;
+    }
+    .welcome-wordmark {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: var(--text-primary);
+      opacity: 0.7;
+      line-height: 1;
+    }
+    .welcome-tagline {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 10px;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+    .welcome-prompts {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      max-width: 480px;
+      width: 100%;
+    }
+    .welcome-prompt-card {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      text-align: left;
+      color: inherit;
+      font-family: inherit;
+      font-size: inherit;
+      min-height: 44px;
+    }
+    .welcome-prompt-card:hover {
+      background: var(--bg-tertiary);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    .welcome-prompt-card:active {
+      background: var(--bg-card);
+    }
+    .welcome-prompt-card:focus-visible {
+      outline: 2px solid var(--accent-blue);
+      outline-offset: 1px;
+    }
+    .welcome-prompt-cat {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .welcome-prompt-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .welcome-prompt-card:hover .welcome-prompt-text {
+      color: var(--text-primary);
+    }
+    .welcome-shuffle {
+      margin-top: 12px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      opacity: 0.5;
+      transition: opacity 0.15s, color 0.15s;
+    }
+    .welcome-shuffle:hover {
+      opacity: 1;
+      color: var(--text-secondary);
+    }
+    body[data-theme="light"] .welcome-prompt-card:hover {
+      border-color: rgba(0, 0, 0, 0.15);
+    }
+    @media (max-width: 480px) {
+      .welcome-prompts { grid-template-columns: 1fr; }
+      .welcome-state { padding: 24px 16px; }
+    }
+
+    /* — Activity Empty State ——————————————————————————————————— */
+    .activity-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      min-height: 0;
+      padding: 32px 16px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .activity-empty-state .thinking-streaming {
+      margin-top: 10px;
+    }
+
     /* Reduced motion */
     @media (prefers-reduced-motion: reduce) {
       .turn-highlighted,
@@ -987,7 +1105,9 @@
       .turn-dimmed,
       .segment-sibling,
       .activity-waypoint,
-      .activity-indicator {
+      .activity-indicator,
+      .welcome-prompt-card,
+      .welcome-shuffle {
         transition: none;
       }
     }
@@ -3224,6 +3344,109 @@
     `;
   }
 
+  // === Welcome State (Launch Pad) ===
+
+  const WELCOME_TAGLINES = [
+    ['What are you working on?', "Let's get it done."],
+    ['What are you working on?', "Let's build it together."],
+    ['What are you working on?', "Let's figure it out."],
+    ['What are you working on?', "I'll run with it."],
+    ["What do you need?", "Tell me and I'll take it from here."],
+    ["What's next?", "Let's make it happen."],
+  ];
+
+  const WELCOME_PROMPT_POOL = [
+    { cat: 'Code', prompts: [
+      'Refactor the auth module to use dependency injection',
+      'Find and fix the N+1 query problems in the API layer',
+      'Add error handling and retry logic to the payment service',
+    ]},
+    { cat: 'Plan', prompts: [
+      'Plan the migration from REST to gRPC for the user service',
+      'Break down the work needed to add multi-tenancy support',
+      'Review the recent changes for security issues and flag concerns',
+    ]},
+    { cat: 'Create', prompts: [
+      'Write release notes from the last 20 commits in this repo',
+      'Draft a technical design doc for the new caching layer',
+      'Write a postmortem for last week\'s incident',
+    ]},
+    { cat: 'Explore', prompts: [
+      'Walk me through how this service handles authentication',
+      'What are the tradeoffs of moving to event-driven architecture',
+      'Summarize the open issues and recent PRs in this repo',
+    ]},
+    { cat: 'Automate', prompts: [
+      'Create a recipe: lint, test, build, deploy with approval gates',
+      'Set up a weekly dependency update check',
+      'Search my past sessions for the Redis caching discussion',
+    ]},
+  ];
+
+  function pickWelcomeContent() {
+    // Pick a random tagline
+    const tagline = WELCOME_TAGLINES[Math.floor(Math.random() * WELCOME_TAGLINES.length)];
+    // Pick 4 of 5 categories randomly, then 1 prompt from each
+    const shuffled = [...WELCOME_PROMPT_POOL].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, 4);
+    const prompts = selected.map(bucket => ({
+      cat: bucket.cat,
+      text: bucket.prompts[Math.floor(Math.random() * bucket.prompts.length)],
+    }));
+    return { tagline, prompts };
+  }
+
+  function WelcomeState({ onSelectPrompt }) {
+    const [content, setContent] = useState(pickWelcomeContent);
+
+    const shuffle = useCallback(() => {
+      setContent(pickWelcomeContent());
+    }, []);
+
+    return html`
+      <div class="welcome-state">
+        <div class="welcome-wordmark">amplifier</div>
+        <div class="welcome-tagline">
+          ${content.tagline[0]}<br/>${content.tagline[1]}
+        </div>
+        <div class="welcome-prompts" role="group" aria-label="Suggested prompts">
+          ${content.prompts.map(p => html`
+            <button
+              class="welcome-prompt-card"
+              onClick=${() => onSelectPrompt(p.text)}
+              aria-label=${'Prompt: ' + p.text}
+            >
+              <span class="welcome-prompt-cat">${p.cat}</span>
+              <span class="welcome-prompt-text">${p.text}</span>
+            </button>
+          `)}
+        </div>
+        <button class="welcome-shuffle" onClick=${shuffle}
+          title="Show different suggestions" aria-label="Shuffle suggestions">↻</button>
+      </div>
+    `;
+  }
+
+  function ActivityEmptyState({ executing }) {
+    if (executing) {
+      return html`
+        <div class="activity-empty-state">
+          <span>Waiting for activity\u2026</span>
+          <span class="thinking-streaming">
+            <span class="thinking-dot"></span>
+            <span class="thinking-dot"></span>
+            <span class="thinking-dot"></span>
+          </span>
+        </div>
+      `;
+    }
+    return html`
+      <div class="activity-empty-state">
+        Tool calls, agent delegations, and reasoning<br/>traces appear here during execution.
+      </div>
+    `;
+  }
+
   function ActivityBreadcrumb({ turnMap, scrollTurnId, onNavigateToMessage }) {
     if (!scrollTurnId || !turnMap.has(scrollTurnId)) return null;
     if (turnMap.size <= 1) return null;
@@ -3547,6 +3770,8 @@
     subSessionsRef,
     subSessionRevision,
     onNavigateSession,
+    // Welcome state
+    onSelectPrompt,
     // Turn correlation props
     turnMap,
     itemTurnMap,
@@ -3709,6 +3934,9 @@
     return html`
       <div class="message-list-wrap">
         <div id="message-list" ref=${listRef} onScroll=${updateScrollState}>
+          ${sorted.length === 0 && onSelectPrompt && html`
+            <${WelcomeState} onSelectPrompt=${onSelectPrompt} />
+          `}
           ${sorted.map((item, i) => {
             const turnId = itemTurnMap ? itemTurnMap.get(item.id) : null;
             const prevTurnId = i > 0 ? (itemTurnMap ? itemTurnMap.get(sorted[i - 1].id) : null) : null;
@@ -6905,6 +7133,20 @@
 
     // Toggle turn/segment selection (click/tap).
     // User message click → turn-level. Assistant message click → segment-level.
+    // Welcome state: populate input when user clicks a prompt card
+    const handleSelectPrompt = useCallback((text) => {
+      const textarea = document.getElementById('message-input');
+      if (!textarea) return;
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype, 'value'
+      ).set;
+      nativeSetter.call(textarea, text);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.focus();
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }, []);
+
     const handleTurnSelect = useCallback((turnId, segId) => {
       if (segId) {
         // Segment-level: toggle segment within turn
@@ -7280,6 +7522,7 @@
               subSessionsRef=${subSessionsRef}
               subSessionRevision=${subSessionRevision}
               onNavigateSession=${navigateToSession}
+              onSelectPrompt=${handleSelectPrompt}
               turnMap=${viewMode === 'workspace' ? turnMap : undefined}
               itemTurnMap=${viewMode === 'workspace' ? itemTurnMap : undefined}
               hoveredTurnId=${viewMode === 'workspace' ? hoveredTurnId : undefined}
@@ -7342,30 +7585,33 @@
                 }}
               />
               <div class="activity-scroll" ref=${activityScrollRef}>
-                <${MessageList}
-                  items=${chronoItems}
-                  filterFn=${activityFilter}
-                  sessionKey=${(activeKey || 'none') + ':activity'}
-                  showJumpControls=${true}
-                  subSessionsRef=${subSessionsRef}
-                  subSessionRevision=${subSessionRevision}
-                  onNavigateSession=${navigateToSession}
-                  turnMap=${turnMap}
-                  itemTurnMap=${itemTurnMap}
-                  hoveredTurnId=${hoveredTurnId}
-                  setHoveredTurnId=${setHoveredTurnId}
-                  selectedTurnId=${selectedTurnId}
-                  selectedSegmentId=${selectedSegmentId}
-                  segmentMap=${segmentMap}
-                  onTurnSelect=${(turnId, segId) => {
-                    handleTurnSelect(turnId, segId);
-                  }}
-                  isActivityPanel=${true}
-                  onTurnSeparatorClick=${(turnId) => {
-                    scrollMainToTurn(turnId);
-                  }}
-                  onScrollTurnChange=${setActiveTurnId}
-                />
+                ${chronoItems.filter(activityFilter || (() => true)).length === 0
+                  ? html`<${ActivityEmptyState} executing=${executing} />`
+                  : html`<${MessageList}
+                    items=${chronoItems}
+                    filterFn=${activityFilter}
+                    sessionKey=${(activeKey || 'none') + ':activity'}
+                    showJumpControls=${true}
+                    subSessionsRef=${subSessionsRef}
+                    subSessionRevision=${subSessionRevision}
+                    onNavigateSession=${navigateToSession}
+                    turnMap=${turnMap}
+                    itemTurnMap=${itemTurnMap}
+                    hoveredTurnId=${hoveredTurnId}
+                    setHoveredTurnId=${setHoveredTurnId}
+                    selectedTurnId=${selectedTurnId}
+                    selectedSegmentId=${selectedSegmentId}
+                    segmentMap=${segmentMap}
+                    onTurnSelect=${(turnId, segId) => {
+                      handleTurnSelect(turnId, segId);
+                    }}
+                    isActivityPanel=${true}
+                    onTurnSeparatorClick=${(turnId) => {
+                      scrollMainToTurn(turnId);
+                    }}
+                    onScrollTurnChange=${setActiveTurnId}
+                  />`
+                }
               </div>
             </div>
           `}
