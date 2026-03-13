@@ -830,6 +830,8 @@
     /* Turn hover preview (desktop only, lightweight) */
     .turn-highlighted {
       background: var(--turn-highlight);
+      padding: 4px;
+      border-radius: 4px;
       transition: background 120ms ease-out;
     }
     /* Bridge gaps between consecutive highlighted items on hover */
@@ -844,7 +846,8 @@
     }
     .turn-selected.turn-selected-border {
       border-left: 3px solid var(--turn-selected-accent);
-      padding-left: 5px;
+      padding: 4px 4px 4px 6px;
+      border-radius: 4px;
       position: relative;
     }
     /* Bridge background gaps between consecutive selected activity items */
