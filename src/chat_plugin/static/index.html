@@ -895,6 +895,37 @@
       transition: opacity 150ms ease-out;
     }
 
+    /* Activity indicators — passive discoverability in main message panel */
+    .activity-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      line-height: 1;
+      color: var(--text-muted);
+      padding: 3px 0 0;
+      opacity: 0.45;
+      transition: opacity 120ms ease;
+      cursor: pointer;
+      user-select: none;
+    }
+    .activity-indicator:hover {
+      opacity: 0.8;
+    }
+    .activity-indicator.align-right {
+      justify-content: flex-end;
+    }
+    .activity-ind-thinking {
+      color: rgba(139, 92, 246, 0.75);
+    }
+    .activity-ind-sep {
+      opacity: 0.35;
+    }
+    /* Boost indicator visibility when parent message is selected */
+    .turn-selected-message .activity-indicator {
+      opacity: 0.7;
+    }
+
     /* Reduced motion */
     @media (prefers-reduced-motion: reduce) {
       .turn-highlighted,
@@ -902,7 +933,8 @@
       .turn-selected-message,
       .turn-dimmed,
       .segment-sibling,
-      .activity-waypoint {
+      .activity-waypoint,
+      .activity-indicator {
         transition: none;
       }
     }
@@ -2718,6 +2750,39 @@
   }
 
   /**
+   * Compute activity counts per turn and per segment for passive indicators.
+   * Returns turnCounts (Map<turnId, {thinking, tools}>) and
+   * segmentCounts (Map<segmentId, {thinking, tools}>).
+   */
+  function computeActivityCounts(items, itemTurnMap, segmentMap) {
+    const turnCounts = new Map();
+    const segmentCounts = new Map();
+
+    for (const item of items) {
+      if (item.type === 'text' || item.type === 'token_usage') continue;
+
+      const turnId = itemTurnMap ? itemTurnMap.get(item.id) : null;
+      const segId = segmentMap ? segmentMap.get(item.id) : null;
+
+      if (turnId) {
+        if (!turnCounts.has(turnId)) turnCounts.set(turnId, { thinking: 0, tools: 0 });
+        const tc = turnCounts.get(turnId);
+        if (item.type === 'thinking') tc.thinking++;
+        else if (item.type === 'tool_call') tc.tools++;
+      }
+
+      if (segId) {
+        if (!segmentCounts.has(segId)) segmentCounts.set(segId, { thinking: 0, tools: 0 });
+        const sc = segmentCounts.get(segId);
+        if (item.type === 'thinking') sc.thinking++;
+        else if (item.type === 'tool_call') sc.tools++;
+      }
+    }
+
+    return { turnCounts, segmentCounts };
+  }
+
+  /**
    * Post-process chrono items to reconstruct sub-sessions from saved transcripts.
    * Delegation tool calls (delegate/task) with originSessionId are identified,
    * and content items belonging to child sessions are moved into SubSession entries
@@ -3002,6 +3067,33 @@
           title="Scroll to this message"
           aria-label=${'Navigate to turn ' + turn.turnNumber + ' message'}>↗</button>
       </nav>
+    `;
+  }
+
+  /**
+   * Passive activity indicator — shows activity summary below messages
+   * in the main panel so users can see at a glance which messages have
+   * associated activities without clicking.
+   */
+  function ActivityIndicator({ counts, alignRight }) {
+    if (!counts || (counts.thinking === 0 && counts.tools === 0)) return null;
+
+    const parts = [];
+    if (counts.thinking > 0) {
+      parts.push(html`<span class="activity-ind-thinking">thinking</span>`);
+    }
+    if (counts.tools > 0) {
+      parts.push(html`<span>${counts.tools} tool${counts.tools !== 1 ? 's' : ''}</span>`);
+    }
+
+    return html`
+      <div class=${'activity-indicator' + (alignRight ? ' align-right' : '')}
+        aria-label=${(counts.thinking ? counts.thinking + ' thinking block' + (counts.thinking !== 1 ? 's' : '') : '')
+          + (counts.thinking && counts.tools ? ', ' : '')
+          + (counts.tools ? counts.tools + ' tool call' + (counts.tools !== 1 ? 's' : '') : '')}>
+        ${parts.map((p, i) => html`${p}${i < parts.length - 1
+          ? html`<span class="activity-ind-sep">${'\u00b7'}</span>` : null}`)}
+      </div>
     `;
   }
 
@@ -3291,6 +3383,9 @@
     isActivityPanel = false,
     onTurnSeparatorClick,
     onScrollTurnChange,
+    // Activity indicator counts (main panel only)
+    turnActivityCounts,
+    segmentActivityCounts,
   }) {
     // Hover debounce: 50ms intent delay to prevent strobe during fast scanning
     const hoverTimerRef = useRef(null);
@@ -3518,6 +3613,13 @@
                   } : undefined}
                   subSessionsRef=${subSessionsRef} subSessionRevision=${subSessionRevision}
                   onNavigateSession=${onNavigateSession} />
+                ${!isActivityPanel && item.type === 'text' && (() => {
+                  const isUser = item.role === 'user';
+                  const counts = isUser
+                    ? (turnActivityCounts && turnId ? turnActivityCounts.get(turnId) : null)
+                    : (segmentActivityCounts && itemSegId ? segmentActivityCounts.get(itemSegId) : null);
+                  return counts && html`<${ActivityIndicator} counts=${counts} alignRight=${isUser} />`;
+                })()}
               </div>
             `;
           })}
@@ -6361,6 +6463,8 @@
 
     // Turn correlation
     const { turnMap, itemTurnMap, segmentMap } = useMemo(() => deriveTurns(chronoItems), [chronoItems]);
+    const { turnCounts: turnActivityCounts, segmentCounts: segmentActivityCounts } =
+      useMemo(() => computeActivityCounts(chronoItems, itemTurnMap, segmentMap), [chronoItems, itemTurnMap, segmentMap]);
     const [hoveredTurnId, setHoveredTurnId] = useState(null);
     const [activeTurnId, setActiveTurnId] = useState(null);
     const [selectedTurnId, setSelectedTurnId] = useState(null);
@@ -6712,6 +6816,8 @@
                 handleTurnSelect(turnId, segId);
                 scrollActivityToTurn(turnId);
               } : undefined}
+              turnActivityCounts=${viewMode === 'workspace' ? turnActivityCounts : undefined}
+              segmentActivityCounts=${viewMode === 'workspace' ? segmentActivityCounts : undefined}
             />
             <${InputArea}
               onSend=${sendMessage}
