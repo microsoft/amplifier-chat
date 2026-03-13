@@ -3650,7 +3650,7 @@
                 onMouseLeave=${() => debouncedSetHoveredTurnId(null)}
                 onClick=${handleClick}
                 style=${(item.type === 'text' && item.role === 'user' && !isActivityPanel
-                  ? 'cursor: pointer; align-self: flex-end; max-width: 75%;'
+                  ? 'cursor: pointer; align-self: flex-end; max-width: 75%; display: flex; flex-direction: column; align-items: flex-end;'
                   : turnId ? 'cursor: pointer;' : undefined)}>
                 <${ChronoItem} key=${item.id} item=${item}
                   isActivity=${isActivityPanel}
@@ -6586,6 +6586,7 @@
       <div id="header">
         <button
           class="hamburger"
+          title="Sessions"
           aria-label=${mobileSidebarOpen ? 'Close sessions panel' : 'Open sessions panel'}
           aria-controls="session-panel"
           aria-expanded=${mobileSidebarOpen ? 'true' : 'false'}
