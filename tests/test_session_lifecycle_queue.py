@@ -26,21 +26,18 @@ def html_content():
 
 
 class TestTask19SwitchSessionCountdown:
-    def test_switch_session_cancels_countdown_after_save(self, html_content):
-        """switchSession calls cancelCountdown() after saving the current session."""
-        # After the setSessions block that saves savedItems/savedTurnCount,
-        # cancelCountdown() must appear before the "Load target session" section.
-        save_block = "savedTurnCount: turnCountRef.current,"
-        cancel_call = "cancelCountdown();"
-        load_target = "// Load target session"
-        save_pos = html_content.find(save_block)
-        cancel_pos = html_content.find(cancel_call, save_pos)
-        load_pos = html_content.find(load_target, save_pos)
-        assert save_pos != -1, "save block not found"
-        assert cancel_pos != -1, "cancelCountdown() not found after save block"
-        assert load_pos != -1, "load target comment not found"
-        assert save_pos < cancel_pos < load_pos, (
-            "cancelCountdown() must be between save block and load target"
+    def test_switch_session_cancels_countdown_before_early_returns(self, html_content):
+        """switchSession calls cancelCountdown(currentKey) before any early returns."""
+        # cancelCountdown must appear before the history early-return to prevent
+        # countdowns surviving a session switch to a history session.
+        cancel_call = "cancelCountdown(currentKey)"
+        history_check = "target.source === 'history'"
+        cancel_pos = html_content.find(cancel_call)
+        history_pos = html_content.find(history_check)
+        assert cancel_pos != -1, "cancelCountdown(currentKey) not found"
+        assert history_pos != -1, "history source check not found"
+        assert cancel_pos < history_pos, (
+            "cancelCountdown(currentKey) must appear before history early-return"
         )
 
     def test_switch_session_restarts_countdown_for_target(self, html_content):
@@ -48,18 +45,18 @@ class TestTask19SwitchSessionCountdown:
         # The condition now guards against running sessions too
         assert "getQueueDrainState(key) === 'countdown'" in html_content
 
-    def test_switch_session_calls_try_drain_queue_on_restore(self, html_content):
-        """switchSession calls tryDrainQueue() when restoring a countdown session."""
-        # The pattern: if getQueueDrainState(key) === 'countdown' → tryDrainQueue()
-        # Verify both appear near each other in the switchSession context
+    def test_switch_session_resets_stale_countdown_state_on_restore(self, html_content):
+        """switchSession resets stale countdown drain state when restoring a session."""
+        # The pattern: if getQueueDrainState(key) === 'countdown' → reset to idle
+        # This prevents the queue from getting permanently stuck
         check = "getQueueDrainState(key) === 'countdown'"
-        try_drain = "tryDrainQueue();"
+        reset = "setQueueDrainStateFn('idle', key)"
         check_pos = html_content.find(check)
         assert check_pos != -1, "getQueueDrainState(key) check not found"
-        # tryDrainQueue() should appear within a short window after the check
+        # The idle reset should appear within a short window after the check
         nearby = html_content[check_pos : check_pos + 200]
-        assert try_drain in nearby, (
-            "tryDrainQueue() not found near getQueueDrainState(key) check"
+        assert reset in nearby, (
+            "setQueueDrainStateFn('idle', key) not found near getQueueDrainState(key) check"
         )
 
     def test_switch_session_countdown_restart_after_set_executing(self, html_content):

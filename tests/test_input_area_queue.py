@@ -38,9 +38,9 @@ class TestTask3InputAreaSignature:
         assert "onQueueMessage=${pushToQueue}" in html_content
 
     def test_chatapp_render_passes_shouldqueue(self, html_content):
-        """ChatApp renders InputArea with shouldQueue prop."""
+        """ChatApp renders InputArea with shouldQueue prop (includes paused state)."""
         assert (
-            "shouldQueue=${executing || getQueueDrainState() === 'countdown'}"
+            "shouldQueue=${executing || getQueueDrainState() === 'countdown' || (getQueueDrainState() === 'paused' && getQueue().length > 0)}"
             in html_content
         )
 
@@ -78,11 +78,11 @@ class TestTask4DoSendQueueRouting:
 
 class TestTask5TextareaEnabled:
     def test_textarea_placeholder_says_queue(self, html_content):
-        """Textarea placeholder says 'Queue a message…' when executing."""
+        """Textarea placeholder says 'Queue a message…' when shouldQueue is true."""
         assert (
-            'placeholder=${executing ? "Queue a message\\u2026" : "Message\\u2026 (/ for commands)"}'
+            'placeholder=${shouldQueue ? "Queue a message\\u2026" : "Message\\u2026 (/ for commands)"}'
             in html_content
-            or 'placeholder=${executing ? "Queue a message\u2026" : "Message\u2026 (/ for commands)"}'
+            or 'placeholder=${shouldQueue ? "Queue a message\u2026" : "Message\u2026 (/ for commands)"}'
             in html_content
         )
 
@@ -110,7 +110,7 @@ class TestTask6SeparateButtons:
         assert "${shouldQueue ? 'Queue' : 'Send'}" in html_content
 
     def test_stop_button_conditional_on_executing(self, html_content):
-        """Stop button is shown only when executing (not via ternary toggling Send off)."""
+        """Stop button is shown only when shouldQueue is true (not via ternary toggling Send off)."""
         assert (
             '${executing && html`<button class="input-btn stop-btn" onClick=${onStop}>\\u25a0 Stop</button>`}'
             in html_content

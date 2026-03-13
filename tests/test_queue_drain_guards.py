@@ -86,22 +86,26 @@ class TestExecutingRef:
         )
 
     def test_countdown_callback_has_executing_ref_guard(self):
-        """The startCountdown callback must abort if executing when it fires."""
+        """The startCountdown callback must abort if executing or session switched when it fires."""
         content = html()
         fn_pos = content.find("function tryDrainQueue()")
-        fn_body = content[fn_pos : fn_pos + 800]
-        assert "if (executingRef.current) {" in fn_body, (
-            "executingRef guard not found inside tryDrainQueue countdown callback"
+        fn_body = content[fn_pos : fn_pos + 1000]
+        assert (
+            "if (executingRef.current || activeKeyRef.current !== key) {" in fn_body
+        ), (
+            "executingRef + activeKey guard not found inside tryDrainQueue countdown callback"
         )
 
     def test_countdown_callback_guard_resets_drain_state_to_idle(self):
         """When the countdown guard fires, drain state must be reset to idle."""
         content = html()
         fn_pos = content.find("function tryDrainQueue()")
-        fn_body = content[fn_pos : fn_pos + 800]
-        guard_pos = fn_body.find("if (executingRef.current) {")
+        fn_body = content[fn_pos : fn_pos + 1000]
+        guard_pos = fn_body.find(
+            "if (executingRef.current || activeKeyRef.current !== key) {"
+        )
         assert guard_pos != -1
-        guard_block = fn_body[guard_pos : guard_pos + 120]
+        guard_block = fn_body[guard_pos : guard_pos + 150]
         assert "setQueueDrainStateFn('idle', key)" in guard_block, (
             f"idle reset not in executingRef guard block: {guard_block!r}"
         )
@@ -148,9 +152,7 @@ class TestSwitchSessionRunningGuard:
         """The target.status check must be on the same line as the countdown drain call."""
         content = html()
         guard = "target.status !== 'running' && getQueueDrainState(key) === 'countdown'"
-        assert guard in content, (
-            f"Combined guard not found: {guard!r}"
-        )
+        assert guard in content, f"Combined guard not found: {guard!r}"
 
     def test_switch_session_drain_guard_after_set_executing(self):
         """The running guard must come after setExecuting(target.status === 'running')."""
@@ -160,7 +162,5 @@ class TestSwitchSessionRunningGuard:
         exec_pos = content.find(set_exec)
         guard_pos = content.find(guard, exec_pos)
         assert exec_pos != -1, "setExecuting(target.status === 'running') not found"
-        assert guard_pos != -1, (
-            "Combined running guard not found after setExecuting"
-        )
+        assert guard_pos != -1, "Combined running guard not found after setExecuting"
         assert exec_pos < guard_pos

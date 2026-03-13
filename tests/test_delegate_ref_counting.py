@@ -85,18 +85,21 @@ class TestSessionForkIncrement:
             "activeDelegatesRef increment must be inside session_fork case block"
         )
 
-    def test_session_fork_increment_at_top_of_case(self):
-        """The increment must be near the TOP of the session_fork case (before other logic)."""
+    def test_session_fork_increment_after_validation(self):
+        """The increment must appear after sub-session validation (not at top, to avoid orphaned counts)."""
         content = html()
         fork_case = "case 'session_fork':"
         increment = "activeDelegatesRef.current += 1;"
+        early_exit = "if (!parentToolCallId || !parentItemId) break;"
         fork_pos = content.find(fork_case)
         assert fork_pos != -1
+        exit_pos = content.find(early_exit, fork_pos)
         inc_pos = content.find(increment, fork_pos)
-        assert inc_pos != -1
-        # The increment should appear within ~200 chars of the case statement
-        assert (inc_pos - fork_pos) < 200, (
-            f"Increment ({inc_pos - fork_pos} chars from case) not near top of session_fork"
+        assert exit_pos != -1, "early exit guard not found in session_fork"
+        assert inc_pos != -1, "increment not found in session_fork"
+        # The increment must appear AFTER the early exit guard (only count trackable delegates)
+        assert inc_pos > exit_pos, (
+            "Increment must appear after parentToolCallId/parentItemId validation"
         )
 
 
@@ -137,10 +140,13 @@ class TestToolResultDecrement:
 
 
 class TestPromptCompleteGuard:
-    def test_prompt_complete_has_delegate_guard(self):
-        """prompt_complete must have activeDelegatesRef guard for setExecuting/drain."""
+    def test_prompt_complete_has_delegate_and_session_guard(self):
+        """prompt_complete must have activeDelegatesRef + ownerKey guard for setExecuting/drain."""
         content = html()
-        assert "if (activeDelegatesRef.current <= 0)" in content
+        assert (
+            "if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current)"
+            in content
+        )
 
     def test_prompt_complete_set_executing_inside_delegate_guard(self):
         """setExecuting(false) in prompt_complete must be inside activeDelegatesRef guard."""
@@ -149,11 +155,13 @@ class TestPromptCompleteGuard:
         case_pos = content.find(prompt_complete_case)
         assert case_pos != -1, "prompt_complete case not found"
         # Find the guard within the prompt_complete block
-        guard = "if (activeDelegatesRef.current <= 0)"
+        guard = (
+            "if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current)"
+        )
         guard_pos = content.find(guard, case_pos)
-        assert guard_pos != -1, "delegate guard not found in prompt_complete"
-        # setExecuting(false) must appear inside the guard (within ~200 chars)
-        nearby = content[guard_pos : guard_pos + 200]
+        assert guard_pos != -1, "delegate+session guard not found in prompt_complete"
+        # setExecuting(false) must appear inside the guard (within ~300 chars)
+        nearby = content[guard_pos : guard_pos + 300]
         assert "setExecuting(false);" in nearby, (
             f"setExecuting(false) not inside delegate guard: {nearby!r}"
         )
@@ -164,10 +172,12 @@ class TestPromptCompleteGuard:
         prompt_complete_case = "case 'prompt_complete':"
         case_pos = content.find(prompt_complete_case)
         assert case_pos != -1
-        guard = "if (activeDelegatesRef.current <= 0)"
+        guard = (
+            "if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current)"
+        )
         guard_pos = content.find(guard, case_pos)
         assert guard_pos != -1
-        nearby = content[guard_pos : guard_pos + 200]
+        nearby = content[guard_pos : guard_pos + 300]
         assert "tryDrainQueue();" in nearby, (
             f"tryDrainQueue() not inside delegate guard: {nearby!r}"
         )
@@ -179,15 +189,15 @@ class TestPromptCompleteGuard:
 
 
 class TestExecutionCancelledGuard:
-    def test_execution_cancelled_has_delegate_guard(self):
-        """execution_cancelled must guard setExecuting/drain with activeDelegatesRef."""
+    def test_execution_cancelled_has_delegate_and_session_guard(self):
+        """execution_cancelled must guard setExecuting/drain with activeDelegatesRef + ownerKey."""
         content = html()
         cancelled_case = "case 'execution_cancelled':"
         case_pos = content.find(cancelled_case)
         assert case_pos != -1, "execution_cancelled case not found"
-        guard = "if (activeDelegatesRef.current <= 0)"
+        guard = "if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current)"
         guard_pos = content.find(guard, case_pos)
-        assert guard_pos != -1, "delegate guard not found in execution_cancelled"
+        assert guard_pos != -1, "delegate+session guard not found in execution_cancelled"
 
     def test_execution_cancelled_set_executing_inside_guard(self):
         """setExecuting(false) in execution_cancelled must be inside delegate guard."""
@@ -195,10 +205,10 @@ class TestExecutionCancelledGuard:
         cancelled_case = "case 'execution_cancelled':"
         case_pos = content.find(cancelled_case)
         assert case_pos != -1
-        guard = "if (activeDelegatesRef.current <= 0)"
+        guard = "if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current)"
         guard_pos = content.find(guard, case_pos)
         assert guard_pos != -1
-        nearby = content[guard_pos : guard_pos + 200]
+        nearby = content[guard_pos : guard_pos + 300]
         assert "setExecuting(false);" in nearby
         assert "tryDrainQueue();" in nearby
 
@@ -209,15 +219,15 @@ class TestExecutionCancelledGuard:
 
 
 class TestExecutionErrorGuard:
-    def test_execution_error_has_delegate_guard(self):
-        """execution_error must guard setExecuting/drain with activeDelegatesRef."""
+    def test_execution_error_has_delegate_and_session_guard(self):
+        """execution_error must guard setExecuting/drain with activeDelegatesRef + ownerKey."""
         content = html()
         error_case = "case 'execution_error':"
         case_pos = content.find(error_case)
         assert case_pos != -1, "execution_error case not found"
-        guard = "if (activeDelegatesRef.current <= 0)"
+        guard = "if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current)"
         guard_pos = content.find(guard, case_pos)
-        assert guard_pos != -1, "delegate guard not found in execution_error"
+        assert guard_pos != -1, "delegate+session guard not found in execution_error"
 
     def test_execution_error_set_executing_inside_guard(self):
         """setExecuting(false) in execution_error must be inside delegate guard."""
@@ -225,10 +235,10 @@ class TestExecutionErrorGuard:
         error_case = "case 'execution_error':"
         case_pos = content.find(error_case)
         assert case_pos != -1
-        guard = "if (activeDelegatesRef.current <= 0)"
+        guard = "if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current)"
         guard_pos = content.find(guard, case_pos)
         assert guard_pos != -1
-        nearby = content[guard_pos : guard_pos + 200]
+        nearby = content[guard_pos : guard_pos + 300]
         assert "setExecuting(false);" in nearby
         assert "tryDrainQueue();" in nearby
 
@@ -283,7 +293,10 @@ class TestSessionResetDelegateCount:
         ss_pos = content.find(switch_session_def)
         assert ss_pos != -1
         body = content[ss_pos : ss_pos + 3000]
-        cancel_pos = body.find("cancelCountdown();")
+        # cancelCountdown now accepts a session key parameter
+        cancel_pos = body.find("cancelCountdown(currentKey)")
+        if cancel_pos == -1:
+            cancel_pos = body.find("cancelCountdown(")
         reset_pos = body.find("activeDelegatesRef.current = 0;")
         assert cancel_pos != -1, "cancelCountdown() not found in switchSession"
         assert reset_pos != -1, "activeDelegatesRef reset not found in switchSession"

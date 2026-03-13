@@ -1555,7 +1555,7 @@
       border-radius: 6px;
       background: var(--bg-tertiary, var(--bg));
       font-size: 13px;
-      color: var(--text);
+      color: var(--text-primary, var(--text, #ccc));
       border-left: 3px solid transparent;
     }
     .queue-item--countdown {
@@ -1603,7 +1603,7 @@
       /* 44px min tap target for accessibility */
     }
     .queue-item-remove:hover {
-      color: var(--text);
+      color: var(--text-primary, var(--text, #ccc));
       background: var(--bg-hover, rgba(128,128,128,0.1));
     }
     .queue-panel-btn {
@@ -1616,8 +1616,8 @@
       margin-top: 4px;
       border: 1px solid var(--border);
       border-radius: 6px;
-      background: var(--bg);
-      color: var(--text);
+      background: var(--bg-tertiary, var(--bg, transparent));
+      color: var(--text-primary, var(--text, #ccc));
       font-size: 13px;
       cursor: pointer;
       /* 44px min tap target for accessibility */
@@ -1656,11 +1656,13 @@
       const resp = await fetch(`${API_BASE}/sessions/${sessionId}`);
       return resp.json();
     },
-    async executeStream(sessionId, prompt) {
+    async executeStream(sessionId, prompt, images) {
+      const body = { prompt };
+      if (images && images.length > 0) body.images = images;
       const resp = await fetch(`${API_BASE}/sessions/${sessionId}/execute/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(body),
       });
       return resp.json();
     },
@@ -3584,7 +3586,7 @@
           <textarea
             id="message-input"
             ref=${textareaRef}
-            placeholder=${executing ? "Queue a message…" : "Message… (/ for commands)"}
+            placeholder=${shouldQueue ? "Queue a message…" : "Message… (/ for commands)"}
             rows="1"
             style=${{ opacity: 1 }}
             aria-label="Message input"
@@ -3745,8 +3747,8 @@
       setQueueVersion(v => v + 1);
     }
 
-    function removeFromQueue(msgId) {
-      const key = activeKeyRef.current;
+    function removeFromQueue(msgId, sessionKey) {
+      const key = sessionKey || activeKeyRef.current;
       if (!key) return;
       const queue = (msgQueueRef.current.get(key) || []).filter(m => m.id !== msgId);
       if (queue.length === 0) {
@@ -3754,6 +3756,15 @@
       } else {
         msgQueueRef.current.set(key, queue);
       }
+      setQueueVersion(v => v + 1);
+    }
+
+    function prependToQueue(msg, sessionKey) {
+      const key = sessionKey || activeKeyRef.current;
+      if (!key) return;
+      const queue = msgQueueRef.current.get(key) || [];
+      queue.unshift(msg);
+      msgQueueRef.current.set(key, queue);
       setQueueVersion(v => v + 1);
     }
 
@@ -3773,12 +3784,21 @@
       setQueueVersion(v => v + 1);
     }
 
-    function cancelCountdown() {
+    function cancelCountdown(sessionKey) {
+      const hadActiveTimer = !!countdownTimerRef.current;
       if (countdownTimerRef.current) {
         clearTimeout(countdownTimerRef.current);
         countdownTimerRef.current = null;
       }
       setCountdownRemaining(null);
+      // Only reset drain state when actually cancelling an active countdown
+      // (not when startCountdown calls us to clear before starting a new one)
+      if (hadActiveTimer) {
+        const key = sessionKey || activeKeyRef.current;
+        if (key && getQueueDrainState(key) === 'countdown') {
+          setQueueDrainStateFn('idle', key);
+        }
+      }
     }
 
     function startCountdown(callback) {
@@ -3811,7 +3831,11 @@
       }
       setQueueDrainStateFn('countdown', key);
       startCountdown(() => {
-        if (executingRef.current) { setQueueDrainStateFn('idle', key); return; }
+        // Guard: session switched away or execution started while counting down
+        if (executingRef.current || activeKeyRef.current !== key) {
+          setQueueDrainStateFn('idle', key);
+          return;
+        }
         // Pop the first item and send it
         const q = getQueue(key);
         if (q.length === 0) {
@@ -3819,9 +3843,15 @@
           return;
         }
         const nextMsg = q[0];
-        removeFromQueue(nextMsg.id);
+        removeFromQueue(nextMsg.id, key);
         setQueueDrainStateFn('idle', key);
-        sendMessage(nextMsg.content, nextMsg.images || []);
+        // sendMessage may fail — if so, re-push the item to front of queue
+        try {
+          sendMessage(nextMsg.content, nextMsg.images || []);
+        } catch (err) {
+          console.error('[queue] sendMessage failed for queued item, re-queuing', err);
+          prependToQueue(nextMsg, key);
+        }
       });
     }
 
@@ -4668,7 +4698,6 @@
         }
 
         case 'session_fork': {
-          activeDelegatesRef.current += 1;
           const childId = typeof msg.child_id === 'string' ? msg.child_id : null;
           applySessionForkLineage(msg);
 
@@ -4693,6 +4722,8 @@
 
           if (!parentToolCallId || !parentItemId) break;
 
+          // Only count delegates we can actually track (after sub-session confirmed)
+          activeDelegatesRef.current += 1;
           if (childId) childToToolRef.current[childId] = parentToolCallId;
 
           createSubSession(parentToolCallId, childId, msg.agent);
@@ -4746,8 +4777,9 @@
               });
               return next;
             });
-            if (activeDelegatesRef.current <= 0) {
+            if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current) {
               setExecuting(false);
+              executingRef.current = false;
               tryDrainQueue();
             }
             setTurnCount(nextTurn ?? (turnCountRef.current + 1));
@@ -4779,8 +4811,9 @@
             next.set(ownerKey, { ...s, status: 'idle' });
             return next;
           });
-          if (activeDelegatesRef.current <= 0) {
+          if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current) {
             setExecuting(false);
+            executingRef.current = false;
             tryDrainQueue();
           }
           break;
@@ -4802,8 +4835,9 @@
             });
             return next;
           });
-          if (activeDelegatesRef.current <= 0) {
+          if (activeDelegatesRef.current <= 0 && ownerKey === activeKeyRef.current) {
             setExecuting(false);
+            executingRef.current = false;
             tryDrainQueue();
           }
           setChronoItems(prev => [...prev, {
@@ -5464,7 +5498,7 @@
       });
 
       // Kick off the SSE-streamed execution via REST
-      api.executeStream(sessionId, content).catch(err => {
+      api.executeStream(sessionId, content, images).catch(err => {
         console.error('[chat] executeStream failed', err);
         setChronoItems(prev => [...prev, {
           id: makeId(), type: 'text', role: 'system',
@@ -5472,6 +5506,7 @@
           streaming: false, order: orderCounterRef.current++,
         }]);
         setExecuting(false);
+        executingRef.current = false;
         tryDrainQueue();
       });
     }, [connect]);
@@ -5880,6 +5915,11 @@
       }
 
       const target = sessions.get(key) || {};
+
+      // Cancel any active countdown when switching away (must happen before any early return)
+      cancelCountdown(currentKey);
+      activeDelegatesRef.current = 0;
+
       if (target.source === 'history') {
         resumeHistorySession(key);
         return;
@@ -5898,9 +5938,6 @@
           return next;
         });
       }
-      // Cancel any active countdown when switching away
-      cancelCountdown();
-      activeDelegatesRef.current = 0;
       activeKeyRef.current = key;
 
       // Load target session
@@ -6444,7 +6481,7 @@
               onStop=${stopExecution}
               onQueueMessage=${pushToQueue}
               executing=${executing}
-              shouldQueue=${executing || getQueueDrainState() === 'countdown'}
+              shouldQueue=${executing || getQueueDrainState() === 'countdown' || (getQueueDrainState() === 'paused' && getQueue().length > 0)}
               viewMode=${viewMode}
               setViewMode=${setViewMode}
               activeKey=${activeKey}
