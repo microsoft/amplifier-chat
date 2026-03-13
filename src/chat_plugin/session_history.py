@@ -256,41 +256,61 @@ def scan_sessions(
     projects_dir: Path | None,
     limit: int = 200,
     offset: int = 0,
-) -> tuple[list[dict[str, Any]], int]:
+    *,
+    pinned_ids: set[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     """Scan projects_dir and return lightweight metadata for the requested page.
 
     Walks the two-level projects/{slug}/sessions/{id}/ tree.
 
     Two-phase algorithm for efficiency at scale:
       Phase 1 — cheap stat() all session dirs (~0.03 s for 5 000 dirs).
-                Sort newest-first by mtime. Record total_count.
-      Phase 2 — parallel full-read of only the offset:offset+limit window.
+                Sort newest-first by mtime. Split into pinned/regular.
+                Record total_count from regular entries only.
+      Phase 2 — parallel full-read of pinned entries + offset:offset+limit
+                window of regular entries.
+
+    Args:
+        projects_dir: Root directory containing project subdirectories.
+        limit: Maximum number of regular (non-pinned) sessions to return.
+        offset: Number of regular sessions to skip (for pagination).
+        pinned_ids: Set of session IDs that should be returned as pinned,
+            outside the normal pagination window. Defaults to empty set.
 
     Returns:
-        (sessions, total_count) where *sessions* is the requested page
-        (already sorted newest-first) and *total_count* is the total number
-        of discovered session directories (before any caller-side filtering).
+        (regular_results, pinned_results, total_count) where *regular_results*
+        is the paginated page of non-pinned sessions (sorted newest-first),
+        *pinned_results* is all pinned sessions (sorted newest-first), and
+        *total_count* is the total number of non-pinned session directories
+        (before any caller-side content filtering).
 
     Never raises — malformed sessions are included with degraded metadata.
     """
     if projects_dir is None:
-        return [], 0
+        return [], [], 0
+
+    pinned_set = pinned_ids or set()
 
     # Phase 1: cheap stat — discover and sort without reading transcripts
     all_entries = list(_iter_session_dirs(projects_dir))
     all_entries.sort(key=lambda t: _dir_mtime(t[0]), reverse=True)
-    total_count = len(all_entries)
 
-    window = all_entries[offset : offset + limit]
-    if not window:
-        return [], total_count
+    # Split into pinned and regular — pinned don't count toward pagination
+    pinned_entries = [e for e in all_entries if e[0].name in pinned_set]
+    regular_entries = [e for e in all_entries if e[0].name not in pinned_set]
+    total_count = len(regular_entries)
 
-    # Phase 2: parallel full-reads for only the requested window
+    window = regular_entries[offset : offset + limit]
+    combined = pinned_entries + window
+    if not combined:
+        return [], [], total_count
+
+    # Phase 2: parallel full-reads for pinned + the requested window
     results: list[dict[str, Any]] = []
-    max_workers = min(8, len(window))
+    max_workers = min(8, len(combined))
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_map = {
-            pool.submit(_read_session_meta, d, slug): (d, slug) for d, slug in window
+            pool.submit(_read_session_meta, d, slug): (d, slug) for d, slug in combined
         }
         for future in as_completed(future_map):
             session_dir, _slug = future_map[future]
@@ -304,9 +324,12 @@ def scan_sessions(
                     exc_info=True,
                 )
 
-    # Re-sort within the window (thread pool completes out-of-order)
-    results.sort(key=lambda s: s["last_updated"], reverse=True)
-    return results, total_count
+    # Split results back into pinned and regular, sort each group independently
+    pinned_results = [s for s in results if s["session_id"] in pinned_set]
+    regular_results = [s for s in results if s["session_id"] not in pinned_set]
+    pinned_results.sort(key=lambda s: s["last_updated"], reverse=True)
+    regular_results.sort(key=lambda s: s["last_updated"], reverse=True)
+    return regular_results, pinned_results, total_count
 
 
 def scan_session_revisions(

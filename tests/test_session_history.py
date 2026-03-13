@@ -25,13 +25,13 @@ def _make_session(
 
 
 def test_scan_sessions_none_dir():
-    sessions, total = scan_sessions(None)
+    sessions, pinned, total = scan_sessions(None)
     assert sessions == []
     assert total == 0
 
 
 def test_scan_sessions_empty_dir(tmp_path):
-    sessions, total = scan_sessions(tmp_path)
+    sessions, pinned, total = scan_sessions(tmp_path)
     assert sessions == []
     assert total == 0
 
@@ -47,7 +47,7 @@ def test_scan_sessions_with_transcript(tmp_path):
             + "\n"
         ),
     )
-    results, total = scan_sessions(tmp_path)
+    results, pinned, total = scan_sessions(tmp_path)
     assert total == 1
     assert len(results) == 1
     row = results[0]
@@ -68,7 +68,7 @@ def test_scan_sessions_with_metadata(tmp_path):
             "parent_id": "sess-parent",
         },
     )
-    results, total = scan_sessions(tmp_path)
+    results, pinned, total = scan_sessions(tmp_path)
     assert total == 1
     assert len(results) == 1
     row = results[0]
@@ -108,7 +108,7 @@ def test_invalid_session_ids_skipped(tmp_path):
     bad_sessions = tmp_path / "-Users-test" / "sessions"
     (bad_sessions / ".hidden").mkdir()
     (bad_sessions / "has spaces").mkdir()
-    results, total = scan_sessions(tmp_path)
+    results, pinned, total = scan_sessions(tmp_path)
     session_ids = {r["session_id"] for r in results}
     assert "valid-id" in session_ids
     assert ".hidden" not in session_ids
@@ -128,14 +128,14 @@ def test_scan_sessions_pagination(tmp_path):
         time.sleep(0.01)  # ensure distinct mtimes
 
     # First page: limit=2, offset=0 → 2 most-recent sessions
-    page, total = scan_sessions(tmp_path, limit=2, offset=0)
+    page, pinned, total = scan_sessions(tmp_path, limit=2, offset=0)
     assert total == 3
     assert len(page) == 2
     assert page[0]["session_id"] == "sess-newest"
     assert page[1]["session_id"] == "sess-middle"
 
     # Second page: limit=2, offset=2 → 1 remaining session
-    page2, total2 = scan_sessions(tmp_path, limit=2, offset=2)
+    page2, _pinned2, total2 = scan_sessions(tmp_path, limit=2, offset=2)
     assert total2 == 3
     assert len(page2) == 1
     assert page2[0]["session_id"] == "sess-oldest"
@@ -150,11 +150,11 @@ def test_scan_sessions_total_count(tmp_path):
             transcript='{"role": "user", "content": "x"}\n',
         )
 
-    _, total = scan_sessions(tmp_path)
+    _, _pinned, total = scan_sessions(tmp_path)
     assert total == 3
 
     # Offset beyond all results still reports correct total
-    page, total2 = scan_sessions(tmp_path, limit=10, offset=100)
+    page, _pinned3, total2 = scan_sessions(tmp_path, limit=10, offset=100)
     assert total2 == 3
     assert page == []
 
@@ -167,7 +167,7 @@ def test_scan_sessions_cwd_from_slug(tmp_path):
         slug="-Users-test-myproject",
         transcript='{"role": "user", "content": "cwd test"}\n',
     )
-    results, total = scan_sessions(tmp_path)
+    results, pinned, total = scan_sessions(tmp_path)
     assert total == 1
     row = results[0]
     # Naive fallback: -Users-test-myproject → /Users/test/myproject (or longer match)
@@ -189,7 +189,7 @@ def test_scan_sessions_multiple_projects(tmp_path):
         slug="-Users-bob-projB",
         transcript='{"role": "user", "content": "b"}\n',
     )
-    results, total = scan_sessions(tmp_path)
+    results, pinned, total = scan_sessions(tmp_path)
     assert total == 2
     ids = {r["session_id"] for r in results}
     assert ids == {"sess-1", "sess-2"}
@@ -203,7 +203,7 @@ def test_scan_sessions_hidden_flag(tmp_path):
         transcript='{"role": "user", "content": "secret"}\n',
         metadata={"hidden": True},
     )
-    results, total = scan_sessions(tmp_path)
+    results, pinned, total = scan_sessions(tmp_path)
     assert total == 1
     assert len(results) == 1
     assert results[0]["hidden"] is True
@@ -216,7 +216,62 @@ def test_scan_sessions_not_hidden_by_default(tmp_path):
         "sess-normal",
         transcript='{"role": "user", "content": "hello"}\n',
     )
-    results, total = scan_sessions(tmp_path)
+    results, pinned, total = scan_sessions(tmp_path)
     assert total == 1
     assert len(results) == 1
     assert results[0]["hidden"] is False
+
+
+def test_scan_sessions_pinned_priority(tmp_path):
+    """Pinned sessions are returned separately, outside the pagination window."""
+    import time
+
+    for name in ["sess-oldest", "sess-middle", "sess-newest"]:
+        _make_session(
+            tmp_path,
+            name,
+            transcript='{"role": "user", "content": "hi"}\n',
+        )
+        time.sleep(0.01)  # ensure distinct mtimes
+
+    # Pin the oldest session, paginate with limit=1
+    regular, pinned, total = scan_sessions(
+        tmp_path, limit=1, offset=0, pinned_ids={"sess-oldest"}
+    )
+
+    # Pinned session is always returned regardless of pagination
+    assert len(pinned) == 1
+    assert pinned[0]["session_id"] == "sess-oldest"
+
+    # Regular pagination: limit=1 returns only the most recent non-pinned
+    assert len(regular) == 1
+    assert regular[0]["session_id"] == "sess-newest"
+
+    # total_count excludes pinned sessions
+    assert total == 2
+
+
+def test_scan_sessions_pinned_not_in_regular(tmp_path):
+    """Pinned sessions do not appear in the regular results."""
+    _make_session(
+        tmp_path,
+        "sess-a",
+        transcript='{"role": "user", "content": "a"}\n',
+    )
+    _make_session(
+        tmp_path,
+        "sess-b",
+        transcript='{"role": "user", "content": "b"}\n',
+    )
+
+    regular, pinned, total = scan_sessions(
+        tmp_path, pinned_ids={"sess-a"}
+    )
+
+    regular_ids = {r["session_id"] for r in regular}
+    pinned_ids_set = {p["session_id"] for p in pinned}
+
+    assert "sess-a" in pinned_ids_set
+    assert "sess-a" not in regular_ids
+    assert "sess-b" in regular_ids
+    assert total == 1  # only non-pinned count

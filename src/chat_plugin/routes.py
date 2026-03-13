@@ -86,29 +86,37 @@ def create_history_routes(
         """Return lightweight metadata for all sessions discovered on disk.
 
         scan_sessions() does a cheap mtime stat-sort first, then parallel
-        full-reads of only the requested offset:offset+limit window.
-        total_count reflects all discovered session directories before any
+        full-reads of pinned sessions + the requested offset:offset+limit
+        window of regular sessions.
+        total_count reflects only non-pinned session directories before any
         caller-side content filtering.
         """
-        sessions, total_count = await asyncio.to_thread(
-            scan_sessions, projects_dir, limit, offset
-        )
         pinned_ids = pin_storage.list_pins()
 
-        # Filter: only include sessions with actual content, exclude hidden
-        sessions = [
-            row
-            for row in sessions
-            if ((row.get("message_count") or 0) > 0 or row.get("last_user_message"))
-            and not row.get("hidden")
-        ]
+        sessions, pinned_sessions, total_count = await asyncio.to_thread(
+            scan_sessions, projects_dir, limit, offset, pinned_ids=pinned_ids
+        )
+
+        # Content filter: only sessions with actual content, exclude hidden
+        def _has_content(row: dict) -> bool:
+            return (
+                (row.get("message_count") or 0) > 0
+                or bool(row.get("last_user_message"))
+            ) and not row.get("hidden")
+
+        sessions = [row for row in sessions if _has_content(row)]
+        pinned_sessions = [row for row in pinned_sessions if _has_content(row)]
+
         for row in sessions:
-            row["pinned"] = row["session_id"] in pinned_ids
+            row["pinned"] = False
+        for row in pinned_sessions:
+            row["pinned"] = True
 
         return {
-            "sessions": sessions,
+            "sessions": pinned_sessions + sessions,
             "total_count": total_count,
             "has_more": offset + limit < total_count,
+            "pinned_count": len(pinned_sessions),
         }
 
     @router.get("/api/sessions/revisions")
