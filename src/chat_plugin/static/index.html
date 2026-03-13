@@ -40,9 +40,10 @@
       --sub-text-muted: #666;
 
       /* Turn correlation */
-      --turn-highlight: rgba(59, 130, 246, 0.04);
-      --turn-highlight-border: rgba(59, 130, 246, 0.25);
+      --turn-highlight: rgba(59, 130, 246, 0.06);
+      --turn-highlight-border: rgba(59, 130, 246, 0.3);
       --turn-pulse-peak: rgba(59, 130, 246, 0.12);
+      --turn-selected-accent: rgba(59, 130, 246, 0.5);
     }
 
     body[data-theme="light"] {
@@ -72,9 +73,10 @@
       --sub-text: #4a5568;
       --sub-text-muted: #718096;
 
-      --turn-highlight: rgba(37, 99, 235, 0.05);
-      --turn-highlight-border: rgba(37, 99, 235, 0.2);
+      --turn-highlight: rgba(37, 99, 235, 0.07);
+      --turn-highlight-border: rgba(37, 99, 235, 0.25);
       --turn-pulse-peak: rgba(37, 99, 235, 0.1);
+      --turn-selected-accent: rgba(37, 99, 235, 0.45);
     }
 
     body {
@@ -780,6 +782,10 @@
       background: var(--turn-highlight);
       transition: background 120ms ease-out;
     }
+    /* Bridge gaps between consecutive highlighted items on hover */
+    .turn-highlighted + .turn-highlighted {
+      box-shadow: 0 -8px 0 0 var(--turn-highlight);
+    }
 
     /* Turn selected (click/tap, persistent, stronger) */
     .turn-selected {
@@ -787,8 +793,24 @@
       transition: background 150ms ease-out;
     }
     .turn-selected.turn-selected-border {
-      border-left: 2px solid var(--turn-highlight-border);
-      padding-left: 6px;
+      border-left: 3px solid var(--turn-selected-accent);
+      padding-left: 5px;
+      position: relative;
+    }
+    /* Bridge background gaps between consecutive selected activity items */
+    .turn-separator.turn-selected + .turn-selected.turn-selected-border,
+    .turn-selected.turn-selected-border + .turn-selected.turn-selected-border {
+      box-shadow: 0 -8px 0 0 var(--turn-pulse-peak);
+    }
+    /* Extend left border through the gap between consecutive items */
+    .turn-selected.turn-selected-border + .turn-selected.turn-selected-border::before {
+      content: '';
+      position: absolute;
+      left: -3px;
+      top: -8px;
+      width: 3px;
+      height: 8px;
+      background: var(--turn-selected-accent);
     }
     .turn-dimmed {
       opacity: 0.4;
@@ -861,15 +883,15 @@
       text-overflow: ellipsis;
     }
     .activity-waypoint.segment-active {
-      opacity: 0.9;
+      opacity: 1;
       color: var(--accent-blue);
-      border-color: var(--turn-highlight-border);
+      border-color: var(--turn-selected-accent);
       background: var(--turn-highlight);
     }
 
     /* Segment siblings — same turn, different segment */
     .segment-sibling {
-      opacity: 0.55;
+      opacity: 0.6;
       transition: opacity 150ms ease-out;
     }
 
