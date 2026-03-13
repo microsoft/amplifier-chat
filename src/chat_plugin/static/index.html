@@ -6012,6 +6012,10 @@
       setMobileSidebarOpen(false);
       setExecuting(false);
       setPendingApproval(null);
+      setHoveredTurnId(null);
+      setActiveTurnId(null);
+      setSelectedTurnId(null);
+      setSelectedSegmentId(null);
       setSessionId(target.sessionId);
       setCwd(target.cwd || '~');
       const cachedItems = target.savedItems || [];
@@ -6323,6 +6327,10 @@
       activeKeyRef.current = key;
       setActiveKey(key);
       setMobileSidebarOpen(false);
+      setHoveredTurnId(null);
+      setActiveTurnId(null);
+      setSelectedTurnId(null);
+      setSelectedSegmentId(null);
       blockMapRef.current = {};
       resetSubSessionState();
       cycleRef.current = 0;
