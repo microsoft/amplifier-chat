@@ -16,7 +16,7 @@
       --border: rgba(255,255,255,0.08);
       --text-primary: #e8e8e8;
       --text-secondary: #999;
-      --text-muted: #555;
+      --text-muted: #6b6b6b;
       --accent-blue: #3b82f6;
       --accent-green: #22c55e;
       --accent-amber: #f59e0b;
@@ -38,6 +38,12 @@
       --sub-border-left: rgba(99, 102, 241, 0.4);
       --sub-text: #aaa;
       --sub-text-muted: #666;
+
+      /* Turn correlation — neutral backgrounds, desaturated accents */
+      --turn-highlight: rgba(255, 255, 255, 0.035);
+      --turn-highlight-border: rgba(255, 255, 255, 0.10);
+      --turn-pulse-peak: rgba(255, 255, 255, 0.055);
+      --turn-selected-accent: rgba(148, 163, 184, 0.45);
     }
 
     body[data-theme="light"] {
@@ -66,6 +72,11 @@
       --sub-border-left: rgba(99, 102, 241, 0.35);
       --sub-text: #4a5568;
       --sub-text-muted: #718096;
+
+      --turn-highlight: rgba(0, 0, 0, 0.03);
+      --turn-highlight-border: rgba(0, 0, 0, 0.10);
+      --turn-pulse-peak: rgba(0, 0, 0, 0.045);
+      --turn-selected-accent: rgba(71, 85, 105, 0.4);
     }
 
     body {
@@ -120,6 +131,56 @@
     }
     .btn:hover { background: var(--bg-card); color: var(--text-primary); }
     .btn.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+    /* Split view toggle (icon-only) */
+    .split-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 28px;
+      padding: 0;
+    }
+    .split-toggle svg { flex-shrink: 0; }
+
+    /* Sessions panel collapse button (inside panel header) */
+    .session-collapse-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .session-collapse-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+
+    /* Sessions panel expand strip (visible when panel is collapsed) */
+    .session-expand-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      flex-shrink: 0;
+      background: var(--bg-secondary);
+      border: none;
+      border-right: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .session-expand-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+    }
 
     .theme-toggle {
       display: inline-flex;
@@ -650,15 +711,287 @@
       background: var(--bg-secondary);
     }
     .activity-panel-header {
-      padding: 8px 12px;
+      padding: 8px 14px;
       font-size: 11px;
-      color: var(--text-muted);
+      color: var(--text-secondary);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
-    .activity-scroll { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 8px; }
+    .activity-scroll { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 10px 12px; }
+
+    /* Turn separators in activity panel */
+    .turn-separator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 0 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .turn-separator:first-child {
+      padding-top: 0;
+    }
+    .turn-separator::before,
+    .turn-separator::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+      transition: background 150ms ease;
+    }
+    .turn-separator:hover::before,
+    .turn-separator:hover::after {
+      background: var(--turn-highlight-border);
+    }
+    .turn-separator-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      max-width: 85%;
+    }
+    .turn-separator-number {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .turn-separator-message {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .turn-separator:hover .turn-separator-message {
+      color: var(--text-primary);
+    }
+    .turn-separator:hover .turn-separator-number {
+      color: var(--text-secondary);
+    }
+
+    /* Sticky turn breadcrumb in activity panel */
+    .activity-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      min-height: 24px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+      z-index: 2;
+      position: relative;
+    }
+    .activity-breadcrumb.hidden { display: none; }
+    .activity-breadcrumb-number {
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .activity-breadcrumb-message {
+      color: var(--text-secondary);
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+    .activity-breadcrumb-nav {
+      opacity: 0;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: opacity 100ms ease, color 100ms ease;
+      background: none;
+      border: none;
+    }
+    .activity-breadcrumb:hover .activity-breadcrumb-nav {
+      opacity: 1;
+    }
+    .activity-breadcrumb-nav:hover {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+    }
+    body[data-theme="light"] .activity-breadcrumb {
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Turn hover preview (desktop only, lightweight) */
+    .turn-highlighted {
+      background: var(--turn-highlight);
+      padding: 4px;
+      border-radius: 4px;
+      transition: background 120ms ease-out;
+    }
+    /* Bridge gaps between consecutive highlighted items on hover */
+    .turn-highlighted + .turn-highlighted {
+      box-shadow: 0 -8px 0 0 var(--turn-highlight);
+    }
+
+    /* Turn selected (click/tap, persistent, stronger) */
+    .turn-selected {
+      background: var(--turn-pulse-peak);
+      transition: background 150ms ease-out;
+    }
+    .turn-selected.turn-selected-border {
+      border-left: 3px solid var(--turn-selected-accent);
+      padding: 4px 4px 4px 6px;
+      border-radius: 4px;
+      position: relative;
+    }
+    /* Bridge background gaps between consecutive selected activity items */
+    .turn-separator.turn-selected + .turn-selected.turn-selected-border,
+    .turn-selected.turn-selected-border + .turn-selected.turn-selected-border {
+      box-shadow: 0 -8px 0 0 var(--turn-pulse-peak);
+    }
+    /* Extend left border through the gap between consecutive items */
+    .turn-selected.turn-selected-border + .turn-selected.turn-selected-border::before {
+      content: '';
+      position: absolute;
+      left: -3px;
+      top: -8px;
+      width: 3px;
+      height: 8px;
+      background: var(--turn-selected-accent);
+    }
+    .turn-dimmed {
+      opacity: 0.55;
+      transition: opacity 150ms ease-out;
+    }
+
+    /* Separator highlight for hover */
+    .turn-separator.turn-highlighted::before,
+    .turn-separator.turn-highlighted::after {
+      background: var(--turn-highlight-border);
+    }
+    .turn-separator.turn-highlighted .turn-separator-number {
+      color: var(--text-secondary);
+    }
+
+    /* Separator highlight for selected */
+    .turn-separator.turn-selected::before,
+    .turn-separator.turn-selected::after {
+      background: var(--turn-selected-accent);
+    }
+    .turn-separator.turn-selected .turn-separator-number {
+      color: var(--text-primary);
+    }
+    .turn-separator.turn-selected .turn-separator-message {
+      color: var(--text-primary);
+    }
+
+    /* Selected message in main panel gets a visible left accent */
+    .turn-selected-message {
+      border-left: 3px solid var(--turn-selected-accent);
+      padding: 6px 6px 6px 13px;
+      background: var(--turn-pulse-peak);
+      border-radius: 6px;
+      transition: background 150ms ease-out, border-color 150ms ease-out;
+    }
+
+    /* Segment waypoints — assistant text markers in activity panel */
+    .activity-waypoint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      margin: 2px 0;
+      font-size: 11px;
+      font-style: italic;
+      color: var(--text-secondary);
+      opacity: 0.85;
+      border-top: 1px dashed var(--border);
+      border-bottom: 1px dashed var(--border);
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-height: 28px;
+      transition: opacity 120ms ease, color 120ms ease;
+    }
+    .activity-waypoint:hover {
+      opacity: 1;
+      color: var(--text-primary);
+      background: var(--turn-highlight);
+    }
+    .activity-waypoint-icon {
+      flex-shrink: 0;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    .activity-waypoint-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .activity-waypoint.segment-active {
+      opacity: 1;
+      color: var(--text-primary);
+      font-style: normal;
+      border-color: var(--turn-selected-accent);
+      background: var(--turn-pulse-peak);
+    }
+
+    /* Segment siblings — same turn, different segment */
+    .segment-sibling {
+      opacity: 0.7;
+      transition: opacity 150ms ease-out;
+    }
+
+    /* Activity indicators — passive discoverability in main message panel */
+    .activity-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      line-height: 1;
+      color: var(--text-muted);
+      padding: 4px 0 1px;
+      opacity: 0.7;
+      transition: opacity 120ms ease;
+      cursor: pointer;
+      user-select: none;
+    }
+    .activity-indicator:hover {
+      opacity: 1;
+    }
+    .activity-indicator.align-right {
+      justify-content: flex-end;
+    }
+    .activity-ind-thinking {
+      color: rgba(139, 92, 246, 0.75);
+    }
+    .activity-ind-sep {
+      opacity: 0.5;
+    }
+    /* Boost indicator visibility when parent message is selected */
+    .turn-selected-message .activity-indicator {
+      opacity: 1;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .turn-highlighted,
+      .turn-selected,
+      .turn-selected-message,
+      .turn-dimmed,
+      .segment-sibling,
+      .activity-waypoint,
+      .activity-indicator {
+        transition: none;
+      }
+    }
 
     /* —— Message List ————————————————————————————————————————————— */
     #message-list {
@@ -745,7 +1078,7 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 10px 14px;
+      padding: 12px 16px;
       line-height: 1.6;
       white-space: pre-wrap;
       word-break: break-word;
@@ -1039,7 +1372,7 @@
       background: var(--sub-bg-elevated);
       border: 1px solid var(--sub-border);
       color: var(--sub-text);
-      padding: 10px 14px;
+      padding: 12px 16px;
       border-radius: 6px;
       font-size: 13px;
     }
@@ -1324,7 +1657,9 @@
         background: rgba(0, 0, 0, 0.45);
         touch-action: manipulation;
       }
-      .workspace-toggle { display: none !important; }
+      .split-toggle { display: none !important; }
+      .session-collapse-btn { display: none !important; }
+      .session-expand-btn { display: none !important; }
       .activity-panel { display: none !important; }
       .pane-resizer { display: none !important; }
       #message-input { font-size: 16px; }
@@ -1649,7 +1984,7 @@
 <script src="./feedback-widget.js"></script>
 <script>
   const { h, render } = window.preact;
-  const { useState, useRef, useEffect, useCallback } = window.preactHooks;
+  const { useState, useRef, useEffect, useCallback, useMemo } = window.preactHooks;
   const { html } = window;
   const { marked } = window;
 
@@ -2524,6 +2859,107 @@
   }
 
   /**
+   * Derive turn boundaries from chronoItems.
+   * A new turn starts at each user message. Returns:
+   * - turnMap: Map<turnId, { turnId, turnNumber, userItem, startOrder }>
+   * - itemTurnMap: Map<itemId, turnId>
+   * turnId is the id of the user message that opened the turn.
+   */
+  function deriveTurns(items) {
+    const turnMap = new Map();
+    const itemTurnMap = new Map();
+    const segmentMap = new Map(); // itemId → segmentId (assistant message id that "concludes" this segment)
+    const sorted = [...items].sort((a, b) => a.order - b.order);
+
+    let currentTurnId = null;
+    let turnNumber = 0;
+    let pendingActivityIds = []; // activities waiting for a segment anchor
+
+    for (const item of sorted) {
+      if (item.type === 'text' && item.role === 'user') {
+        // Flush any orphan activities from previous turn's last segment
+        pendingActivityIds = [];
+        turnNumber++;
+        currentTurnId = item.id;
+        turnMap.set(currentTurnId, {
+          turnId: currentTurnId,
+          turnNumber,
+          userItem: item,
+          startOrder: item.order,
+        });
+      }
+
+      if (currentTurnId) {
+        itemTurnMap.set(item.id, currentTurnId);
+      }
+
+      // Non-text items accumulate as pending segment members
+      if (item.type !== 'text') {
+        pendingActivityIds.push(item.id);
+        continue;
+      }
+
+      // Assistant text: claims all pending activities as its segment
+      if (item.type === 'text' && item.role === 'assistant' && currentTurnId) {
+        const segId = item.id;
+        segmentMap.set(segId, segId); // the text itself belongs to its segment
+        for (const id of pendingActivityIds) {
+          segmentMap.set(id, segId);
+        }
+        pendingActivityIds = [];
+      }
+    }
+
+    // Orphan activities after last assistant text in the last turn:
+    // attach to the last segment so clicking the last message shows
+    // "everything from that point to turn end"
+    if (pendingActivityIds.length > 0) {
+      const segValues = [...segmentMap.values()];
+      const lastSegId = segValues.length > 0 ? segValues[segValues.length - 1] : null;
+      if (lastSegId) {
+        for (const id of pendingActivityIds) {
+          segmentMap.set(id, lastSegId);
+        }
+      }
+    }
+
+    return { turnMap, itemTurnMap, segmentMap };
+  }
+
+  /**
+   * Compute activity counts per turn and per segment for passive indicators.
+   * Returns turnCounts (Map<turnId, {thinking, tools}>) and
+   * segmentCounts (Map<segmentId, {thinking, tools}>).
+   */
+  function computeActivityCounts(items, itemTurnMap, segmentMap) {
+    const turnCounts = new Map();
+    const segmentCounts = new Map();
+
+    for (const item of items) {
+      if (item.type === 'text' || item.type === 'token_usage') continue;
+
+      const turnId = itemTurnMap ? itemTurnMap.get(item.id) : null;
+      const segId = segmentMap ? segmentMap.get(item.id) : null;
+
+      if (turnId) {
+        if (!turnCounts.has(turnId)) turnCounts.set(turnId, { thinking: 0, tools: 0 });
+        const tc = turnCounts.get(turnId);
+        if (item.type === 'thinking') tc.thinking++;
+        else if (item.type === 'tool_call') tc.tools++;
+      }
+
+      if (segId) {
+        if (!segmentCounts.has(segId)) segmentCounts.set(segId, { thinking: 0, tools: 0 });
+        const sc = segmentCounts.get(segId);
+        if (item.type === 'thinking') sc.thinking++;
+        else if (item.type === 'tool_call') sc.tools++;
+      }
+    }
+
+    return { turnCounts, segmentCounts };
+  }
+
+  /**
    * Post-process chrono items to reconstruct sub-sessions from saved transcripts.
    * Delegation tool calls (delegate/task) with originSessionId are identified,
    * and content items belonging to child sessions are moved into SubSession entries
@@ -2770,6 +3206,91 @@
     `;
   }
 
+  function TurnSeparator({ turn, isHighlighted, isSelected, onClick }) {
+    const preview = turn.userItem.content
+      ? turn.userItem.content.replace(/\s+/g, ' ').trim().slice(0, 50)
+      : '';
+    const cls = 'turn-separator' + (isSelected ? ' turn-selected' : isHighlighted ? ' turn-highlighted' : '');
+    return html`
+      <div class=${cls} data-turn-id=${turn.turnId}
+        onClick=${onClick} tabindex="0"
+        onKeyDown=${e => (e.key === 'Enter' || e.key === ' ') && onClick && onClick(e)}
+        role="button"
+        aria-label=${'Turn ' + turn.turnNumber + ': ' + preview}>
+        <span class="turn-separator-label">
+          <span class="turn-separator-number">#${turn.turnNumber}</span>
+          <span class="turn-separator-message">${preview}${turn.userItem.content && turn.userItem.content.length > 50 ? '…' : ''}</span>
+        </span>
+      </div>
+    `;
+  }
+
+  function ActivityBreadcrumb({ turnMap, scrollTurnId, onNavigateToMessage }) {
+    if (!scrollTurnId || !turnMap.has(scrollTurnId)) return null;
+    if (turnMap.size <= 1) return null;
+
+    const turn = turnMap.get(scrollTurnId);
+    const preview = turn.userItem.content
+      ? turn.userItem.content.replace(/\s+/g, ' ').trim().slice(0, 50)
+      : '';
+
+    return html`
+      <nav class="activity-breadcrumb" aria-label="Current turn context" data-turn-id=${turn.turnId}>
+        <span class="activity-breadcrumb-number">#${turn.turnNumber}</span>
+        <span style="margin: 0 2px;">·</span>
+        <span class="activity-breadcrumb-message">${preview}${turn.userItem.content && turn.userItem.content.length > 50 ? '…' : ''}</span>
+        <button class="activity-breadcrumb-nav"
+          onClick=${() => onNavigateToMessage && onNavigateToMessage(turn.turnId)}
+          title="Scroll to this message"
+          aria-label=${'Navigate to turn ' + turn.turnNumber + ' message'}>↗</button>
+      </nav>
+    `;
+  }
+
+  /**
+   * Passive activity indicator — shows activity summary below messages
+   * in the main panel so users can see at a glance which messages have
+   * associated activities without clicking.
+   */
+  function ActivityIndicator({ counts, alignRight }) {
+    if (!counts || (counts.thinking === 0 && counts.tools === 0)) return null;
+
+    const parts = [];
+    if (counts.thinking > 0) {
+      parts.push(html`<span class="activity-ind-thinking">thinking</span>`);
+    }
+    if (counts.tools > 0) {
+      parts.push(html`<span>${counts.tools} tool${counts.tools !== 1 ? 's' : ''}</span>`);
+    }
+
+    return html`
+      <div class=${'activity-indicator' + (alignRight ? ' align-right' : '')}
+        aria-label=${(counts.thinking ? counts.thinking + ' thinking block' + (counts.thinking !== 1 ? 's' : '') : '')
+          + (counts.thinking && counts.tools ? ', ' : '')
+          + (counts.tools ? counts.tools + ' tool call' + (counts.tools !== 1 ? 's' : '') : '')}>
+        ${parts.map((p, i) => html`${p}${i < parts.length - 1
+          ? html`<span class="activity-ind-sep">${'\u00b7'}</span>` : null}`)}
+      </div>
+    `;
+  }
+
+  function ActivityWaypoint({ item, isSegmentActive, onClick }) {
+    const preview = item.content
+      ? item.content.replace(/\s+/g, ' ').trim().slice(0, 80)
+      : '';
+    const cls = 'activity-waypoint' + (isSegmentActive ? ' segment-active' : '');
+    return html`
+      <div class=${cls} id=${item.id} onClick=${onClick}
+        title="Click to scroll to this message"
+        role="link" tabindex="0"
+        aria-label=${'Assistant message: ' + preview}
+        onKeyDown=${e => (e.key === 'Enter' || e.key === ' ') && onClick && onClick(e)}>
+        <span class="activity-waypoint-icon">💬</span>
+        <span class="activity-waypoint-text">${preview}${item.content && item.content.length > 80 ? '…' : ''}</span>
+      </div>
+    `;
+  }
+
   function ToolCallCard({ item, isActivity, subSessionsRef, subSessionRevision, onNavigateSession }) {
     const [expanded, setExpanded] = useState(false);
     const statusIcon = getToolStatusIcon(item.toolStatus);
@@ -2984,8 +3505,14 @@
     `;
   }
 
-  function ChronoItem({ item, isActivity, subSessionsRef, subSessionRevision, onNavigateSession }) {
+  function ChronoItem({ item, isActivity, isSegmentActive, onWaypointClick, subSessionsRef, subSessionRevision, onNavigateSession }) {
     if (item.type === 'text') {
+      // In activity panel, assistant text renders as a compact waypoint
+      if (isActivity && item.role === 'assistant') {
+        return html`<${ActivityWaypoint} item=${item}
+          isSegmentActive=${isSegmentActive}
+          onClick=${onWaypointClick} />`;
+      }
       const cls = 'text-block'
         + (item.role === 'user' ? ' user-message' : '')
         + (item.role === 'system' ? ' system-message' : '')
@@ -3021,7 +3548,36 @@
     subSessionsRef,
     subSessionRevision,
     onNavigateSession,
+    // Turn correlation props
+    turnMap,
+    itemTurnMap,
+    hoveredTurnId,
+    setHoveredTurnId,
+    selectedTurnId,
+    selectedSegmentId,
+    segmentMap,
+    onTurnSelect,
+    isActivityPanel = false,
+    onTurnSeparatorClick,
+    onScrollTurnChange,
+    // Activity indicator counts (main panel only)
+    turnActivityCounts,
+    segmentActivityCounts,
   }) {
+    // Hover debounce: 50ms intent delay to prevent strobe during fast scanning
+    const hoverTimerRef = useRef(null);
+    const debouncedSetHoveredTurnId = useCallback((turnId) => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      if (turnId === null) {
+        // Clear immediately on mouse leave
+        setHoveredTurnId && setHoveredTurnId(null);
+        return;
+      }
+      hoverTimerRef.current = setTimeout(() => {
+        setHoveredTurnId && setHoveredTurnId(turnId);
+      }, 50);
+    }, [setHoveredTurnId]);
+
     const filtered = filterFn ? items.filter(filterFn) : items;
     const sorted = [...filtered].sort((a, b) => a.order - b.order);
     const listRef = useRef(null);
@@ -3108,12 +3664,144 @@
       }
     }, [scrollState.canBottom]);
 
+    // Track which turn is currently at the top of the activity panel scroll
+    const observerRef = useRef(null);
+    useEffect(() => {
+      if (!isActivityPanel || !onScrollTurnChange || !listRef.current) return;
+      if (observerRef.current) observerRef.current.disconnect();
+
+      const listEl = listRef.current;
+      const updateCurrentTurn = () => {
+        const separators = listEl.querySelectorAll('.turn-separator[data-turn-id]');
+        let currentTurn = null;
+        const listRect = listEl.getBoundingClientRect();
+        for (const sep of separators) {
+          const rect = sep.getBoundingClientRect();
+          if (rect.top <= listRect.top + 40) {
+            currentTurn = sep.getAttribute('data-turn-id');
+          }
+        }
+        if (currentTurn) onScrollTurnChange(currentTurn);
+      };
+
+      const observer = new IntersectionObserver(() => {
+        updateCurrentTurn();
+      }, {
+        root: listEl,
+        rootMargin: '-40px 0px 0px 0px',
+        threshold: 0,
+      });
+
+      // Observe turn separators after DOM settles
+      const timer = setTimeout(() => {
+        const seps = listEl.querySelectorAll('.turn-separator[data-turn-id]');
+        seps.forEach(sep => observer.observe(sep));
+        // Also set initial turn
+        updateCurrentTurn();
+      }, 100);
+
+      observerRef.current = observer;
+      return () => {
+        clearTimeout(timer);
+        observer.disconnect();
+      };
+    }, [isActivityPanel, onScrollTurnChange, sorted.length, sessionKey]);
+
     return html`
       <div class="message-list-wrap">
         <div id="message-list" ref=${listRef} onScroll=${updateScrollState}>
-          ${sorted.map(item => html`<${ChronoItem} key=${item.id} item=${item}
-            subSessionsRef=${subSessionsRef} subSessionRevision=${subSessionRevision}
-            onNavigateSession=${onNavigateSession} />`)}
+          ${sorted.map((item, i) => {
+            const turnId = itemTurnMap ? itemTurnMap.get(item.id) : null;
+            const prevTurnId = i > 0 ? (itemTurnMap ? itemTurnMap.get(sorted[i - 1].id) : null) : null;
+            const showSep = isActivityPanel && turnMap && turnId && turnId !== prevTurnId;
+            const turn = showSep ? turnMap.get(turnId) : null;
+            const itemSegId = segmentMap ? segmentMap.get(item.id) : null;
+
+            // Determine highlight class with segment awareness
+            let itemCls = '';
+            const effectiveTurnId = selectedTurnId || hoveredTurnId;
+
+            if (selectedSegmentId) {
+              // Segment-level selection active
+              if (itemSegId === selectedSegmentId) {
+                itemCls = isActivityPanel ? 'turn-selected turn-selected-border' : 'turn-selected-message';
+              } else if (turnId === selectedTurnId) {
+                itemCls = 'segment-sibling'; // same turn, different segment
+              } else if (turnId) {
+                itemCls = 'turn-dimmed';
+              }
+            } else if (selectedTurnId) {
+              // Turn-level selection
+              if (turnId === selectedTurnId) {
+                itemCls = isActivityPanel ? 'turn-selected turn-selected-border' : 'turn-selected-message';
+              } else if (turnId) {
+                itemCls = 'turn-dimmed';
+              }
+            } else if (hoveredTurnId) {
+              // Hover preview — additive only, no dimming
+              // Dimming on hover is too disruptive when casually scanning messages.
+              // Only highlight the hovered turn; leave everything else at full opacity.
+              if (turnId === hoveredTurnId) {
+                itemCls = 'turn-highlighted';
+              }
+            }
+
+            // Determine click behavior: user msg → turn-level, assistant msg → segment-level
+            const isAssistantText = item.type === 'text' && item.role === 'assistant';
+            const handleClick = () => {
+              if (!onTurnSelect || !turnId) return;
+              if (isAssistantText && itemSegId) {
+                onTurnSelect(turnId, itemSegId); // segment-level
+              } else {
+                onTurnSelect(turnId); // turn-level
+              }
+            };
+
+            return html`
+              ${showSep && turn && html`<${TurnSeparator}
+                key=${'sep-' + turnId}
+                turn=${turn}
+                isHighlighted=${!selectedTurnId && hoveredTurnId === turnId}
+                isSelected=${selectedTurnId === turnId && !selectedSegmentId}
+                onClick=${() => {
+                  onTurnSelect && onTurnSelect(turnId);
+                  onTurnSeparatorClick && onTurnSeparatorClick(turnId);
+                }}
+              />`}
+              <div class=${itemCls || undefined}
+                data-turn-id=${turnId || undefined}
+                onMouseEnter=${() => turnId && debouncedSetHoveredTurnId(turnId)}
+                onMouseLeave=${() => debouncedSetHoveredTurnId(null)}
+                onClick=${handleClick}
+                style=${(item.type === 'text' && item.role === 'user' && !isActivityPanel
+                  ? 'cursor: pointer; align-self: flex-end; max-width: 75%; display: flex; flex-direction: column; align-items: flex-end;'
+                  : turnId ? 'cursor: pointer;' : undefined)}>
+                <${ChronoItem} key=${item.id} item=${item}
+                  isActivity=${isActivityPanel}
+                  isSegmentActive=${selectedSegmentId && itemSegId === selectedSegmentId}
+                  onWaypointClick=${isActivityPanel && isAssistantText ? (e) => {
+                    e && e.stopPropagation && e.stopPropagation();
+                    // Scroll to the full message in main panel
+                    const el = document.getElementById(item.id);
+                    if (el) {
+                      const prm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                      el.scrollIntoView({ behavior: prm ? 'instant' : 'smooth', block: 'center' });
+                    }
+                    // Select the segment
+                    onTurnSelect && onTurnSelect(turnId, itemSegId);
+                  } : undefined}
+                  subSessionsRef=${subSessionsRef} subSessionRevision=${subSessionRevision}
+                  onNavigateSession=${onNavigateSession} />
+                ${!isActivityPanel && item.type === 'text' && (() => {
+                  const isUser = item.role === 'user';
+                  const counts = isUser
+                    ? (turnActivityCounts && turnId ? turnActivityCounts.get(turnId) : null)
+                    : (segmentActivityCounts && itemSegId ? segmentActivityCounts.get(itemSegId) : null);
+                  return counts && html`<${ActivityIndicator} counts=${counts} alignRight=${isUser} />`;
+                })()}
+              </div>
+            `;
+          })}
           <div ref=${bottomRef}></div>
         </div>
         ${showJumpControls && scrollState.hasOverflow && html`
@@ -3708,6 +4396,7 @@
     const activeKeyRef = useRef(null);
     const sessionsRef = useRef(new Map());
     const chronoItemsRef = useRef([]);
+    const activityScrollRef = useRef(null);
     const turnCountRef = useRef(0);
     // Default CWD — amplifierd doesn't inject __AMPLIFIER_WORKSPACE_ROOT
     const defaultCwdRef = useRef('~');
@@ -5465,6 +6154,10 @@
           }
           case '/clear':
             setChronoItems([]);
+            setHoveredTurnId(null);
+            setActiveTurnId(null);
+            setSelectedTurnId(null);
+            setSelectedSegmentId(null);
             return;
           case '/workspace':
             setViewMode(m => m === 'workspace' ? 'chat' : 'workspace');
@@ -5607,6 +6300,10 @@
       setChronoItems([]);
       orderCounterRef.current = 0;
       setTurnCount(0);
+      setHoveredTurnId(null);
+      setActiveTurnId(null);
+      setSelectedTurnId(null);
+      setSelectedSegmentId(null);
       // Cancel any countdown and clear queue from the previous session
       cancelCountdown();
       activeDelegatesRef.current = 0;
@@ -5675,6 +6372,10 @@
       setMobileSidebarOpen(false);
       setExecuting(false);
       setPendingApproval(null);
+      setHoveredTurnId(null);
+      setActiveTurnId(null);
+      setSelectedTurnId(null);
+      setSelectedSegmentId(null);
       setSessionId(target.sessionId);
       setCwd(target.cwd || '~');
       const cachedItems = target.savedItems || [];
@@ -5996,6 +6697,10 @@
       activeKeyRef.current = key;
       setActiveKey(key);
       setMobileSidebarOpen(false);
+      setHoveredTurnId(null);
+      setActiveTurnId(null);
+      setSelectedTurnId(null);
+      setSelectedSegmentId(null);
       blockMapRef.current = {};
       resetSubSessionState();
       cycleRef.current = 0;
@@ -6190,13 +6895,77 @@
       setMobileSidebarOpen(false);
     }, []);
 
+    // Turn correlation
+    const { turnMap, itemTurnMap, segmentMap } = useMemo(() => deriveTurns(chronoItems), [chronoItems]);
+    const { turnCounts: turnActivityCounts, segmentCounts: segmentActivityCounts } =
+      useMemo(() => computeActivityCounts(chronoItems, itemTurnMap, segmentMap), [chronoItems, itemTurnMap, segmentMap]);
+    const [hoveredTurnId, setHoveredTurnId] = useState(null);
+    const [activeTurnId, setActiveTurnId] = useState(null);
+    const [selectedTurnId, setSelectedTurnId] = useState(null);
+    const [selectedSegmentId, setSelectedSegmentId] = useState(null);
+
+    // Toggle turn/segment selection (click/tap).
+    // User message click → turn-level. Assistant message click → segment-level.
+    const handleTurnSelect = useCallback((turnId, segId) => {
+      if (segId) {
+        // Segment-level: toggle segment within turn
+        setSelectedSegmentId(prev => prev === segId ? null : segId);
+        setSelectedTurnId(turnId);
+      } else {
+        // Turn-level: toggle whole turn, clear segment
+        setSelectedTurnId(prev => prev === turnId ? null : turnId);
+        setSelectedSegmentId(null);
+      }
+    }, []);
+
+    // Scroll the activity panel to a turn's separator
+    const scrollActivityToTurn = useCallback((turnId) => {
+      if (!activityScrollRef.current) return;
+      const el = activityScrollRef.current.querySelector('.turn-separator[data-turn-id="' + turnId + '"]');
+      if (el) {
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({ behavior: prefersReducedMotion ? 'instant' : 'smooth', block: 'start' });
+      }
+    }, []);
+
+    // Scroll the activity panel to a segment's waypoint (assistant message rendered in activity panel)
+    const scrollActivityToSegment = useCallback((segId) => {
+      if (!activityScrollRef.current) return;
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // Must scope to activity panel — the same item ID exists in both panels
+      // (main panel has the text block, activity panel has the waypoint)
+      const segEl = activityScrollRef.current.querySelector('.activity-waypoint[id="' + segId + '"]');
+      if (segEl) {
+        segEl.scrollIntoView({ behavior: prefersReducedMotion ? 'instant' : 'smooth', block: 'center' });
+        return;
+      }
+      // Fallback: find the first highlighted item in this segment's turn
+      const turnId = itemTurnMap.get(segId);
+      if (turnId) {
+        const sep = activityScrollRef.current.querySelector('.turn-separator[data-turn-id="' + turnId + '"]');
+        if (sep) sep.scrollIntoView({ behavior: prefersReducedMotion ? 'instant' : 'smooth', block: 'start' });
+      }
+    }, [itemTurnMap]);
+
+    // Scroll the main panel to a turn's user message
+    const scrollMainToTurn = useCallback((turnId) => {
+      const turn = turnMap.get(turnId);
+      if (!turn) return;
+      const el = document.getElementById(turn.userItem.id);
+      if (el) {
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({ behavior: prefersReducedMotion ? 'instant' : 'smooth', block: 'center' });
+      }
+    }, [turnMap]);
+
     const mainFilter = viewMode === 'workspace' ? (i => i.type === 'text') : null;
-    const activityFilter = viewMode === 'workspace' ? (i => i.type !== 'text') : null;
+    const activityFilter = viewMode === 'workspace' ? (i => i.type !== 'text' || (i.type === 'text' && i.role === 'assistant')) : null;
 
     return html`
       <div id="header">
         <button
           class="hamburger"
+          title="Sessions"
           aria-label=${mobileSidebarOpen ? 'Close sessions panel' : 'Open sessions panel'}
           aria-controls="session-panel"
           aria-expanded=${mobileSidebarOpen ? 'true' : 'false'}
@@ -6206,11 +6975,15 @@
         <span class="app-name">Amplifier</span>
         <span class="header-spacer"></span>
         <button
-          class=${'btn workspace-toggle' + (viewMode === 'workspace' ? ' active' : '')}
+          class=${'btn split-toggle' + (viewMode === 'workspace' ? ' active' : '')}
+          title=${viewMode === 'workspace' ? 'Single column' : 'Split view'}
+          aria-label=${viewMode === 'workspace' ? 'Switch to single column view' : 'Switch to split view'}
           onClick=${() => setViewMode(m => m === 'workspace' ? 'chat' : 'workspace')}
-        >${viewMode === 'workspace' ? 'Chat' : 'Workspace'}</button>
-        <button class=${'btn' + (showSessions ? ' active' : '')} onClick=${() => setShowSessions(s => !s)}>
-          Sessions
+        >
+          ${viewMode === 'workspace'
+            ? html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/></svg>`
+            : html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="9" y1="2" x2="9" y2="14"/></svg>`
+          }
         </button>
         <span ref=${feedbackSlotRef}></span>
         <button
@@ -6248,6 +7021,16 @@
             onClick=${closeMobileSidebar}
           ></button>
         `}
+        ${!showSessions && html`
+          <button
+            class="session-expand-btn"
+            aria-label="Expand sessions panel"
+            title="Expand sessions panel"
+            onClick=${() => setShowSessions(true)}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="6,4 10,8 6,12"/></svg>
+          </button>
+        `}
         <div
           id="session-panel"
           class=${(showSessions ? '' : 'hidden ') + (mobileSidebarOpen ? 'mobile-open ' : '') + (draggingPane === 'sessions' ? 'no-transition' : '')}
@@ -6260,6 +7043,14 @@
               </div>
               <div class="session-panel-header-controls">
                 <button class="session-new-btn" onClick=${newSession}>+ New</button>
+                <button
+                  class="session-collapse-btn"
+                  aria-label="Collapse sessions panel"
+                  title="Collapse sessions panel"
+                  onClick=${() => setShowSessions(false)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="10,4 6,8 10,12"/></svg>
+                </button>
                 <button
                   class="mobile-session-close"
                   aria-label="Close sessions panel"
@@ -6490,6 +7281,23 @@
               subSessionsRef=${subSessionsRef}
               subSessionRevision=${subSessionRevision}
               onNavigateSession=${navigateToSession}
+              turnMap=${viewMode === 'workspace' ? turnMap : undefined}
+              itemTurnMap=${viewMode === 'workspace' ? itemTurnMap : undefined}
+              hoveredTurnId=${viewMode === 'workspace' ? hoveredTurnId : undefined}
+              setHoveredTurnId=${viewMode === 'workspace' ? setHoveredTurnId : undefined}
+              selectedTurnId=${viewMode === 'workspace' ? selectedTurnId : undefined}
+              selectedSegmentId=${viewMode === 'workspace' ? selectedSegmentId : undefined}
+              segmentMap=${viewMode === 'workspace' ? segmentMap : undefined}
+              onTurnSelect=${viewMode === 'workspace' ? (turnId, segId) => {
+                handleTurnSelect(turnId, segId);
+                if (segId) {
+                  scrollActivityToSegment(segId);
+                } else {
+                  scrollActivityToTurn(turnId);
+                }
+              } : undefined}
+              turnActivityCounts=${viewMode === 'workspace' ? turnActivityCounts : undefined}
+              segmentActivityCounts=${viewMode === 'workspace' ? segmentActivityCounts : undefined}
             />
             <${QueuePanel}
               queue=${getQueue()}
@@ -6526,7 +7334,15 @@
             ></div>
             <div class="activity-panel" style=${{ width: activityPanelWidth + 'px' }}>
               <div class="activity-panel-header">Activity</div>
-              <div class="activity-scroll">
+              <${ActivityBreadcrumb}
+                turnMap=${turnMap}
+                scrollTurnId=${activeTurnId}
+                onNavigateToMessage=${(turnId) => {
+                  handleTurnSelect(turnId);
+                  scrollMainToTurn(turnId);
+                }}
+              />
+              <div class="activity-scroll" ref=${activityScrollRef}>
                 <${MessageList}
                   items=${chronoItems}
                   filterFn=${activityFilter}
@@ -6535,6 +7351,21 @@
                   subSessionsRef=${subSessionsRef}
                   subSessionRevision=${subSessionRevision}
                   onNavigateSession=${navigateToSession}
+                  turnMap=${turnMap}
+                  itemTurnMap=${itemTurnMap}
+                  hoveredTurnId=${hoveredTurnId}
+                  setHoveredTurnId=${setHoveredTurnId}
+                  selectedTurnId=${selectedTurnId}
+                  selectedSegmentId=${selectedSegmentId}
+                  segmentMap=${segmentMap}
+                  onTurnSelect=${(turnId, segId) => {
+                    handleTurnSelect(turnId, segId);
+                  }}
+                  isActivityPanel=${true}
+                  onTurnSeparatorClick=${(turnId) => {
+                    scrollMainToTurn(turnId);
+                  }}
+                  onScrollTurnChange=${setActiveTurnId}
                 />
               </div>
             </div>
