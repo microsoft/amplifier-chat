@@ -132,6 +132,56 @@
     .btn:hover { background: var(--bg-card); color: var(--text-primary); }
     .btn.active { border-color: var(--accent-blue); color: var(--accent-blue); }
 
+    /* Split view toggle (icon-only) */
+    .split-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 28px;
+      padding: 0;
+    }
+    .split-toggle svg { flex-shrink: 0; }
+
+    /* Sessions panel collapse button (inside panel header) */
+    .session-collapse-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .session-collapse-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+
+    /* Sessions panel expand strip (visible when panel is collapsed) */
+    .session-expand-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      flex-shrink: 0;
+      background: var(--bg-secondary);
+      border: none;
+      border-right: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .session-expand-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+    }
+
     .theme-toggle {
       display: inline-flex;
       align-items: center;
@@ -1604,7 +1654,9 @@
         background: rgba(0, 0, 0, 0.45);
         touch-action: manipulation;
       }
-      .workspace-toggle { display: none !important; }
+      .split-toggle { display: none !important; }
+      .session-collapse-btn { display: none !important; }
+      .session-expand-btn { display: none !important; }
       .activity-panel { display: none !important; }
       .pane-resizer { display: none !important; }
       #message-input { font-size: 16px; }
@@ -3597,7 +3649,9 @@
                 onMouseEnter=${() => turnId && debouncedSetHoveredTurnId(turnId)}
                 onMouseLeave=${() => debouncedSetHoveredTurnId(null)}
                 onClick=${handleClick}
-                style=${turnId ? 'cursor: pointer;' : undefined}>
+                style=${(item.type === 'text' && item.role === 'user' && !isActivityPanel
+                  ? 'cursor: pointer; align-self: flex-end; max-width: 75%;'
+                  : turnId ? 'cursor: pointer;' : undefined)}>
                 <${ChronoItem} key=${item.id} item=${item}
                   isActivity=${isActivityPanel}
                   isSegmentActive=${selectedSegmentId && itemSegId === selectedSegmentId}
@@ -6541,11 +6595,15 @@
         <span class="app-name">Amplifier</span>
         <span class="header-spacer"></span>
         <button
-          class=${'btn workspace-toggle' + (viewMode === 'workspace' ? ' active' : '')}
+          class=${'btn split-toggle' + (viewMode === 'workspace' ? ' active' : '')}
+          title=${viewMode === 'workspace' ? 'Single column' : 'Split view'}
+          aria-label=${viewMode === 'workspace' ? 'Switch to single column view' : 'Switch to split view'}
           onClick=${() => setViewMode(m => m === 'workspace' ? 'chat' : 'workspace')}
-        >${viewMode === 'workspace' ? 'Chat' : 'Workspace'}</button>
-        <button class=${'btn' + (showSessions ? ' active' : '')} onClick=${() => setShowSessions(s => !s)}>
-          Sessions
+        >
+          ${viewMode === 'workspace'
+            ? html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/></svg>`
+            : html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="9" y1="2" x2="9" y2="14"/></svg>`
+          }
         </button>
         <span ref=${feedbackSlotRef}></span>
         <button
@@ -6583,6 +6641,16 @@
             onClick=${closeMobileSidebar}
           ></button>
         `}
+        ${!showSessions && html`
+          <button
+            class="session-expand-btn"
+            aria-label="Expand sessions panel"
+            title="Expand sessions panel"
+            onClick=${() => setShowSessions(true)}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="6,4 10,8 6,12"/></svg>
+          </button>
+        `}
         <div
           id="session-panel"
           class=${(showSessions ? '' : 'hidden ') + (mobileSidebarOpen ? 'mobile-open ' : '') + (draggingPane === 'sessions' ? 'no-transition' : '')}
@@ -6595,6 +6663,14 @@
               </div>
               <div class="session-panel-header-controls">
                 <button class="session-new-btn" onClick=${newSession}>+ New</button>
+                <button
+                  class="session-collapse-btn"
+                  aria-label="Collapse sessions panel"
+                  title="Collapse sessions panel"
+                  onClick=${() => setShowSessions(false)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="10,4 6,8 10,12"/></svg>
+                </button>
                 <button
                   class="mobile-session-close"
                   aria-label="Close sessions panel"
