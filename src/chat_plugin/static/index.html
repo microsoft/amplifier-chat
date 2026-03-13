@@ -6499,13 +6499,14 @@
     const scrollActivityToSegment = useCallback((segId) => {
       if (!activityScrollRef.current) return;
       const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      // The waypoint has id={item.id} where item.id === segId
-      const segEl = document.getElementById(segId);
+      // Must scope to activity panel — the same item ID exists in both panels
+      // (main panel has the text block, activity panel has the waypoint)
+      const segEl = activityScrollRef.current.querySelector('.activity-waypoint[id="' + segId + '"]');
       if (segEl) {
         segEl.scrollIntoView({ behavior: prefersReducedMotion ? 'instant' : 'smooth', block: 'center' });
         return;
       }
-      // Fallback: scroll to the turn separator
+      // Fallback: find the first highlighted item in this segment's turn
       const turnId = itemTurnMap.get(segId);
       if (turnId) {
         const sep = activityScrollRef.current.querySelector('.turn-separator[data-turn-id="' + turnId + '"]');
