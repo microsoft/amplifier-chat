@@ -292,9 +292,14 @@ def scan_sessions(
     # pinned (or otherwise required) sessions are always returned.
     if ensure_ids:
         window_ids = {d.name for d, _ in window}
-        for entry in all_entries:
-            if entry[0].name in ensure_ids and entry[0].name not in window_ids:
-                window.append(entry)
+        missing = ensure_ids - window_ids
+        if missing:
+            for entry in all_entries:
+                if entry[0].name in missing:
+                    window.append(entry)
+                    missing.discard(entry[0].name)
+                    if not missing:
+                        break
 
     if not window:
         return [], total_count

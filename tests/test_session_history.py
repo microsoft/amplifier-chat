@@ -220,3 +220,73 @@ def test_scan_sessions_not_hidden_by_default(tmp_path):
     assert total == 1
     assert len(results) == 1
     assert results[0]["hidden"] is False
+
+
+# ── ensure_ids ───────────────────────────────────────────────────────────────
+
+
+def test_scan_sessions_ensure_ids_outside_window(tmp_path):
+    """ensure_ids pulls sessions from outside the pagination window."""
+    import time
+
+    for name in ["sess-oldest", "sess-middle", "sess-newest"]:
+        _make_session(
+            tmp_path,
+            name,
+            transcript='{"role": "user", "content": "hi"}\n',
+        )
+        time.sleep(0.01)
+
+    # Page of 2 would normally exclude sess-oldest (position 3).
+    # ensure_ids forces it into the results.
+    page, total = scan_sessions(tmp_path, limit=2, offset=0, ensure_ids={"sess-oldest"})
+    assert total == 3
+    ids = {r["session_id"] for r in page}
+    assert "sess-oldest" in ids
+    assert "sess-newest" in ids
+    assert "sess-middle" in ids
+    assert len(page) == 3  # 2 windowed + 1 ensured
+
+
+def test_scan_sessions_ensure_ids_already_in_window(tmp_path):
+    """ensure_ids does not duplicate sessions already in the window."""
+    import time
+
+    for name in ["sess-a", "sess-b"]:
+        _make_session(
+            tmp_path,
+            name,
+            transcript='{"role": "user", "content": "hi"}\n',
+        )
+        time.sleep(0.01)
+
+    page, total = scan_sessions(tmp_path, limit=10, offset=0, ensure_ids={"sess-b"})
+    assert total == 2
+    assert len(page) == 2  # no duplication
+    ids = [r["session_id"] for r in page]
+    assert ids.count("sess-b") == 1
+
+
+def test_scan_sessions_ensure_ids_nonexistent(tmp_path):
+    """ensure_ids silently ignores IDs that don't exist on disk."""
+    _make_session(
+        tmp_path,
+        "sess-real",
+        transcript='{"role": "user", "content": "hi"}\n',
+    )
+    page, total = scan_sessions(tmp_path, limit=10, offset=0, ensure_ids={"sess-ghost"})
+    assert total == 1
+    assert len(page) == 1
+    assert page[0]["session_id"] == "sess-real"
+
+
+def test_scan_sessions_ensure_ids_empty_set(tmp_path):
+    """An empty ensure_ids set behaves like None."""
+    _make_session(
+        tmp_path,
+        "sess-only",
+        transcript='{"role": "user", "content": "hi"}\n',
+    )
+    page, total = scan_sessions(tmp_path, limit=10, offset=0, ensure_ids=set())
+    assert total == 1
+    assert len(page) == 1

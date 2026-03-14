@@ -2622,7 +2622,7 @@
     return keyA.localeCompare(keyB);
   }
 
-  function buildSessionTree(entries) {
+  function buildSessionTree(entries, pinnedIds) {
     const keyBySessionId = new Map();
     for (const [key, session] of entries) {
       const sid = session && typeof session.sessionId === 'string' ? session.sessionId : '';
@@ -2642,7 +2642,17 @@
       }
       if (!parentKey) {
         // Orphaned child: has parentSessionId but parent isn't loaded.
-        // Don't promote to root — hide until parent is fetched.
+        // This can happen when the parent is beyond the pagination window,
+        // was deleted from disk, or hasn't been fetched yet.  Pinned
+        // orphans are promoted to roots so they remain accessible (the
+        // user explicitly pinned them and must be able to unpin).
+        // All other orphans are hidden until their parent is fetched.
+        const sid = session && session.sessionId;
+        if (sid && pinnedIds && pinnedIds.has(sid)) {
+          roots.push(entry);
+        } else {
+          console.warn('[chat] orphaned sub-session hidden:', key, 'parent:', parentSessionId);
+        }
         continue;
       }
       const existing = childrenByParentKey.get(parentKey);
@@ -3715,7 +3725,13 @@
 
     return html`
       <div class="message-list-wrap">
-        <div id="message-list" ref=${listRef} onScroll=${updateScrollState}>
+        <div id="message-list" ref=${listRef} onScroll=${updateScrollState}
+          onClick=${(e) => {
+            if (onTurnSelect && (selectedTurnId || selectedSegmentId)
+                && !e.target.closest('[data-turn-id], .turn-separator')) {
+              onTurnSelect(null);
+            }
+          }}>
           ${sorted.map((item, i) => {
             const turnId = itemTurnMap ? itemTurnMap.get(item.id) : null;
             const prevTurnId = i > 0 ? (itemTurnMap ? itemTurnMap.get(sorted[i - 1].id) : null) : null;
@@ -4046,7 +4062,7 @@
               ${menuOpen && html`
                 <${SessionOverflowMenu}
                   isPinned=${isPinned}
-                  canPin=${hasSession && !session.parentSessionId}
+                  canPin=${hasSession && (!session.parentSessionId || isPinned)}
                   onPin=${() => onTogglePin(session.sessionId, isPinned)}
                   canRename=${hasSession}
                   onRename=${(e) => startEditing(e)}
@@ -5671,7 +5687,10 @@
         .then(data => {
           const rows = Array.isArray(data?.sessions) ? data.sessions : [];
           setHasMoreHistory(!!data?.has_more);
-          setHistoryOffset(rows.length);
+          // Cap at HISTORY_PAGE_SIZE so that any extra sessions injected
+          // by ensure_ids (pinned sessions outside the pagination window)
+          // don't inflate the offset and cause "load more" to skip pages.
+          setHistoryOffset(Math.min(rows.length, HISTORY_PAGE_SIZE));
           if (!rows.length) {
             setPendingHistorySyncCount(0);
             return;
@@ -6789,7 +6808,7 @@
     const filteredSessionEntries = sessionEntries.filter(([key, session]) =>
       sessionMatchesFilter(key, session, sessionFilterQuery)
     );
-    const sessionTree = buildSessionTree(filteredSessionEntries);
+    const sessionTree = buildSessionTree(filteredSessionEntries, pinnedSessionIds);
     const rootSessionEntries = sessionTree.roots;
     const sessionKeyBySessionId = new Map(
       sessionEntries
