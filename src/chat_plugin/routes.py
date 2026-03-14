@@ -92,18 +92,6 @@ def create_history_routes(
         caller-side content filtering.
         """
         pinned_ids = pin_storage.list_pins()
-        # Only inject ensure_ids on the first page (offset==0).  Pinned
-        # sessions need to be present for the initial tree build; subsequent
-        # "load more" pages should not inflate row counts which would skew
-        # the frontend's pagination offset.
-        sessions, total_count = await asyncio.to_thread(
-            scan_sessions,
-            projects_dir,
-            limit,
-            offset,
-            ensure_ids=pinned_ids if pinned_ids and offset == 0 else None,
-        )
-
         sessions, pinned_sessions, total_count = await asyncio.to_thread(
             scan_sessions, projects_dir, limit, offset, pinned_ids=pinned_ids
         )
