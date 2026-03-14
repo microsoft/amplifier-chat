@@ -2635,8 +2635,14 @@
       const [key, session] = entry;
       const parentSessionId = normalizeSessionParentId(session && session.parentSessionId);
       const parentKey = parentSessionId ? keyBySessionId.get(parentSessionId) : null;
-      if (!parentKey || parentKey === key) {
+      if (!parentSessionId || parentKey === key) {
+        // Genuine root session (no parent claimed), or self-referencing — add to roots.
         roots.push(entry);
+        continue;
+      }
+      if (!parentKey) {
+        // Orphaned child: has parentSessionId but parent isn't loaded.
+        // Don't promote to root — hide until parent is fetched.
         continue;
       }
       const existing = childrenByParentKey.get(parentKey);
@@ -4040,7 +4046,7 @@
               ${menuOpen && html`
                 <${SessionOverflowMenu}
                   isPinned=${isPinned}
-                  canPin=${hasSession}
+                  canPin=${hasSession && !session.parentSessionId}
                   onPin=${() => onTogglePin(session.sessionId, isPinned)}
                   canRename=${hasSession}
                   onRename=${(e) => startEditing(e)}
@@ -5771,7 +5777,7 @@
               const nextCwd = s.cwd || cur.cwd || '~';
               const nextLastUserMessage = s.last_user_message || cur.lastUserMessage || null;
               const nextLastUpdated = s.last_updated || cur.lastUpdated || null;
-              const nextParentSessionId = parentSessionId || cur.parentSessionId || null;
+              const nextParentSessionId = parentSessionId || cur.parentSessionId || sessionParentByIdRef.current[sessionId] || null;
               const nextSpawnAgent = spawnAgent || cur.spawnAgent || null;
               const nextName = s.name || cur.name || null;
               const nextDescription = s.description || cur.description || null;
@@ -6474,10 +6480,37 @@
           }
 
           if (resumeOk) {
+            // Create SSE and promote to live in a single atomic state
+            // update.  Previously these were two separate setSessions
+            // calls, leaving a window where source='live' but sse=null.
+            // The 10-second history poller checks `!cur.sse` to decide
+            // whether to treat a session as history — if it fired in
+            // that gap it would revert the session to read-only.
+            const sse = createSSEManager(target.sessionId, {
+              onMessage: (msg) => {
+                try { handleWsMessage(msg, key); } catch {}
+              },
+              onOpen: () => {
+                if (activeKeyRef.current === key) setSseStatus('connected');
+              },
+              onError: () => {
+                if (activeKeyRef.current === key) setSseStatus('disconnected');
+                setSessions(prev => {
+                  const next = new Map(prev);
+                  const cur = next.get(key) || {};
+                  next.set(key, { ...cur, sse: null, status: 'history', source: 'history' });
+                  return next;
+                });
+              },
+            });
+            if (activeKeyRef.current === key) {
+              sseRef.current = sse;
+              setSseStatus('connected');
+            }
             setSessions(prev => {
               const next = new Map(prev);
               const cur = next.get(key) || {};
-              next.set(key, { ...cur, source: 'live', status: 'connecting' });
+              next.set(key, { ...cur, source: 'live', status: 'connecting', sse });
               return next;
             });
           } else {
@@ -6496,35 +6529,6 @@
             setSseStatus('disconnected');
             return;
           }
-
-          // Open SSE for the now-live session
-          const sse = createSSEManager(target.sessionId, {
-            onMessage: (msg) => {
-              try { handleWsMessage(msg, key); } catch {}
-            },
-            onOpen: () => {
-              if (activeKeyRef.current === key) setSseStatus('connected');
-            },
-            onError: () => {
-              if (activeKeyRef.current === key) setSseStatus('disconnected');
-              setSessions(prev => {
-                const next = new Map(prev);
-                const cur = next.get(key) || {};
-                next.set(key, { ...cur, sse: null, status: 'history', source: 'history' });
-                return next;
-              });
-            },
-          });
-          if (activeKeyRef.current === key) {
-            sseRef.current = sse;
-            setSseStatus('connected');
-          }
-          setSessions(prev => {
-            const next = new Map(prev);
-            const cur = next.get(key) || {};
-            next.set(key, { ...cur, sse });
-            return next;
-          });
         })
         .catch(err => {
           if (transcriptAbort.signal.aborted || err?.name === 'AbortError') {

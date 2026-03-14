@@ -90,10 +90,14 @@ def create_history_routes(
         total_count reflects all discovered session directories before any
         caller-side content filtering.
         """
-        sessions, total_count = await asyncio.to_thread(
-            scan_sessions, projects_dir, limit, offset
-        )
         pinned_ids = pin_storage.list_pins()
+        sessions, total_count = await asyncio.to_thread(
+            scan_sessions,
+            projects_dir,
+            limit,
+            offset,
+            ensure_ids=pinned_ids if pinned_ids else None,
+        )
 
         # Filter: only include sessions with actual content, exclude hidden
         sessions = [

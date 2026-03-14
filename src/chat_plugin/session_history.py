@@ -256,6 +256,7 @@ def scan_sessions(
     projects_dir: Path | None,
     limit: int = 200,
     offset: int = 0,
+    ensure_ids: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Scan projects_dir and return lightweight metadata for the requested page.
 
@@ -265,6 +266,10 @@ def scan_sessions(
       Phase 1 — cheap stat() all session dirs (~0.03 s for 5 000 dirs).
                 Sort newest-first by mtime. Record total_count.
       Phase 2 — parallel full-read of only the offset:offset+limit window.
+
+    If *ensure_ids* is provided, any session IDs in that set that fall outside
+    the pagination window are appended so they are always returned (e.g. pinned
+    sessions whose mtime has drifted past the page boundary).
 
     Returns:
         (sessions, total_count) where *sessions* is the requested page
@@ -282,6 +287,15 @@ def scan_sessions(
     total_count = len(all_entries)
 
     window = all_entries[offset : offset + limit]
+
+    # Append any ensure_ids that fell outside the pagination window so that
+    # pinned (or otherwise required) sessions are always returned.
+    if ensure_ids:
+        window_ids = {d.name for d, _ in window}
+        for entry in all_entries:
+            if entry[0].name in ensure_ids and entry[0].name not in window_ids:
+                window.append(entry)
+
     if not window:
         return [], total_count
 
