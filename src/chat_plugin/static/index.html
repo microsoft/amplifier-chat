@@ -2135,6 +2135,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      if (!resp.ok) throw new Error(`executeStream failed: ${resp.status}`);
       return resp.json();
     },
     async cancelExecution(sessionId, immediate = false) {
@@ -5891,6 +5892,27 @@
     }, [applySessionForkLineage]);
 
     // —— REST + SSE connection ———————————————————————————————————————
+
+    // Cap background SSE connections to leave headroom for REST calls.
+    // HTTP/1.1 browsers allow only 6 concurrent connections per origin;
+    // keeping MAX_BACKGROUND_SSE background SSEs reserves 2 slots for fetch().
+    const MAX_BACKGROUND_SSE = 4;
+
+    function evictStaleSse(sessionsMap, activeKey, maxBackground = MAX_BACKGROUND_SSE) {
+      const backgroundSses = [];
+      for (const [k, s] of sessionsMap) {
+        if (k !== activeKey && s.sse && s.sse.readyState !== EventSource.CLOSED) {
+          backgroundSses.push({ key: k, lastUpdated: s.lastUpdated || s.lastActivity || 0 });
+        }
+      }
+      if (backgroundSses.length < maxBackground) return null; // nothing to evict
+      // Sort oldest-activity first
+      backgroundSses.sort((a, b) => (a.lastUpdated < b.lastUpdated ? -1 : 1));
+      // Evict enough to bring the count down to maxBackground - 1 (making room for the new one)
+      const toEvict = backgroundSses.slice(0, backgroundSses.length - maxBackground + 1);
+      return toEvict.map(e => e.key);
+    }
+
     const connect = useCallback(async (sessionKey) => {
       setSseStatus('connecting');
       const requestedCwd = getRequestedCwd();
@@ -5954,6 +5976,21 @@
           next.set(sessionKey, { ...s, sse, cwd: s.cwd || requestedCwd2, serverCwd: requestedCwd2 });
           return next;
         });
+        // Evict LRU background SSEs to stay within browser connection limit
+        const connectEvictKeys = evictStaleSse(sessionsRef.current, activeKeyRef.current);
+        if (connectEvictKeys) {
+          setSessions(prev => {
+            const next = new Map(prev);
+            for (const ek of connectEvictKeys) {
+              const s = next.get(ek);
+              if (s?.sse) {
+                try { s.sse.close(); } catch {}
+                next.set(ek, { ...s, sse: null });
+              }
+            }
+            return next;
+          });
+        }
         return sessionId;
       } catch (err) {
         console.error('[chat] failed to create session', err);
@@ -6516,6 +6553,7 @@
       }]);
 
       setExecuting(true);
+      executingRef.current = true;
       const nowIso = new Date().toISOString();
       setSessions(prev => {
         const next = new Map(prev);
@@ -6531,6 +6569,44 @@
         }
         return next;
       });
+
+      // Ensure SSE is alive before executing. If the connection was killed
+      // (e.g., by switching sessions via newSession/resumeHistorySession),
+      // re-establish it so we receive the response events.
+      // Use sseRef.current (set synchronously by connect/resumeHistorySession)
+      // instead of sessions.get(key)?.sse which reads from a stale closure
+      // (sendMessage depends on [connect], not [sessions]).
+      const currentSse = sseRef.current;
+      if (!currentSse || currentSse.readyState === EventSource.CLOSED) {
+        const capturedKey = key;
+        const sse = createSSEManager(sessionId, {
+          onMessage: (msg) => handleWsMessage(msg, capturedKey),
+          onOpen: () => { if (activeKeyRef.current === capturedKey) setSseStatus('connected'); },
+          onError: () => { if (activeKeyRef.current === capturedKey) setSseStatus('disconnected'); },
+        });
+        sseRef.current = sse;
+        setSessions(prev => {
+          const next = new Map(prev);
+          const s = next.get(capturedKey) || {};
+          next.set(capturedKey, { ...s, sse });
+          return next;
+        });
+        // Evict LRU background SSEs to stay within browser connection limit
+        const sendEvictKeys = evictStaleSse(sessionsRef.current, activeKeyRef.current);
+        if (sendEvictKeys) {
+          setSessions(prev => {
+            const next = new Map(prev);
+            for (const ek of sendEvictKeys) {
+              const s = next.get(ek);
+              if (s?.sse) {
+                try { s.sse.close(); } catch {}
+                next.set(ek, { ...s, sse: null });
+              }
+            }
+            return next;
+          });
+        }
+      }
 
       // Kick off the SSE-streamed execution via REST
       api.executeStream(sessionId, content, images).catch(err => {
@@ -6645,10 +6721,7 @@
       seenDeltasRef.current.clear();
 
       // Close previous SSE if any
-      if (sseRef.current) {
-        try { sseRef.current.close(); } catch {}
-        sseRef.current = null;
-      }
+      sseRef.current = null;
     }, []);
 
     const resumeHistorySession = useCallback((key) => {
@@ -6694,10 +6767,7 @@
       setTurnCount(target.savedTurnCount || target.turnCount || 0);
       setSseStatus('connecting');
       // Close any previous SSE
-      if (sseRef.current) {
-        try { sseRef.current.close(); } catch {}
-        sseRef.current = null;
-      }
+      sseRef.current = null;
       setSessions(prev => {
         const next = new Map(prev);
         const cur = next.get(key) || {};
@@ -6840,6 +6910,21 @@
               next.set(key, { ...cur, source: 'live', status: 'connecting', sse });
               return next;
             });
+            // Evict LRU background SSEs to stay within browser connection limit
+            const resumeEvictKeys = evictStaleSse(sessionsRef.current, activeKeyRef.current);
+            if (resumeEvictKeys) {
+              setSessions(prev => {
+                const next = new Map(prev);
+                for (const ek of resumeEvictKeys) {
+                  const s = next.get(ek);
+                  if (s?.sse) {
+                    try { s.sse.close(); } catch {}
+                    next.set(ek, { ...s, sse: null });
+                  }
+                }
+                return next;
+              });
+            }
           } else {
             // Resume failed — leave as read-only history
             setSessions(prev => {
@@ -6997,6 +7082,7 @@
           next.set(currentKey, {
             ...cur,
             savedItems: chronoItemsRef.current,
+            savedPlaceholderId: placeholderIdRef.current,
             savedTurnCount: turnCountRef.current,
           });
           return next;
@@ -7010,6 +7096,7 @@
       orderCounterRef.current = nextOrder(targetItems);
       setTurnCount(target.savedTurnCount || 0);
       setExecuting(target.status === 'running');
+      executingRef.current = (target.status === 'running');
       // If the target session had an active countdown, restart it
       if (target.status !== 'running' && getQueueDrainState(key) === 'countdown') {
         tryDrainQueue();
@@ -7040,12 +7127,58 @@
       for (const rafId of syntheticAnimRef.current.values()) cancelAnimationFrame(rafId);
       syntheticAnimRef.current.clear();
       seenDeltasRef.current.clear();
+      // Strip the thinking placeholder that was saved when we switched away.
+      // The replay will re-create thinking items from actual content_block:start events.
+      const savedPlaceholder = target.savedPlaceholderId || null;
+      if (savedPlaceholder) {
+        setChronoItems(prev => prev.filter(item => item.id !== savedPlaceholder));
+      }
       const queued = pendingEventsRef.current.get(key);
       if (queued && queued.length > 0) {
         pendingEventsRef.current.delete(key);
         for (const queuedMsg of queued) {
           handleWsMessage(queuedMsg, key);
         }
+      }
+      // Server reconciliation: if the SSE for this session is dead, the client
+      // may have missed events (including prompt_complete). Probe the server
+      // for authoritative status and reconcile if the session has already finished.
+      const targetSse = sessions.get(key)?.sse;
+      if (!targetSse || targetSse.readyState === EventSource.CLOSED) {
+        const sid = (sessions.get(key) || {}).sessionId;
+        if (sid) {
+          fetch(`${API_BASE}/sessions/${sid}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(state => {
+              if (!state) return;
+              const status = state.status || state.session_status;
+              if (status === 'idle' || status === 'completed' || status === 'failed') {
+                if (activeKeyRef.current === key) {
+                  setExecuting(false);
+                  executingRef.current = false;
+                  setChronoItems(prev => {
+                    const hasStuck = prev.some(i => i.streaming);
+                    return hasStuck ? prev.map(i => i.streaming ? { ...i, streaming: false } : i) : prev;
+                  });
+                  tryDrainQueue();
+                }
+              }
+            });
+        }
+      }
+      // Post-replay reconciliation: prompt_complete is excluded from pendingEventsRef,
+      // so replayed tool_call events can re-set executing=true with no prompt_complete
+      // to clear it. Read the authoritative session status from the ref (not the
+      // potentially-stale closure) and correct executing + sweep stuck streaming items.
+      const freshTarget = sessionsRef.current.get(key) || {};
+      if (freshTarget.status !== 'running') {
+        setExecuting(false);
+        executingRef.current = false;
+        setChronoItems(prev => {
+          const hasStuck = prev.some(i => i.streaming);
+          return hasStuck ? prev.map(i => i.streaming ? { ...i, streaming: false } : i) : prev;
+        });
+        tryDrainQueue();
       }
     }, [sessions, handleWsMessage, resumeHistorySession]);
     switchSessionRef.current = switchSession;
