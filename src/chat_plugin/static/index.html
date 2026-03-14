@@ -5956,26 +5956,39 @@
       const globalSse = createSSEManager(null, {
         onMessage: (msg, eventSessionId) => {
           if (!eventSessionId) return;
-          // Derive ownerKey from the event's session_id
           let ownerKey = null;
-          for (const [key, session] of sessionsRef.current) {
-            if (session.sessionId === eventSessionId) {
-              ownerKey = key;
-              break;
+
+          // Step 1: Check the parent chain FIRST — events for child sessions
+          // (delegates, sub-delegates, any N levels deep) must route to their
+          // root ancestor, not to any standalone history-{childId} entry that
+          // syncSessionHistory may have created before the session_fork event
+          // populated sessionParentByIdRef.  Walking to the root (rather than
+          // stopping at the direct parent) makes this generic for any depth.
+          const directParentId = sessionParentByIdRef.current[eventSessionId];
+          if (directParentId) {
+            let rootId = directParentId;
+            while (sessionParentByIdRef.current[rootId]) {
+              rootId = sessionParentByIdRef.current[rootId];
             }
-          }
-          // If not found directly, check if it's a child session
-          if (!ownerKey) {
-            const parentId = sessionParentByIdRef.current[eventSessionId];
-            if (parentId) {
-              for (const [key, session] of sessionsRef.current) {
-                if (session.sessionId === parentId) {
-                  ownerKey = key;
-                  break;
-                }
+            for (const [key, session] of sessionsRef.current) {
+              if (session.sessionId === rootId) {
+                ownerKey = key;
+                break;
               }
             }
           }
+
+          // Step 2: Direct match — only reached when no parent chain exists,
+          // i.e. this event belongs to a true root session.
+          if (!ownerKey) {
+            for (const [key, session] of sessionsRef.current) {
+              if (session.sessionId === eventSessionId) {
+                ownerKey = key;
+                break;
+              }
+            }
+          }
+
           if (!ownerKey) return;
           try { handleWsMessage(msg, ownerKey); } catch (err) {
             console.error('[SSE] handler error', err);
@@ -6020,6 +6033,20 @@
       sseRef.current = globalSse;
       return () => { globalSse.close(); };
     }, []);
+
+    // Walk the sessionParentByIdRef chain upward from sessionId.
+    // Returns the root ancestor's session ID, or null if sessionId has no
+    // known parent at all.  Handles N-level hierarchies: grandchild →
+    // child → root.
+    const findRootParent = (sessionId) => {
+      let current = sessionId;
+      let parent = sessionParentByIdRef.current[current];
+      while (parent) {
+        current = parent;
+        parent = sessionParentByIdRef.current[current];
+      }
+      return current !== sessionId ? current : null;
+    };
 
     const syncSessionHistory = useCallback((options = {}) => {
       const silent = !!options.silent;
@@ -6076,6 +6103,22 @@
               if (!existingKey) {
                 const historyKey = 'history-' + sessionId;
                 if (next.has(historyKey)) continue;
+                // Resolve the parent, walking the full ref chain so that
+                // N-level grandchildren don't get added as root entries even
+                // when the server row's parent_session_id hasn't landed yet
+                // but a live session_fork event already populated the ref.
+                let resolvedParentSessionId = parentSessionId;
+                if (!resolvedParentSessionId) {
+                  // findRootParent returns non-null only when the ref chain
+                  // has at least one entry for sessionId, which means the
+                  // direct parent is also available in the ref.
+                  if (findRootParent(sessionId)) {
+                    resolvedParentSessionId = sessionParentByIdRef.current[sessionId];
+                  }
+                }
+                if (resolvedParentSessionId && !sessionParentByIdRef.current[sessionId]) {
+                  sessionParentByIdRef.current[sessionId] = resolvedParentSessionId;
+                }
                 // New session never seen by this client.
                 // Only badge on explicit user-initiated sync (!silent) — not on
                 // initial page load or background refresh, which would flag every
@@ -6098,7 +6141,7 @@
                   remoteRevision: revision,
                   hasExternalUpdate: badgeNew,
                   isNewSession: badgeNew,
-                  parentSessionId,
+                  parentSessionId: resolvedParentSessionId,
                   spawnAgent,
                   name: s.name || null,
                   description: s.description || null,
