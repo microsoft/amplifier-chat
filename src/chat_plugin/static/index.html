@@ -1197,10 +1197,15 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 12px 16px;
-      line-height: 1.6;
-      white-space: pre-wrap;
+      padding: 10px 14px;
+      line-height: 1.5;
       word-break: break-word;
+    }
+    /* pre-wrap only during streaming (raw text) and for user messages (never markdown-rendered).
+       Rendered markdown (Path A / dangerouslySetInnerHTML) uses white-space: normal
+       so that newlines between <p> tags don't create double spacing. */
+    .text-block[data-streaming] {
+      white-space: pre-wrap;
     }
     .text-block[data-streaming="true"]::after {
       content: "▊";
@@ -1209,27 +1214,72 @@
     }
     @keyframes cursor-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-    .text-block p { margin-bottom: 0.5em; }
+    .text-block p { margin-bottom: 0.65em; }
     .text-block p:last-child { margin-bottom: 0; }
     .text-block ul,
     .text-block ol {
-      margin: 0.45em 0 0.6em 0;
+      margin: 0.45em 0 0.65em 0;
       padding-left: 1.4em;
     }
     .text-block li {
       margin: 0.2em 0;
     }
     .text-block code { background: var(--bg-tertiary); padding: 1px 4px; border-radius: 3px; font-family: monospace; font-size: 0.9em; }
-    .text-block pre { background: var(--bg-tertiary); padding: 8px; border-radius: 4px; overflow-x: auto; }
+    .text-block pre { background: var(--bg-tertiary); padding: 8px 10px; border-radius: 4px; overflow-x: auto; margin: 0.75em 0; line-height: 1.35; }
     .text-block pre code { background: none; padding: 0; }
 
-    /* User messages */
+    /* Content typography — headings */
+    .text-block h1 { font-size: 1.3em; margin: 0.6em 0 0.3em; font-weight: 600; }
+    .text-block h2 { font-size: 1.15em; margin: 0.5em 0 0.25em; font-weight: 600; }
+    .text-block h3 { font-size: 1.05em; margin: 0.4em 0 0.2em; font-weight: 600; }
+    .text-block h4,
+    .text-block h5,
+    .text-block h6 { font-size: 1em; margin: 0.4em 0 0.2em; font-weight: 600; }
+
+    /* Content typography — blockquote, hr, table */
+    .text-block blockquote {
+      margin: 0.4em 0;
+      padding: 0.25em 0 0.25em 0.8em;
+      border-left: 3px solid var(--border);
+      color: var(--text-secondary);
+    }
+    .text-block hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0.6em 0;
+    }
+    .text-block table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.75em 0;
+      font-size: 0.92em;
+    }
+    .text-block th,
+    .text-block td {
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      text-align: left;
+    }
+    .text-block th {
+      background: var(--bg-tertiary);
+      font-weight: 600;
+    }
+
+    /* First/last child margin resets inside bubbles */
+    .text-block > :first-child { margin-top: 0; }
+    .text-block > :last-child { margin-bottom: 0; }
+
+    /* Assistant messages — cap width for conversational feel */
+    .text-block:not(.user-message):not(.system-message) {
+      max-width: 85%;
+    }
+
+    /* User messages — max-width is on the wrapper div (inline style), not here */
     .user-message {
       align-self: flex-end;
       background: var(--accent-blue);
       color: white;
       border: none;
-      max-width: 75%;
     }
 
     /* System messages */
