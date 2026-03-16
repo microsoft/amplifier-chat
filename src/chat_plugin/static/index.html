@@ -182,6 +182,46 @@
       color: var(--text-secondary);
     }
 
+    /* Activity panel expand strip (visible when panel is collapsed) */
+    .activity-expand-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      flex-shrink: 0;
+      background: var(--bg-secondary);
+      border: none;
+      border-left: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .activity-expand-btn:hover {
+      background: var(--bg-tertiary, var(--bg-hover));
+      color: var(--text-primary);
+    }
+
+    /* Activity panel collapse button (inside panel header) */
+    .activity-collapse-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .activity-collapse-btn:hover {
+      background: var(--bg-tertiary, var(--bg-hover));
+      color: var(--text-primary);
+      border-color: var(--border);
+    }
+
     .theme-toggle {
       display: inline-flex;
       align-items: center;
@@ -701,7 +741,7 @@
     #chat-main.workspace-mode {
       flex-direction: row;
     }
-    .main-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .main-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 480px; }
     .activity-panel {
       width: clamp(380px, 34vw, 560px);
       border-left: 1px solid var(--border);
@@ -709,9 +749,20 @@
       flex-direction: column;
       overflow: hidden;
       background: var(--bg-secondary);
+      transition: width 0.2s;
+    }
+    .activity-panel.collapsed {
+      width: 0 !important;
+      overflow: hidden;
+    }
+    .activity-panel.no-transition {
+      transition: none;
     }
     .activity-panel-header {
-      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px 8px 8px;
       font-size: 11px;
       color: var(--text-secondary);
       text-transform: uppercase;
@@ -1829,6 +1880,8 @@
       .split-toggle { display: none !important; }
       .session-collapse-btn { display: none !important; }
       .session-expand-btn { display: none !important; }
+      .activity-expand-btn { display: none !important; }
+      .activity-collapse-btn { display: none !important; }
       .activity-panel { display: none !important; }
       .pane-resizer { display: none !important; }
       #message-input { font-size: 16px; }
@@ -4651,9 +4704,15 @@
     const [turnCount, setTurnCount] = useState(0);
     const [diskUpdateNoticeSignal, setDiskUpdateNoticeSignal] = useState(0);
 
+    // Layout constants
+    const MIN_CHAT_WIDTH = 480;
+    const AUTO_COLLAPSE_BP = 1080;
+
     // UI state
     const [viewMode, setViewMode] = useState('chat');
     const [showSessions, setShowSessions] = useState(true);
+    const [showActivity, setShowActivity] = useState(true);
+    const activityAutoCollapsedRef = useRef(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [syncingHistory, setSyncingHistory] = useState(false);
     const [historyListLoading, setHistoryListLoading] = useState(true);
@@ -4949,16 +5008,23 @@
         const drag = dragStateRef.current;
         if (!drag) return;
         const dx = e.clientX - drag.startX;
+        const vw = window.innerWidth;
+
         if (drag.pane === 'sessions') {
           const min = 180;
-          const max = Math.max(260, Math.min(560, window.innerWidth * 0.6));
+          const actSpace = (viewMode === 'workspace' && showActivity)
+            ? activityPanelWidth + 6 : 0;
+          const budgetMax = vw - 6 - MIN_CHAT_WIDTH - actSpace;
+          const max = Math.max(min, Math.min(560, budgetMax));
           const next = Math.max(min, Math.min(max, drag.startWidth + dx));
           setSessionPanelWidth(next);
           return;
         }
         if (drag.pane === 'activity') {
           const min = 280;
-          const max = Math.max(360, Math.min(900, window.innerWidth - 320));
+          const sessSpace = showSessions ? sessionPanelWidth + 6 : 0;
+          const budgetMax = vw - sessSpace - 6 - MIN_CHAT_WIDTH;
+          const max = Math.max(min, Math.min(900, budgetMax));
           const next = Math.max(min, Math.min(max, drag.startWidth - dx));
           setActivityPanelWidth(next);
         }
@@ -4979,6 +5045,39 @@
         window.removeEventListener('mouseup', onMouseUp);
       };
     }, []);
+
+    // Auto-collapse activity panel when viewport shrinks below AUTO_COLLAPSE_BP
+    useEffect(() => {
+      if (viewMode !== 'workspace') return;
+      const onResize = () => {
+        const vw = window.innerWidth;
+        if (vw <= 768) return;
+        if (vw < AUTO_COLLAPSE_BP && showActivity) {
+          setShowActivity(false);
+          activityAutoCollapsedRef.current = true;
+        } else if (vw >= AUTO_COLLAPSE_BP && !showActivity && activityAutoCollapsedRef.current) {
+          setShowActivity(true);
+          activityAutoCollapsedRef.current = false;
+        }
+      };
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }, [viewMode, showActivity]);
+
+    // When entering workspace mode, decide initial activity panel state
+    useEffect(() => {
+      if (viewMode === 'workspace') {
+        const vw = window.innerWidth;
+        if (vw <= 768) return;
+        if (vw < AUTO_COLLAPSE_BP) {
+          setShowActivity(false);
+          activityAutoCollapsedRef.current = true;
+        } else {
+          setShowActivity(true);
+          activityAutoCollapsedRef.current = false;
+        }
+      }
+    }, [viewMode]);
 
     useEffect(() => {
       if (!activeKey) return;
@@ -7236,6 +7335,22 @@
       document.body.style.userSelect = 'none';
     }, [sessionPanelWidth, activityPanelWidth]);
 
+    const collapseActivity = useCallback(() => {
+      setShowActivity(false);
+      activityAutoCollapsedRef.current = false;
+    }, []);
+
+    const expandActivity = useCallback(() => {
+      const vw = window.innerWidth;
+      const sessSpace = showSessions ? sessionPanelWidth + 6 : 0;
+      const budget = vw - sessSpace - 6 - MIN_CHAT_WIDTH;
+      if (budget < 280 && showSessions) {
+        setShowSessions(false);
+      }
+      setShowActivity(true);
+      activityAutoCollapsedRef.current = false;
+    }, [showSessions, sessionPanelWidth]);
+
     // —— Render ——————————————————————————————————————————————————————
     const sessionEntries = Array.from(sessions.entries());
     const filteredSessionEntries = sessionEntries.filter(([key, session]) =>
@@ -7798,13 +7913,38 @@
               activeKey=${activeKey}
             />
           </div>
+          ${viewMode === 'workspace' && !showActivity && html`
+            <button
+              class="activity-expand-btn"
+              onClick=${expandActivity}
+              aria-label="Expand activity panel"
+              title="Expand activity panel"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9,3 4,7 9,11"/></svg>
+            </button>
+          `}
           ${viewMode === 'workspace' && html`
+            ${showActivity && html`
+              <div
+                class=${'pane-resizer' + (draggingPane === 'activity' ? ' active' : '')}
+                onMouseDown=${e => startPaneResize('activity', e)}
+              ></div>
+            `}
             <div
-              class=${'pane-resizer' + (draggingPane === 'activity' ? ' active' : '')}
-              onMouseDown=${e => startPaneResize('activity', e)}
-            ></div>
-            <div class="activity-panel" style=${{ width: activityPanelWidth + 'px' }}>
-              <div class="activity-panel-header">Activity</div>
+              class=${'activity-panel' + (!showActivity ? ' collapsed' : '') + (draggingPane === 'activity' ? ' no-transition' : '')}
+              style=${showActivity ? { width: activityPanelWidth + 'px' } : {}}
+            >
+              <div class="activity-panel-header">
+                <button
+                  class="activity-collapse-btn"
+                  onClick=${collapseActivity}
+                  aria-label="Collapse activity panel"
+                  title="Collapse activity panel"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="5,3 10,7 5,11"/></svg>
+                </button>
+                <span>Activity</span>
+              </div>
               <${ActivityBreadcrumb}
                 turnMap=${turnMap}
                 scrollTurnId=${activeTurnId}
