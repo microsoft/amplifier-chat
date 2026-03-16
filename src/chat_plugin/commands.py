@@ -26,6 +26,7 @@ COMMANDS: list[CommandDef] = [
     CommandDef(
         "bundle", "Switch to a different bundle (coming soon)", "/bundle <name>"
     ),
+    CommandDef("voice", "Voice feature settings", "/voice [on|off]"),
 ]
 
 
@@ -326,6 +327,43 @@ class CommandProcessor:
                 for c in COMMANDS
             ],
         }
+
+    def _cmd_voice(self, args: list[str], *, session_id: str | None = None) -> dict:
+        """Voice feature info and settings."""
+        try:
+            from chat_plugin.voice import (
+                DEFAULT_STT_MODEL,
+                _models_dir,
+                _tts_available,
+                _whisper_available,
+            )
+
+            model_file = _models_dir() / f"ggml-{DEFAULT_STT_MODEL}.bin"
+            return {
+                "type": "voice",
+                "stt_available": _whisper_available,
+                "tts_available": _tts_available,
+                "stt_model": DEFAULT_STT_MODEL,
+                "stt_model_downloaded": model_file.exists(),
+                "message": (
+                    "Voice features: "
+                    + (
+                        "STT ready"
+                        if _whisper_available and model_file.exists()
+                        else "STT not ready"
+                    )
+                    + " | "
+                    + ("TTS ready" if _tts_available else "TTS not ready")
+                    + ". Install: uv sync --extra voice"
+                ),
+            }
+        except ImportError:
+            return {
+                "type": "voice",
+                "stt_available": False,
+                "tts_available": False,
+                "message": "Voice dependencies not installed. Run: uv sync --extra voice",
+            }
 
     def _cmd_bundle(self, args: list[str], *, session_id: str | None = None) -> dict:
         # B4: Coming soon stub — bundle switching not yet implemented

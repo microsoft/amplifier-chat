@@ -2199,6 +2199,93 @@
       border-color: rgba(59, 130, 246, 0.35);
       color: var(--accent-blue, #3b82f6);
     }
+
+    /* ── Voice Features ────────────────────────────────── */
+    /* Mic button: visual peer of .attach-btn, inherits .input-btn base */
+    .mic-btn { background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease; }
+    .mic-btn:hover { color: var(--text-primary); background: var(--action-btn-bg-hover); border-color: transparent; }
+    .mic-btn:active { background: var(--action-btn-bg-active); }
+    .mic-btn.recording { color: var(--accent-red); background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25); animation: mic-glow 2s ease-in-out infinite; }
+    .mic-btn.recording:hover { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.35); }
+    .mic-btn.transcribing { color: var(--accent-blue); background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.2); }
+    .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .mic-btn:disabled:hover { background: var(--bg-tertiary); border-color: var(--border); color: var(--text-secondary); }
+    @keyframes mic-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } 50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12); } }
+    @media (prefers-reduced-motion: reduce) { .mic-btn.recording { animation: none; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1); } }
+
+    .recording-banner { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; margin-bottom: 8px; font-size: 13px; color: var(--accent-red); }
+    .recording-banner .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-red); animation: rec-dot-pulse 2s ease-in-out infinite; flex-shrink: 0; }
+    .recording-banner .rec-timer { font-variant-numeric: tabular-nums; min-width: 32px; }
+    .recording-banner .rec-stop { background: none; border: 1px solid rgba(239, 68, 68, 0.3); color: var(--accent-red); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 12px; margin-left: auto; }
+    .recording-banner .rec-stop:hover { background: rgba(239, 68, 68, 0.1); }
+    @keyframes rec-dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @media (prefers-reduced-motion: reduce) { .recording-banner .rec-dot { animation: none; } }
+
+    .model-download-banner { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-secondary); border-radius: 8px; margin-bottom: 6px; font-size: 13px; color: var(--text-secondary); }
+    .model-download-banner .dl-info { flex: 1; }
+    .model-download-banner .dl-info strong { color: var(--text-primary); font-weight: 600; }
+    .model-download-banner .dl-info small { display: block; margin-top: 3px; color: var(--text-muted); font-size: 12px; line-height: 1.4; }
+    .model-download-banner .dl-btn { background: var(--accent-blue); color: #fff; border: none; border-radius: 6px; padding: 7px 16px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; letter-spacing: 0.01em; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+    .model-download-banner .dl-btn:hover { filter: brightness(1.1); box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+    .model-download-banner .dl-btn:disabled { opacity: 0.7; cursor: default; filter: none; }
+    .model-download-banner .dl-dismiss { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; font-size: 16px; line-height: 1; }
+    .model-download-banner .dl-progress { width: 100%; height: 3px; background: var(--border-secondary); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+    .model-download-banner .dl-progress-bar { height: 100%; background: var(--accent); border-radius: 2px; animation: dl-indeterminate 1.5s ease-in-out infinite; }
+    @keyframes dl-indeterminate { 0% { width: 0%; margin-left: 0; } 50% { width: 60%; margin-left: 20%; } 100% { width: 0%; margin-left: 100%; } }
+
+    /* ── Experimental Features Drawer ─────────────────── */
+    .labs-btn { position: relative; }
+    .labs-btn .labs-indicator { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-blue); }
+
+    .labs-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 499; opacity: 0; transition: opacity 0.2s ease; }
+    .labs-backdrop.visible { opacity: 1; }
+
+    .labs-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 90vw; background: var(--bg-secondary); border-left: 1px solid var(--border); z-index: 500; transform: translateX(100%); transition: transform 0.25s ease; display: flex; flex-direction: column; }
+    .labs-drawer.open { transform: translateX(0); }
+
+    .labs-drawer-header { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .labs-drawer-header h2 { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0; flex: 1; }
+    .labs-drawer-header .labs-close { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; }
+    .labs-drawer-header .labs-close:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+    .labs-drawer-subtitle { padding: 0 20px; margin-top: 12px; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+    .labs-drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+    .labs-feature-card { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+    .labs-feature-head { display: flex; align-items: center; gap: 10px; }
+    .labs-feature-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-muted); background: var(--bg-secondary); }
+    .labs-feature-card.enabled .labs-feature-icon { color: var(--accent-blue); background: rgba(59, 130, 246, 0.1); }
+    .labs-feature-info { flex: 1; min-width: 0; }
+    .labs-feature-info h3 { font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0; }
+    .labs-feature-info p { font-size: 12px; color: var(--text-muted); margin: 2px 0 0; line-height: 1.4; }
+
+    .labs-toggle { position: relative; width: 36px; height: 20px; border-radius: 10px; background: var(--border); border: none; cursor: pointer; padding: 0; transition: background 0.2s ease; flex-shrink: 0; }
+    .labs-toggle.on { background: var(--accent-blue); }
+    .labs-toggle .labs-toggle-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+    .labs-toggle.on .labs-toggle-knob { transform: translateX(16px); }
+
+    .labs-feature-status { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px; }
+    .labs-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .labs-status-dot.ready { background: var(--accent-green); }
+    .labs-status-dot.needs-setup { background: var(--accent-amber); }
+    .labs-status-dot.off { background: var(--text-muted); }
+
+    .labs-feature-settings { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .labs-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .labs-setting-row label { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+    .labs-setting-row select { background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary); font-size: 12px; padding: 4px 8px; border-radius: 5px; min-width: 0; flex: 1; max-width: 180px; }
+    .labs-setting-row .labs-danger-btn { background: none; border: 1px solid var(--accent-red); color: var(--accent-red); font-size: 12px; padding: 4px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+    .labs-setting-row .labs-danger-btn:hover { background: rgba(239, 68, 68, 0.08); }
+    .labs-setting-row .labs-action-btn { background: var(--accent-blue); color: #fff; border: none; font-size: 12px; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-weight: 500; white-space: nowrap; }
+    .labs-setting-row .labs-action-btn:hover { filter: brightness(1.1); }
+    .labs-setting-row .labs-action-btn:disabled { opacity: 0.6; cursor: default; filter: none; }
+
+    .msg-actions { display: flex; gap: 2px; margin-top: 6px; align-self: flex-end; }
+    .msg-actions button { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; color: var(--text-muted); opacity: 0.4; transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease; line-height: 0; display: flex; align-items: center; }
+    .msg-actions button:hover { opacity: 1; background: var(--bg-tertiary); }
+    .msg-actions button:active { opacity: 1; background: var(--border-secondary); }
+    .msg-actions button.playing { opacity: 1; color: var(--accent-blue); }
+    .msg-actions button.copy-ok { opacity: 1; color: var(--accent-green); }
   </style>
 </head>
 <body>
@@ -3423,6 +3510,22 @@
         return html`<svg class=${cls} viewBox="0 0 24 24"><path d="M12 17v5"></path><path d="M9 11V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v7"></path><path d="M5 17h14"></path><path d="M7 11l1.5 6h7L17 11"></path></svg>`;
       case 'more-vertical':
         return html`<svg class=${cls} viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>`;
+      case 'mic':
+        return html`<svg class=${cls} viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0"></path><line x1="12" y1="19" x2="12" y2="22"></line><line x1="8" y1="22" x2="16" y2="22"></line></svg>`;
+      case 'volume-2':
+        return html`<svg class=${cls} viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
+      case 'square':
+        return html`<svg class=${cls} viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg>`;
+      case 'clipboard':
+        return html`<svg class=${cls} viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="4" rx="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg>`;
+      case 'check':
+        return html`<svg class=${cls} viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+      case 'loader':
+        return html`<svg class=${cls} viewBox="0 0 24 24" style="animation:spin 1s linear infinite"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>`;
+      case 'x':
+        return html`<svg class=${cls} viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg>`;
+      case 'flask':
+        return html`<svg class=${cls} viewBox="0 0 24 24"><path d="M9 3h6v7l4.5 7.5A2 2 0 0 1 17.77 21H6.23a2 2 0 0 1-1.73-3.5L9 10z"></path><path d="M9 3h6"></path></svg>`;
       default:
         return null;
     }
@@ -3854,7 +3957,71 @@
     `;
   }
 
-  function ChronoItem({ item, isActivity, isSegmentActive, onWaypointClick, subSessionsRef, subSessionRevision, onNavigateSession }) {
+  // ── Voice: Message action buttons (Play TTS + Copy) ──
+  // ── Message action buttons (Copy always, Play when voice labs on) ──
+  function MessageActions({ text, showPlay }) {
+    const [playState, setPlayState] = useState('idle'); // idle | loading | playing
+    const [copied, setCopied] = useState(false);
+    const audioRef = useRef(null);
+
+    const handlePlay = useCallback(async (e) => {
+      e.stopPropagation();
+      if (playState === 'playing') {
+        if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+        setPlayState('idle');
+        return;
+      }
+      setPlayState('loading');
+      try {
+        const resp = await fetch('/chat/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+        if (!resp.ok) throw new Error('TTS request failed');
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => { setPlayState('idle'); audioRef.current = null; URL.revokeObjectURL(url); };
+        audio.onerror = () => { setPlayState('idle'); audioRef.current = null; URL.revokeObjectURL(url); };
+        await audio.play();
+        setPlayState('playing');
+      } catch (err) {
+        console.error('TTS error:', err);
+        setPlayState('idle');
+      }
+    }, [text, playState]);
+
+    const handleCopy = useCallback(async (e) => {
+      e.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {}
+    }, [text]);
+
+    // Cleanup audio on unmount
+    useEffect(() => () => {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    }, []);
+
+    return html`
+      <div class="msg-actions" onClick=${(e) => e.stopPropagation()}>
+        <button onClick=${handleCopy} class=${copied ? 'copy-ok' : ''} title=${copied ? 'Copied!' : 'Copy message'} aria-label="Copy to clipboard">
+          <${Icon} name=${copied ? 'check' : 'clipboard'} />
+        </button>
+        ${showPlay && html`
+          <button onClick=${handlePlay} class=${playState === 'playing' ? 'playing' : ''} title=${playState === 'playing' ? 'Stop' : 'Play aloud'} aria-label=${playState === 'playing' ? 'Stop playback' : 'Play aloud'}>
+            <${Icon} name=${playState === 'loading' ? 'loader' : playState === 'playing' ? 'square' : 'volume-2'} />
+          </button>
+        `}
+      </div>
+    `;
+  }
+
+  function ChronoItem({ item, isActivity, isSegmentActive, onWaypointClick, subSessionsRef, subSessionRevision, onNavigateSession, labsVoice }) {
     if (item.type === 'text') {
       // In activity panel, assistant text renders as a compact waypoint
       if (isActivity && item.role === 'assistant') {
@@ -3866,12 +4033,18 @@
         + (item.role === 'user' ? ' user-message' : '')
         + (item.role === 'system' ? ' system-message' : '')
         + (item.cssClass ? ' ' + item.cssClass : '');
+      const isAssistant = item.role !== 'user' && item.role !== 'system';
       if (item.htmlContent) {
-        return html`<div class=${cls} id=${item.id}
-          dangerouslySetInnerHTML=${{ __html: item.htmlContent }}></div>`;
+        return html`<div class=${cls} id=${item.id}>
+          <div dangerouslySetInnerHTML=${{ __html: item.htmlContent }}></div>
+          ${isAssistant && !item.streaming && html`<${MessageActions} text=${item.content || ''} showPlay=${!!labsVoice} />`}
+        </div>`;
       }
       return html`<div class=${cls} id=${item.id}
-        data-streaming=${item.streaming ? 'true' : 'false'}>${item.content}</div>`;
+        data-streaming=${item.streaming ? 'true' : 'false'}>
+        ${item.content}
+        ${isAssistant && !item.streaming && html`<${MessageActions} text=${item.content || ''} showPlay=${!!labsVoice} />`}
+      </div>`;
     }
     if (item.type === 'thinking') {
       return html`<${ThinkingBlock} item=${item} />`;
@@ -3914,6 +4087,7 @@
     // Activity indicator counts (main panel only)
     turnActivityCounts,
     segmentActivityCounts,
+    labsVoice = false,
   }) {
     // Hover debounce: 50ms intent delay to prevent strobe during fast scanning
     const hoverTimerRef = useRef(null);
@@ -4151,7 +4325,8 @@
                     onTurnSelect && onTurnSelect(turnId, itemSegId);
                   } : undefined}
                   subSessionsRef=${subSessionsRef} subSessionRevision=${subSessionRevision}
-                  onNavigateSession=${onNavigateSession} />
+                  onNavigateSession=${onNavigateSession}
+                  labsVoice=${labsVoice} />
                 ${!isActivityPanel && item.type === 'text' && (() => {
                   const isUser = item.role === 'user';
                   const counts = isUser
@@ -4466,13 +4641,21 @@
     `;
   }
 
-  function InputArea({ onSend, onStop, onQueueMessage, executing, shouldQueue, viewMode, setViewMode, activeKey }) {
+  function InputArea({ onSend, onStop, onQueueMessage, executing, shouldQueue, viewMode, setViewMode, activeKey, labsVoice }) {
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
     const [pendingImages, setPendingImages] = useState([]);
     const [slashOpen, setSlashOpen] = useState(false);
     const [slashFilter, setSlashFilter] = useState('');
     const [slashActiveIndex, setSlashActiveIndex] = useState(0);
+    const [voiceState, setVoiceState] = useState('idle'); // idle | recording | transcribing
+    const [voiceDuration, setVoiceDuration] = useState(0);
+    const [sttReady, setSttReady] = useState(null); // null = unchecked, true = ready, false = needs download
+    const [sttDownloading, setSttDownloading] = useState(false);
+    const [showDownloadBanner, setShowDownloadBanner] = useState(false);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const voiceTimerRef = useRef(null);
 
     useEffect(() => {
       const ta = textareaRef.current;
@@ -4614,6 +4797,117 @@
       }
     }, [autoResize]);
 
+    const stopRecording = useCallback(() => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      clearInterval(voiceTimerRef.current);
+    }, []);
+
+    const startRecording = useCallback(async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+        const mr = new MediaRecorder(stream, { mimeType });
+        audioChunksRef.current = [];
+
+        mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+
+        mr.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          setVoiceState('transcribing');
+
+          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const b64 = reader.result.split(',')[1];
+            try {
+              const resp = await fetch('/chat/transcribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ audio_data: b64, audio_format: 'webm' }),
+              });
+              if (resp.ok) {
+                const data = await resp.json();
+                if (data.text) {
+                  const ta = textareaRef.current;
+                  if (ta) {
+                    const cur = ta.value;
+                    ta.value = cur + (cur && !cur.endsWith(' ') ? ' ' : '') + data.text;
+                    ta.focus();
+                    ta.style.height = 'auto';
+                    ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+                  }
+                }
+              }
+            } catch (err) {
+              console.error('Transcription error:', err);
+            }
+            setVoiceState('idle');
+            setVoiceDuration(0);
+          };
+          reader.readAsDataURL(blob);
+        };
+
+        mr.start(250);
+        mediaRecorderRef.current = mr;
+        setVoiceState('recording');
+        setVoiceDuration(0);
+        voiceTimerRef.current = setInterval(() => setVoiceDuration(d => d + 1), 1000);
+      } catch (err) {
+        console.error('Mic access error:', err);
+        setVoiceState('idle');
+      }
+    }, []);
+
+    const checkSttReady = useCallback(async () => {
+      try {
+        const resp = await fetch('/chat/voice/config');
+        if (!resp.ok) return false;
+        const cfg = await resp.json();
+        if (!cfg.stt_available) return false;
+        if (!cfg.stt_model_downloaded) return false;
+        return true;
+      } catch { return false; }
+    }, []);
+
+    const downloadSttModel = useCallback(async () => {
+      setSttDownloading(true);
+      try {
+        const resp = await fetch('/chat/voice/download-model', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'base' }),
+        });
+        if (resp.ok) {
+          setSttReady(true);
+          setShowDownloadBanner(false);
+        }
+      } catch (err) {
+        console.error('Model download failed:', err);
+      }
+      setSttDownloading(false);
+    }, []);
+
+    const toggleVoice = useCallback(async () => {
+      if (voiceState === 'recording') { stopRecording(); return; }
+      if (voiceState !== 'idle') return;
+
+      // First-time check: is the STT model ready?
+      if (sttReady === null || sttReady === false) {
+        const ready = await checkSttReady();
+        setSttReady(ready);
+        if (!ready) { setShowDownloadBanner(true); return; }
+      }
+      startRecording();
+    }, [voiceState, sttReady, startRecording, stopRecording, checkSttReady]);
+
+    useEffect(() => () => { stopRecording(); }, [stopRecording]);
+
+    const fmtVoiceTime = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
     return html`
       <div id="input-area">
         ${pendingImages.length > 0 && html`
@@ -4649,7 +4943,42 @@
             `)}
           </div>
         `}
+        ${labsVoice && voiceState === 'recording' && html`
+          <div class="recording-banner">
+            <span class="rec-dot"></span>
+            <span>Recording</span>
+            <span class="rec-timer">${fmtVoiceTime(voiceDuration)}</span>
+            <button class="rec-stop" onClick=${stopRecording}>Stop</button>
+          </div>
+        `}
+        ${labsVoice && showDownloadBanner && html`
+          <div class="model-download-banner">
+            <${Icon} name="mic" />
+            <div class="dl-info">
+              <strong>Speech model needed</strong>
+              <small>Download the voice recognition model to use dictation (142 MB, one-time).</small>
+              ${sttDownloading && html`<div class="dl-progress"><div class="dl-progress-bar"></div></div>`}
+            </div>
+            <button class="dl-btn" onClick=${downloadSttModel} disabled=${sttDownloading}>
+              ${sttDownloading ? 'Downloading\u2026' : 'Download'}
+            </button>
+            <button class="dl-dismiss" onClick=${() => setShowDownloadBanner(false)} title="Dismiss">\u00d7</button>
+          </div>
+        `}
         <div class="input-row">
+          <button class="input-btn attach-btn" title="Attach image" onClick=${() => fileInputRef.current?.click()}>
+            <${Icon} name="paperclip" />
+          </button>
+          <input ref=${fileInputRef} type="file" accept="image/*" multiple style="display:none" onChange=${e => addImages(e.target.files)} />
+          ${labsVoice && html`<button
+            class=${'input-btn mic-btn' + (voiceState === 'recording' ? ' recording' : '') + (voiceState === 'transcribing' ? ' transcribing' : '')}
+            onClick=${toggleVoice}
+            disabled=${executing || voiceState === 'transcribing'}
+            title=${voiceState === 'idle' ? 'Voice input' : voiceState === 'recording' ? 'Stop recording' : 'Transcribing...'}
+            aria-label=${voiceState === 'idle' ? 'Voice input' : voiceState === 'recording' ? 'Stop recording' : 'Transcribing'}
+          >
+            <${Icon} name=${voiceState === 'transcribing' ? 'loader' : 'mic'} />
+          </button>`}
           <textarea
             id="message-input"
             ref=${textareaRef}
@@ -4667,10 +4996,6 @@
             onDragOver=${e => e.preventDefault()}
             onDrop=${e => { e.preventDefault(); addImages(e.dataTransfer.files); }}
           ></textarea>
-          <button class="input-btn attach-btn" title="Attach image" onClick=${() => fileInputRef.current?.click()}>
-            <${Icon} name="paperclip" />
-          </button>
-          <input ref=${fileInputRef} type="file" accept="image/*" multiple style="display:none" onChange=${e => addImages(e.target.files)} />
           <button class="input-btn send-btn" onClick=${doSend}>
             ${shouldQueue ? 'Queue' : 'Send'}
           </button>
@@ -4681,6 +5006,234 @@
   }
 
   // —— ChatApp root ——————————————————————————————————————————————————————
+  // ── Experimental Features System ──────────────────
+  const LABS_STORAGE_KEY = 'amplifier-chat-labs';
+
+  function loadLabsState() {
+    try {
+      const raw = localStorage.getItem(LABS_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return { voice: false };
+  }
+
+  function saveLabsState(state) {
+    try { localStorage.setItem(LABS_STORAGE_KEY, JSON.stringify(state)); } catch {}
+  }
+
+  function ToggleSwitch({ on, onToggle }) {
+    return html`
+      <button class=${'labs-toggle' + (on ? ' on' : '')} onClick=${onToggle} role="switch" aria-checked=${on}>
+        <span class="labs-toggle-knob"></span>
+      </button>
+    `;
+  }
+
+  function VoiceFeatureCard({ enabled, onToggle, drawerOpen }) {
+    const [expanded, setExpanded] = useState(false);
+    const [voiceConfig, setVoiceConfig] = useState(null);
+    const [downloading, setDownloading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [ttsVoices, setTtsVoices] = useState(null);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    // Re-fetch config whenever drawer opens, or after download/delete
+    useEffect(() => {
+      if (!enabled) return;
+      fetch('/chat/voice/config').then(r => r.ok ? r.json() : null).then(cfg => {
+        if (cfg) setVoiceConfig(cfg);
+      }).catch(() => {});
+    }, [enabled, downloading, deleting, drawerOpen, refreshKey]);
+
+    // Fetch TTS voices once when expanded
+    useEffect(() => {
+      if (!expanded || ttsVoices) return;
+      fetch('/chat/tts/voices').then(r => r.ok ? r.json() : null).then(data => {
+        if (data?.voices) {
+          // Show English voices first, limit to keep dropdown manageable
+          const en = data.voices.filter(v => v.locale.startsWith('en-'));
+          setTtsVoices(en.length > 0 ? en : data.voices.slice(0, 30));
+        }
+      }).catch(() => {});
+    }, [expanded, ttsVoices]);
+
+    const modelReady = voiceConfig?.stt_model_downloaded;
+    const sttAvailable = voiceConfig?.stt_available;
+    const ttsAvailable = voiceConfig?.tts_available;
+
+    const statusText = !enabled ? 'Disabled'
+      : !sttAvailable ? 'Dependencies not installed'
+      : !modelReady ? `${(voiceConfig?.stt_model || 'base')} model not downloaded`
+      : 'Ready';
+    const statusClass = !enabled ? 'off'
+      : modelReady ? 'ready'
+      : 'needs-setup';
+
+    const handleDownloadSpecificModel = async (modelId) => {
+      setDownloading(modelId);
+      try {
+        const resp = await fetch('/chat/voice/download-model', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: modelId }),
+        });
+        if (!resp.ok) console.error('Model download failed:', resp.status);
+      } catch (err) {
+        console.error('Model download failed:', err);
+      }
+      setDownloading(false);
+      setRefreshKey(k => k + 1);
+    };
+
+    const handleDeleteSpecificModel = async (modelId) => {
+      const m = voiceConfig?.models?.find(x => x.id === modelId);
+      const label = m ? m.label : modelId;
+      if (!confirm(`Delete the "${label}" model? You can re-download it later.`)) return;
+      setDeleting(true);
+      try {
+        const resp = await fetch('/chat/voice/delete-model', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: modelId }),
+        });
+        if (!resp.ok) console.error('Model delete failed:', resp.status);
+      } catch (err) {
+        console.error('Model delete failed:', err);
+      }
+      setDeleting(false);
+      setRefreshKey(k => k + 1);
+    };
+
+    const handleSwitchModel = async (modelId) => {
+      try {
+        const resp = await fetch('/chat/voice/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stt_model: modelId }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          console.error('Model switch failed:', err.detail || resp.status);
+        }
+      } catch (err) {
+        console.error('Model switch failed:', err);
+      }
+      setRefreshKey(k => k + 1);
+    };
+
+    const handleVoiceChange = async (e) => {
+      const voice = e.target.value;
+      try {
+        await fetch('/chat/voice/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tts_voice: voice }),
+        });
+      } catch {}
+      setRefreshKey(k => k + 1);
+    };
+
+    return html`
+      <div class=${'labs-feature-card' + (enabled ? ' enabled' : '')}>
+        <div class="labs-feature-head">
+          <div class="labs-feature-icon">
+            <${Icon} name="mic" />
+          </div>
+          <div class="labs-feature-info">
+            <h3>Voice Input & Playback</h3>
+            <p>Dictate messages with your mic and listen to responses aloud.</p>
+          </div>
+          <${ToggleSwitch} on=${enabled} onToggle=${onToggle} />
+        </div>
+        ${enabled && html`
+          <div class="labs-feature-status">
+            <span class=${'labs-status-dot ' + statusClass}></span>
+            <span style="color: var(--text-muted)">${statusText}</span>
+            ${enabled && !expanded && html`
+              <button style="margin-left: auto; background: none; border: none; color: var(--accent-blue); cursor: pointer; font-size: 12px; padding: 0;" onClick=${() => setExpanded(true)}>Settings</button>
+            `}
+          </div>
+        `}
+        ${enabled && expanded && html`
+          <div class="labs-feature-settings">
+            <label style="font-size: 12px; color: var(--text-secondary); font-weight: 500; margin-bottom: 2px;">Speech Recognition Model</label>
+            ${voiceConfig?.models?.map(m => html`
+              <div class="labs-setting-row" style="justify-content: flex-start; gap: 8px; padding: 4px 0;">
+                <span style="font-size: 12px; color: ${m.active ? 'var(--accent-blue)' : 'var(--text-primary)'}; flex: 1; font-weight: ${m.active ? '600' : '400'};">
+                  ${m.label}
+                  ${m.active ? ' (active)' : ''}
+                </span>
+                <span style="font-size: 11px; color: var(--text-muted); white-space: nowrap;">${m.size_mb >= 1000 ? (m.size_mb / 1000).toFixed(1) + ' GB' : m.size_mb + ' MB'}</span>
+                ${m.downloaded && !m.active && html`
+                  <button class="labs-action-btn" style="padding: 2px 8px; font-size: 11px;" onClick=${() => handleSwitchModel(m.id)}>
+                    Use
+                  </button>
+                `}
+                ${m.downloaded && html`
+                  <button class="labs-danger-btn" style="padding: 2px 8px; font-size: 11px;" onClick=${() => handleDeleteSpecificModel(m.id)} disabled=${deleting}>
+                    Delete${m.actual_size_mb ? ' (' + m.actual_size_mb + ' MB)' : ''}
+                  </button>
+                `}
+                ${!m.downloaded && html`
+                  <button class="labs-action-btn" style="padding: 2px 8px; font-size: 11px;" onClick=${() => handleDownloadSpecificModel(m.id)} disabled=${downloading === m.id}>
+                    ${downloading === m.id ? 'Downloading\u2026' : 'Download'}
+                  </button>
+                `}
+              </div>
+            `)}
+            ${ttsAvailable && html`
+              <label style="font-size: 12px; color: var(--text-secondary); font-weight: 500; margin-top: 8px; margin-bottom: 2px;">Text-to-Speech Voice</label>
+              <div class="labs-setting-row">
+                <select value=${voiceConfig?.tts_voice || 'en-US-AriaNeural'} onChange=${handleVoiceChange}>
+                  ${ttsVoices ? ttsVoices.map(v => html`<option value=${v.id} selected=${v.id === (voiceConfig?.tts_voice || 'en-US-AriaNeural')}>${v.name}</option>`)
+                    : html`<option selected>${voiceConfig?.tts_voice || 'en-US-AriaNeural'}</option>`}
+                </select>
+              </div>
+            `}
+            ${voiceConfig?.models_dir && html`
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px; word-break: break-all;">
+                Models stored in: <code style="background: var(--bg-secondary); padding: 1px 4px; border-radius: 3px; font-size: 11px;">${voiceConfig.models_dir}</code>
+              </div>
+            `}
+            <button style="align-self: flex-start; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; padding: 0; margin-top: 4px;" onClick=${() => setExpanded(false)}>Collapse</button>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  function ExperimentalFeaturesDrawer({ open, onClose, labsState, onToggleFeature }) {
+    // Close on Escape
+    useEffect(() => {
+      if (!open) return;
+      const handler = (e) => { if (e.key === 'Escape') onClose(); };
+      window.addEventListener('keydown', handler);
+      return () => window.removeEventListener('keydown', handler);
+    }, [open, onClose]);
+
+    return html`
+      ${open && html`<div class=${'labs-backdrop' + (open ? ' visible' : '')} onClick=${onClose}></div>`}
+      <div class=${'labs-drawer' + (open ? ' open' : '')}>
+        <div class="labs-drawer-header">
+          <h2>Experimental Features</h2>
+          <button class="labs-close" onClick=${onClose} aria-label="Close">
+            <${Icon} name="x" />
+          </button>
+        </div>
+        <div class="labs-drawer-subtitle">
+          These features are in development. They may change or be removed. Enable them to try them out.
+        </div>
+        <div class="labs-drawer-body">
+          <${VoiceFeatureCard}
+            enabled=${labsState.voice}
+            onToggle=${() => onToggleFeature('voice')}
+            drawerOpen=${open}
+          />
+        </div>
+      </div>
+    `;
+  }
+
   function ChatApp() {
     // Connection (SSE replaces WebSocket)
     const [sseStatus, setSseStatus] = useState('disconnected');
@@ -4746,6 +5299,18 @@
     });
 
     useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+
+    // Experimental features
+    const [labsState, setLabsState] = useState(loadLabsState);
+    const [labsOpen, setLabsOpen] = useState(false);
+    const toggleLabsFeature = useCallback((feature) => {
+      setLabsState(prev => {
+        const next = { ...prev, [feature]: !prev[feature] };
+        saveLabsState(next);
+        return next;
+      });
+    }, []);
+    const hasLabsActive = Object.values(labsState).some(v => v);
 
     // Feedback widget
     const feedbackSlotRef = useRef(null);
@@ -7570,6 +8135,13 @@
             : html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="9" y1="2" x2="9" y2="14"/></svg>`
           }
         </button>
+        <button class="btn labs-btn" title="Experimental features" onClick=${() => setLabsOpen(true)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3h6v7l4.5 7.5A2 2 0 0 1 17.77 21H6.23a2 2 0 0 1-1.73-3.5L9 10z"></path>
+            <path d="M9 3h6"></path>
+          </svg>
+          ${hasLabsActive && html`<span class="labs-indicator"></span>`}
+        </button>
         <span ref=${feedbackSlotRef}></span>
         <button
           class="btn theme-toggle"
@@ -7884,6 +8456,7 @@
               } : undefined}
               turnActivityCounts=${viewMode === 'workspace' ? turnActivityCounts : undefined}
               segmentActivityCounts=${viewMode === 'workspace' ? segmentActivityCounts : undefined}
+              labsVoice=${labsState.voice}
             />
             <${QueuePanel}
               queue=${getQueue()}
@@ -7911,6 +8484,7 @@
               viewMode=${viewMode}
               setViewMode=${setViewMode}
               activeKey=${activeKey}
+              labsVoice=${labsState.voice}
             />
           </div>
           ${viewMode === 'workspace' && !showActivity && html`
@@ -7979,6 +8553,7 @@
                       scrollMainToTurn(turnId);
                     }}
                     onScrollTurnChange=${setActiveTurnId}
+                    labsVoice=${labsState.voice}
                   />`
                 }
               </div>
@@ -7988,6 +8563,12 @@
       </div>
 
       <${ApprovalModal} approval=${pendingApproval} onRespond=${respondToApproval} />
+      <${ExperimentalFeaturesDrawer}
+        open=${labsOpen}
+        onClose=${() => setLabsOpen(false)}
+        labsState=${labsState}
+        onToggleFeature=${toggleLabsFeature}
+      />
     `;
   }
 
