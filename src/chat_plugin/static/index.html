@@ -3983,12 +3983,13 @@
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audioRef.current = audio;
+        audio._blobUrl = url;
         audio.onended = () => { setPlayState('idle'); audioRef.current = null; URL.revokeObjectURL(url); };
         audio.onerror = () => { setPlayState('idle'); audioRef.current = null; URL.revokeObjectURL(url); };
-        // Stop any active voice recording (mutual exclusion with mic input)
-        window.dispatchEvent(new CustomEvent('amplifier-tts-playback-start'));
         await audio.play();
         setPlayState('playing');
+        // Stop any active voice recording (mutual exclusion with mic input)
+        window.dispatchEvent(new CustomEvent('amplifier-tts-playback-start'));
       } catch (err) {
         console.error('TTS error:', err);
         setPlayState('idle');
@@ -4012,7 +4013,11 @@
     // Auto-pause TTS when voice recording starts (prevent audio bleed into mic)
     useEffect(() => {
       const pauseForRecording = () => {
-        if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+        if (audioRef.current) {
+          audioRef.current.pause();
+          if (audioRef.current._blobUrl) URL.revokeObjectURL(audioRef.current._blobUrl);
+          audioRef.current = null;
+        }
         setPlayState('idle');
       };
       window.addEventListener('amplifier-voice-recording-start', pauseForRecording);
