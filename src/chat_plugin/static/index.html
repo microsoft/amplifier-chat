@@ -5874,6 +5874,35 @@
       }, 5000);
     }, [clearWatchdogTimer]);
 
+    // Immediately complete all in-flight synthetic animations, setting
+    // proper content and htmlContent so items aren't left half-rendered
+    // when prompt_complete or session switches cancel them early.
+    const finalizeSyntheticAnimations = useCallback(() => {
+      if (syntheticAnimRef.current.size === 0) return;
+      const finalizations = new Map();
+      for (const [idx, entry] of syntheticAnimRef.current.entries()) {
+        cancelAnimationFrame(entry.rafId);
+        const domEl = entry.textItemId ? document.getElementById(entry.textItemId) : null;
+        if (domEl) domEl.textContent = '';
+        finalizations.set(entry.textItemId, entry.fullText);
+      }
+      syntheticAnimRef.current.clear();
+      if (finalizations.size > 0) {
+        setChronoItems(prev => prev.map(item => {
+          const fullText = finalizations.get(item.id);
+          if (fullText !== undefined) {
+            return {
+              ...item,
+              streaming: false,
+              content: fullText,
+              htmlContent: sanitizeHtml(marked.parse(fullText)),
+            };
+          }
+          return item;
+        }));
+      }
+    }, []);
+
     const handleWsMessage = useCallback((msg, sourceKey = null) => {
       const ownerKey = sourceKey || activeKeyRef.current;
       const isActiveStream = ownerKey === activeKeyRef.current;
@@ -6264,8 +6293,8 @@
           // response appears progressively instead of flashing in all at once.
           if (payloadText && textItemId && !seenDeltasRef.current.has(localIdx)) {
             // Cancel any stale animation for this block
-            const staleRaf = syntheticAnimRef.current.get(localIdx);
-            if (staleRaf) cancelAnimationFrame(staleRaf);
+            const staleEntry = syntheticAnimRef.current.get(localIdx);
+            if (staleEntry) cancelAnimationFrame(staleEntry.rafId);
 
             const fullText = payloadText;
             // Adaptive chunk size: target ~3 s total animation duration
@@ -6291,10 +6320,10 @@
               // Direct DOM write (same approach as real content_delta)
               tickEl.textContent += fullText.slice(pos, pos + chunkSize);
               pos += chunkSize;
-              syntheticAnimRef.current.set(localIdx, requestAnimationFrame(tick));
+              syntheticAnimRef.current.set(localIdx, { rafId: requestAnimationFrame(tick), fullText, textItemId });
             };
 
-            syntheticAnimRef.current.set(localIdx, requestAnimationFrame(tick));
+            syntheticAnimRef.current.set(localIdx, { rafId: requestAnimationFrame(tick), fullText, textItemId });
             seenDeltasRef.current.delete(localIdx);
             break; // skip normal finalization path
           }
@@ -6586,16 +6615,17 @@
           blockMapRef.current = {};
           cycleRef.current = 0;
           localIndexRef.current = 0;
+          // E2: finalize any in-flight synthetic animations with proper content
+          // (must happen BEFORE the stuck-streaming cleanup so items get full
+          // content/htmlContent instead of just streaming:false with empty content)
+          finalizeSyntheticAnimations();
+          seenDeltasRef.current.clear();
           // Clean up any blocks stuck in streaming state (e.g. empty text blocks
           // from thinking-only LLM responses where content_start fired but no content arrived)
           setChronoItems(prev => {
             const hasStuck = prev.some(item => item.streaming);
             return hasStuck ? prev.map(item => item.streaming ? { ...item, streaming: false } : item) : prev;
           });
-          // E2: cancel any in-flight synthetic animations
-          for (const rafId of syntheticAnimRef.current.values()) cancelAnimationFrame(rafId);
-          syntheticAnimRef.current.clear();
-          seenDeltasRef.current.clear();
           break;
 
         case 'execution_cancelled':
@@ -6615,14 +6645,13 @@
           blockMapRef.current = {};
           cycleRef.current = 0;
           localIndexRef.current = 0;
+          finalizeSyntheticAnimations();
+          seenDeltasRef.current.clear();
           setChronoItems(prev =>
             prev.some(i => i.streaming)
               ? prev.map(i => i.streaming ? { ...i, streaming: false } : i)
               : prev
           );
-          for (const rafId of syntheticAnimRef.current.values()) cancelAnimationFrame(rafId);
-          syntheticAnimRef.current.clear();
-          seenDeltasRef.current.clear();
           break;
 
         case 'execution_error': {
@@ -6664,14 +6693,13 @@
           blockMapRef.current = {};
           cycleRef.current = 0;
           localIndexRef.current = 0;
+          finalizeSyntheticAnimations();
+          seenDeltasRef.current.clear();
           setChronoItems(prev =>
             prev.some(i => i.streaming)
               ? prev.map(i => i.streaming ? { ...i, streaming: false } : i)
               : prev
           );
-          for (const rafId of syntheticAnimRef.current.values()) cancelAnimationFrame(rafId);
-          syntheticAnimRef.current.clear();
-          seenDeltasRef.current.clear();
           break;
         }
 
@@ -7545,9 +7573,8 @@
       cycleRef.current = 0;
       localIndexRef.current = 0;
       toolMapRef.current = {};
-      // E2: cancel any in-flight synthetic animations
-      for (const rafId of syntheticAnimRef.current.values()) cancelAnimationFrame(rafId);
-      syntheticAnimRef.current.clear();
+      // E2: finalize any in-flight synthetic animations with proper content
+      finalizeSyntheticAnimations();
       seenDeltasRef.current.clear();
 
     }, []);
@@ -7605,9 +7632,8 @@
       cycleRef.current = 0;
       localIndexRef.current = 0;
       toolMapRef.current = {};
-      // E2: cancel any in-flight synthetic animations
-      for (const rafId of syntheticAnimRef.current.values()) cancelAnimationFrame(rafId);
-      syntheticAnimRef.current.clear();
+      // E2: finalize any in-flight synthetic animations with proper content
+      finalizeSyntheticAnimations();
       seenDeltasRef.current.clear();
 
       // Fetch transcript via amplifierd REST API
@@ -7896,9 +7922,8 @@
       resetSubSessionState();
       cycleRef.current = 0;
       localIndexRef.current = 0;
-      // E2: cancel any in-flight synthetic animations
-      for (const rafId of syntheticAnimRef.current.values()) cancelAnimationFrame(rafId);
-      syntheticAnimRef.current.clear();
+      // E2: finalize any in-flight synthetic animations with proper content
+      finalizeSyntheticAnimations();
       seenDeltasRef.current.clear();
 
       // Strip the thinking placeholder that was saved when we switched away.
