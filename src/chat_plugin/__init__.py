@@ -18,6 +18,7 @@ def create_router(state: Any) -> APIRouter:
     from chat_plugin.routes import (
         create_command_routes,
         create_config_routes,
+        create_fork_routes,
         create_history_routes,
         create_pin_routes,
         create_static_routes,
@@ -26,12 +27,15 @@ def create_router(state: Any) -> APIRouter:
     settings = ChatPluginSettings()
     settings.home_dir.mkdir(parents=True, exist_ok=True)
     pin_storage = PinStorage(settings.home_dir / "pinned-sessions.json")
-    processor = CommandProcessor(
-        session_manager=state.session_manager, event_bus=state.event_bus
-    )
 
     # Extract projects_dir from amplifierd settings (may be None)
     projects_dir = getattr(getattr(state, "settings", None), "projects_dir", None)
+
+    processor = CommandProcessor(
+        session_manager=state.session_manager,
+        event_bus=state.event_bus,
+        projects_dir=projects_dir,
+    )
 
     # Extract distro home from distro plugin state (may be None).
     # The distro plugin sets state.distro = SimpleNamespace(settings=...)
@@ -71,6 +75,7 @@ def create_router(state: Any) -> APIRouter:
     router.include_router(create_pin_routes(pin_storage))
     router.include_router(create_history_routes(projects_dir, pin_storage))
     router.include_router(create_command_routes(processor))
+    router.include_router(create_fork_routes(state.session_manager, projects_dir))
     router.include_router(create_feedback_routes(projects_dir, daemon_session_path))
     from chat_plugin.voice import create_voice_routes
 

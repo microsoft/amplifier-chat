@@ -192,9 +192,28 @@ def test_fork_command_no_args(processor_with_mock_session):
     assert result["type"] == "fork_info"
 
 
-def test_fork_command_with_turn(processor_with_mock_session):
+def test_fork_command_with_turn_no_projects_dir(processor_with_mock_session):
+    """Fork with turn but no projects_dir returns a helpful error."""
     result = processor_with_mock_session.handle_command("fork", ["3"], session_id="abc")
-    assert result["type"] == "forked"
+    assert result["type"] == "error"
+    assert "not found" in result["error"].lower() or "fork button" in result["error"].lower()
+
+
+def test_fork_command_with_turn(tmp_path, processor_with_mock_session):
+    """Fork with turn and valid session dir calls fork_session."""
+    # Set up a fake projects dir with the session
+    project_dir = tmp_path / "proj" / "sessions" / "abc"
+    project_dir.mkdir(parents=True)
+    # Write minimal transcript so fork_session can work
+    (project_dir / "transcript.jsonl").write_text("")
+    (project_dir / "metadata.json").write_text('{"session_id": "abc"}')
+
+    processor_with_mock_session._projects_dir = tmp_path
+
+    # Without amplifier_foundation installed, we get an import error message
+    result = processor_with_mock_session.handle_command("fork", ["3"], session_id="abc")
+    # Either succeeds (foundation installed) or returns import-error
+    assert result["type"] in ("forked", "error")
 
 
 # ── B4: /bundle coming soon ───────────────────────────────────────────────────

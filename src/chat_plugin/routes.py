@@ -287,6 +287,147 @@ def create_command_routes(processor: CommandProcessor) -> APIRouter:
     return router
 
 
+def create_fork_routes(
+    session_manager: Any,
+    projects_dir: Path | None,
+) -> APIRouter:
+    """Fork-from-message endpoints: preview + execute."""
+    router = APIRouter(prefix="/chat", tags=["chat-fork"])
+
+    def _patch_forked_metadata(
+        forked_dir: Path,
+        parent_dir: Path,
+        cwd: str | None,
+    ) -> None:
+        """Patch the forked session's metadata.json with working_dir and
+        any fields that fork_session() left as null (e.g. bundle)."""
+        meta_path = forked_dir / "metadata.json"
+        try:
+            meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+        except (json.JSONDecodeError, OSError):
+            meta = {}
+
+        # Read parent metadata for fallback values
+        parent_meta: dict = {}
+        parent_meta_path = parent_dir / "metadata.json"
+        try:
+            parent_meta = json.loads(parent_meta_path.read_text())
+        except (json.JSONDecodeError, OSError, FileNotFoundError):
+            pass
+
+        changed = False
+
+        # Patch working_dir
+        if not cwd:
+            cwd = parent_meta.get("working_dir") or parent_meta.get("cwd")
+        if cwd:
+            meta["working_dir"] = cwd
+            changed = True
+
+        # Patch bundle if null (fork_session may have copied null from parent
+        # if metadata was written before the daemon set the bundle field).
+        if not meta.get("bundle") and parent_meta.get("bundle"):
+            meta["bundle"] = parent_meta["bundle"]
+            changed = True
+
+        # Patch model if null
+        if not meta.get("model") and parent_meta.get("model"):
+            meta["model"] = parent_meta["model"]
+            changed = True
+
+        if changed:
+            try:
+                meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+            except OSError:
+                pass  # best-effort
+
+    def _find_session_dir(session_id: str) -> Path:
+        if projects_dir is None:
+            raise HTTPException(
+                status_code=500, detail="projects_dir not configured"
+            )
+        for project_dir in projects_dir.iterdir():
+            if not project_dir.is_dir():
+                continue
+            candidate = project_dir / "sessions" / session_id
+            if candidate.is_dir():
+                return candidate
+        raise HTTPException(
+            status_code=404, detail=f"Session directory not found: {session_id}"
+        )
+
+    @router.get("/api/sessions/{session_id}/fork-preview")
+    async def fork_preview(
+        session_id: str,
+        turn: int = Query(..., ge=1),
+    ) -> dict:
+        """Return a lightweight preview of what a fork at *turn* would produce."""
+        if not _VALID_SESSION_ID.fullmatch(session_id):
+            raise HTTPException(status_code=400, detail="Invalid session ID")
+        session_dir = _find_session_dir(session_id)
+        try:
+            from amplifier_foundation.session import get_fork_preview
+
+            preview = await asyncio.to_thread(get_fork_preview, session_dir, turn)
+            return preview
+        except ImportError:
+            raise HTTPException(
+                status_code=501,
+                detail="Fork unavailable (amplifier-foundation not installed)",
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    @router.post("/api/sessions/{session_id}/fork")
+    async def do_fork_session(session_id: str, request: Request) -> dict:
+        """Execute a fork at the given turn and return the new session info."""
+        if not _VALID_SESSION_ID.fullmatch(session_id):
+            raise HTTPException(status_code=400, detail="Invalid session ID")
+        raw = await request.body()
+        if not raw:
+            raise HTTPException(status_code=400, detail="Request body required")
+        try:
+            body = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail="Invalid JSON") from exc
+
+        turn = body.get("turn")
+        if turn is None or not isinstance(turn, int) or turn < 1:
+            raise HTTPException(
+                status_code=400, detail="'turn' must be a positive integer"
+            )
+
+        cwd = body.get("cwd")
+
+        session_dir = _find_session_dir(session_id)
+        try:
+            from amplifier_foundation.session import fork_session
+
+            result = await asyncio.to_thread(fork_session, session_dir, turn=turn)
+
+            if result.session_dir:
+                _patch_forked_metadata(result.session_dir, session_dir, cwd)
+
+            return {
+                "session_id": result.session_id,
+                "session_dir": str(result.session_dir) if result.session_dir else None,
+                "parent_id": result.parent_id,
+                "forked_from_turn": result.forked_from_turn,
+                "message_count": result.message_count,
+                "events_count": getattr(result, "events_count", 0),
+                "cwd": cwd,
+            }
+        except ImportError:
+            raise HTTPException(
+                status_code=501,
+                detail="Fork unavailable (amplifier-foundation not installed)",
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    return router
+
+
 def create_static_routes() -> APIRouter:
     router = APIRouter(tags=["chat-static"])
 

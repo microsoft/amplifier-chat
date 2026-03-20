@@ -2286,6 +2286,27 @@
     .msg-actions button:active { opacity: 1; background: var(--border-secondary); }
     .msg-actions button.playing { opacity: 1; color: var(--accent-blue); }
     .msg-actions button.copy-ok { opacity: 1; color: var(--accent-green); }
+
+    /* Fork from message — msg-actions inside user bubbles, always visible.
+       User bubbles are accent-blue background + white text, so icon must
+       inherit white (via currentColor) instead of text-muted gray. */
+    .user-message .msg-actions { align-self: flex-start; }
+    .user-message .msg-actions button { min-width: 32px; min-height: 32px; padding: 8px; color: currentColor; opacity: 0.5; }
+    .user-message .msg-actions button:hover { opacity: 1; background: rgba(255,255,255,0.15); color: currentColor; }
+    .user-message .msg-actions button:active { opacity: 1; background: rgba(255,255,255,0.25); }
+    .fork-preview-wrap { margin: 8px 0; padding: 10px 14px; background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 8px; font-size: 13px; line-height: 1.5; max-width: 420px; align-self: flex-end; }
+    .fork-preview-wrap .fork-preview-title { font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .fork-preview-wrap .fork-preview-stats { color: var(--text-muted); margin-bottom: 8px; }
+    .fork-preview-wrap .fork-preview-stats .keep { color: var(--accent-green); }
+    .fork-preview-wrap .fork-preview-stats .cut { color: var(--text-muted); }
+    .fork-preview-wrap .fork-preview-actions { display: flex; gap: 8px; }
+    .fork-preview-wrap .fork-preview-actions button { padding: 4px 14px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font-size: 13px; transition: background 0.15s ease; }
+    .fork-preview-wrap .fork-preview-actions button.fork-confirm { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+    .fork-preview-wrap .fork-preview-actions button.fork-confirm:hover { opacity: 0.9; }
+    .fork-preview-wrap .fork-preview-actions button.fork-cancel:hover { background: var(--border-primary); }
+    .fork-preview-wrap .fork-preview-actions button:disabled { opacity: 0.5; cursor: default; }
+    .fork-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--accent-blue); margin-top: 4px; cursor: pointer; opacity: 0.8; transition: opacity 0.15s ease; }
+    .fork-indicator:hover { opacity: 1; text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -2399,6 +2420,28 @@
         }
         return resp.json();
       }
+    },
+    async forkPreview(sessionId, turn) {
+      const resp = await fetch(`${API_BASE}/chat/api/sessions/${sessionId}/fork-preview?turn=${turn}`);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err?.detail || `Fork preview failed: HTTP ${resp.status}`);
+      }
+      return resp.json();
+    },
+    async forkSession(sessionId, turn, cwd) {
+      const body = { turn };
+      if (cwd) body.cwd = cwd;
+      const resp = await fetch(`${API_BASE}/chat/api/sessions/${sessionId}/fork`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err?.detail || `Fork failed: HTTP ${resp.status}`);
+      }
+      return resp.json();
     },
   };
 
@@ -2664,6 +2707,19 @@
       }
       if (prev) return { text: 'Mode deactivated: ' + prev };
       return { text: result.message || 'No mode active' };
+    }
+
+    // /fork — fork info or fork result
+    if (command === 'fork' && result.type === 'fork_info') {
+      return { text: `Session has ${result.turn_count} turn${result.turn_count === 1 ? '' : 's'}.\nUsage: /fork <turn> — or click the fork icon on any message.` };
+    }
+    if (command === 'fork' && result.type === 'forked') {
+      const lines = [
+        'Forked at turn ' + result.forked_from_turn,
+        'New session: ' + result.session_id,
+        'Messages kept: ' + result.message_count,
+      ];
+      return { text: lines.join('\n') };
     }
 
     // Default: pretty-print JSON for other commands
@@ -4044,7 +4100,31 @@
     `;
   }
 
-  function ChronoItem({ item, isActivity, isSegmentActive, onWaypointClick, subSessionsRef, subSessionRevision, onNavigateSession, labsVoice }) {
+  // Fork-from-message: inline SVG icon for the fork button
+  const FORK_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"></path><path d="M12 12v3"></path></svg>';
+
+  // Fork inline feedback — brief "Forking..." or error state
+  function ForkFeedback({ forkState }) {
+    if (!forkState) return null;
+
+    if (forkState.step === 'forking') {
+      return html`<div class="fork-preview-wrap">
+        <div class="fork-preview-title">Forking from turn ${forkState.turnNumber}...</div>
+      </div>`;
+    }
+    if (forkState.step === 'error') {
+      return html`<div class="fork-preview-wrap">
+        <div class="fork-preview-title">Fork failed</div>
+        <div class="fork-preview-stats">${forkState.error}</div>
+        <div class="fork-preview-actions">
+          <button class="fork-cancel" onClick=${forkState.onCancel}>Dismiss</button>
+        </div>
+      </div>`;
+    }
+    return null;
+  }
+
+  function ChronoItem({ item, isActivity, isSegmentActive, onWaypointClick, subSessionsRef, subSessionRevision, onNavigateSession, labsVoice, turnNumber, onFork, forkState, forkIndicators, onNavigateToForkedSession }) {
     if (item.type === 'text') {
       // In activity panel, assistant text renders as a compact waypoint
       if (isActivity && item.role === 'assistant') {
@@ -4057,16 +4137,44 @@
         + (item.role === 'system' ? ' system-message' : '')
         + (item.cssClass ? ' ' + item.cssClass : '');
       const isAssistant = item.role !== 'user' && item.role !== 'system';
+      const isUser = item.role === 'user';
+      const showForkBtn = isUser && !isActivity && turnNumber && onFork;
+      const forkInfo = forkIndicators && forkIndicators.get(item.id);
+      // Only show error feedback inline; "forking..." runs silently
+      const showForkError = forkState && forkState.itemId === item.id && forkState.step === 'error';
+
+      // Fork button rendered inside msg-actions bar (same pattern as assistant copy/TTS)
+      const forkActions = showForkBtn && html`
+        <div class="msg-actions" onClick=${(e) => e.stopPropagation()}>
+          <button onClick=${(e) => { e.stopPropagation(); e.preventDefault(); onFork(turnNumber, item.id); }}
+            title="Fork from here (turn ${turnNumber})" aria-label="Fork session from turn ${turnNumber}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"></path><path d="M12 12v3"></path></svg>
+          </button>
+        </div>`;
+
+      const forkBadge = forkInfo && html`<div class="fork-indicator" onClick=${() => onNavigateToForkedSession && onNavigateToForkedSession(forkInfo.childSessionId)}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"></path><path d="M12 12v3"></path></svg>
+        forked
+      </div>`;
+
+      const forkErrorPanel = showForkError && html`<${ForkFeedback} forkState=${forkState} />`;
+
       if (item.htmlContent) {
         return html`<div class=${cls} id=${item.id}>
           <div dangerouslySetInnerHTML=${{ __html: item.htmlContent }}></div>
           ${isAssistant && !item.streaming && html`<${MessageActions} text=${item.content || ''} showPlay=${!!labsVoice} />`}
+          ${forkActions}
+          ${forkBadge}
+          ${forkErrorPanel}
         </div>`;
       }
       return html`<div class=${cls} id=${item.id}
         data-streaming=${item.streaming ? 'true' : 'false'}>
         ${item.content}
         ${isAssistant && !item.streaming && html`<${MessageActions} text=${item.content || ''} showPlay=${!!labsVoice} />`}
+        ${forkActions}
+        ${forkBadge}
+        ${forkErrorPanel}
       </div>`;
     }
     if (item.type === 'thinking') {
@@ -4111,6 +4219,11 @@
     turnActivityCounts,
     segmentActivityCounts,
     labsVoice = false,
+    // Fork-from-message props
+    onFork,
+    forkState,
+    forkIndicators,
+    onNavigateToForkedSession,
   }) {
     // Hover debounce: 50ms intent delay to prevent strobe during fast scanning
     const hoverTimerRef = useRef(null);
@@ -4349,7 +4462,12 @@
                   } : undefined}
                   subSessionsRef=${subSessionsRef} subSessionRevision=${subSessionRevision}
                   onNavigateSession=${onNavigateSession}
-                  labsVoice=${labsVoice} />
+                  labsVoice=${labsVoice}
+                  turnNumber=${turnId && turnMap ? (turnMap.get(turnId)?.turnNumber || null) : null}
+                  onFork=${onFork}
+                  forkState=${forkState}
+                  forkIndicators=${forkIndicators}
+                  onNavigateToForkedSession=${onNavigateToForkedSession} />
                 ${!isActivityPanel && item.type === 'text' && (() => {
                   const isUser = item.role === 'user';
                   const counts = isUser
@@ -5289,6 +5407,11 @@
     const [defaultCwd, setDefaultCwd] = useState('~');
     const [turnCount, setTurnCount] = useState(0);
     const [diskUpdateNoticeSignal, setDiskUpdateNoticeSignal] = useState(0);
+
+    // Fork-from-message state
+    const [forkState, setForkState] = useState(null);
+    const forkIndicatorsRef = useRef(new Map());
+    const [forkIndicatorsRevision, setForkIndicatorsRevision] = useState(0);
 
     // Layout constants
     const MIN_CHAT_WIDTH = 480;
@@ -8190,6 +8313,109 @@
       textarea.style.height = textarea.scrollHeight + 'px';
     }, []);
 
+    // Fork-from-message handler — forks immediately, no preview step
+    const handleForkAtTurn = useCallback(async (turnNumber, itemId) => {
+      const sid = sessionIdRef.current;
+      if (!sid || !turnNumber) return;
+      // Get CWD from daemon (authoritative) rather than local state.
+      let currentCwd = '~';
+      try {
+        const parentInfo = await api.getSession(sid);
+        if (parentInfo && parentInfo.working_dir) currentCwd = parentInfo.working_dir;
+      } catch {}
+      if (currentCwd === '~') {
+        const activeEntry = sessionsRef.current.get(activeKeyRef.current);
+        currentCwd = (activeEntry && activeEntry.cwd !== '~' && activeEntry.cwd) || cwd || '~';
+      }
+
+      try {
+        const result = await api.forkSession(sid, turnNumber, currentCwd);
+        let resumeOk = false;
+        let resumedCwd = currentCwd;
+        try {
+          const resumeResult = await api.resumeSession(result.session_id);
+          resumeOk = true;
+          if (resumeResult && resumeResult.working_dir) {
+            resumedCwd = resumeResult.working_dir;
+          }
+        } catch (err) {
+          console.warn('[chat] fork: resume failed, session will be history-only', err);
+        }
+
+        // Mark the original message as forked
+        forkIndicatorsRef.current.set(itemId, {
+          childSessionId: result.session_id,
+          turn: turnNumber,
+        });
+        setForkIndicatorsRevision(r => r + 1);
+
+        // Add forked session to sidebar as a history entry so
+        // resumeHistorySession loads the transcript (avoids blank screen).
+        const newKey = 'history-' + result.session_id;
+        const forkEntry = {
+          sessionId: result.session_id,
+          parentSessionId: result.parent_id,
+          forkedFromTurn: result.forked_from_turn || turnNumber,
+          source: 'history',
+          status: 'history',
+          cwd: resumedCwd,
+          turnCount: result.message_count || turnNumber,
+          messageCount: result.message_count || 0,
+          lastUserMessage: null,
+          lastUpdated: new Date().toISOString(),
+          isNewSession: false,
+        };
+        // Write to the mutable ref FIRST so switchSession can read it
+        // immediately (setSessions is async/batched by React).
+        sessionsRef.current.set(newKey, forkEntry);
+        setSessions(prev => {
+          const next = new Map(prev);
+          next.set(newKey, forkEntry);
+          return next;
+        });
+        sessionParentByIdRef.current[result.session_id] = sid;
+
+        setForkState(null);
+        // switchSession detects source='history' and calls
+        // resumeHistorySession to load transcript + resume with daemon.
+        switchSessionRef.current && switchSessionRef.current(newKey);
+      } catch (err) {
+        console.error('[chat] fork failed', err);
+        setForkState({ itemId, turnNumber, step: 'error', error: err?.message || String(err), onCancel: () => setForkState(null) });
+      }
+    }, [cwd]);
+
+    const handleNavigateToForkedSession = useCallback((childSessionId) => {
+      if (!childSessionId) return;
+      for (const [key, s] of sessionsRef.current.entries()) {
+        if (s.sessionId === childSessionId) {
+          switchSessionRef.current && switchSessionRef.current(key);
+          return;
+        }
+      }
+      const newKey = 'fork-' + childSessionId;
+      setSessions(prev => {
+        if (prev.has(newKey)) return prev;
+        const next = new Map(prev);
+        next.set(newKey, {
+          sessionId: childSessionId,
+          source: 'history',
+          status: 'history',
+          cwd: cwd,
+          isNewSession: false,
+        });
+        return next;
+      });
+      setTimeout(() => {
+        switchSessionRef.current && switchSessionRef.current(newKey);
+      }, 50);
+    }, [cwd]);
+
+    const forkIndicators = useMemo(() => {
+      void forkIndicatorsRevision;
+      return new Map(forkIndicatorsRef.current);
+    }, [forkIndicatorsRevision]);
+
     const handleTurnSelect = useCallback((turnId, segId) => {
       if (segId) {
         // Segment-level: toggle segment within turn
@@ -8573,8 +8799,8 @@
               subSessionRevision=${subSessionRevision}
               onNavigateSession=${navigateToSession}
               onSelectPrompt=${handleSelectPrompt}
-              turnMap=${viewMode === 'workspace' ? turnMap : undefined}
-              itemTurnMap=${viewMode === 'workspace' ? itemTurnMap : undefined}
+              turnMap=${turnMap}
+              itemTurnMap=${itemTurnMap}
               hoveredTurnId=${viewMode === 'workspace' ? hoveredTurnId : undefined}
               setHoveredTurnId=${viewMode === 'workspace' ? setHoveredTurnId : undefined}
               selectedTurnId=${viewMode === 'workspace' ? selectedTurnId : undefined}
@@ -8591,6 +8817,10 @@
               turnActivityCounts=${viewMode === 'workspace' ? turnActivityCounts : undefined}
               segmentActivityCounts=${viewMode === 'workspace' ? segmentActivityCounts : undefined}
               labsVoice=${labsState.voice}
+              onFork=${handleForkAtTurn}
+              forkState=${forkState}
+              forkIndicators=${forkIndicators}
+              onNavigateToForkedSession=${handleNavigateToForkedSession}
             />
             <${QueuePanel}
               queue=${getQueue()}

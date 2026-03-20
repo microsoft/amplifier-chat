@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 
@@ -31,9 +32,16 @@ COMMANDS: list[CommandDef] = [
 
 
 class CommandProcessor:
-    def __init__(self, *, session_manager: Any, event_bus: Any) -> None:
+    def __init__(
+        self,
+        *,
+        session_manager: Any,
+        event_bus: Any,
+        projects_dir: Any | None = None,
+    ) -> None:
         self._session_manager = session_manager
         self._event_bus = event_bus
+        self._projects_dir = projects_dir
 
     def process_input(self, text: str) -> tuple[str, dict]:
         text = text.strip()
@@ -51,6 +59,65 @@ class CommandProcessor:
         if handler is None:
             return {"type": "error", "error": f"Unknown command: /{command}"}
         return handler(args, session_id=session_id)
+
+    @staticmethod
+    def _patch_forked_metadata(
+        forked_dir: Path, parent_dir: Path, handle: Any
+    ) -> None:
+        """Patch forked session's metadata with working_dir and any fields
+        that fork_session() left as null (e.g. bundle, model)."""
+        import json
+
+        meta_path = forked_dir / "metadata.json"
+        try:
+            meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+        except (json.JSONDecodeError, OSError):
+            meta = {}
+
+        parent_meta: dict = {}
+        parent_meta_path = parent_dir / "metadata.json"
+        try:
+            parent_meta = json.loads(parent_meta_path.read_text())
+        except (json.JSONDecodeError, OSError, FileNotFoundError):
+            pass
+
+        changed = False
+
+        cwd = getattr(handle, "working_dir", None)
+        if not cwd:
+            cwd = parent_meta.get("working_dir") or parent_meta.get("cwd")
+        if cwd:
+            meta["working_dir"] = str(cwd)
+            changed = True
+
+        if not meta.get("bundle") and parent_meta.get("bundle"):
+            meta["bundle"] = parent_meta["bundle"]
+            changed = True
+
+        if not meta.get("model") and parent_meta.get("model"):
+            meta["model"] = parent_meta["model"]
+            changed = True
+
+        if changed:
+            try:
+                meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+            except OSError:
+                pass
+
+    def _find_session_dir(self, session_id: str) -> Path | None:
+        """Locate session directory on disk by scanning projects_dir."""
+        if not self._projects_dir:
+            return None
+        projects = Path(self._projects_dir)
+        if not projects.is_dir():
+            return None
+        for project_dir in projects.iterdir():
+            if not project_dir.is_dir():
+                continue
+            candidate = project_dir / "sessions" / session_id
+            if candidate.is_dir():
+                return candidate
+        return None
 
     def _require_session(self, session_id: str | None) -> Any:
         """Get session handle or return None."""
@@ -301,7 +368,6 @@ class CommandProcessor:
         if not handle:
             return self._error("No active session")
         if not args:
-            # B1: Flatten
             return {
                 "type": "fork_info",
                 "turn_count": handle.turn_count,
@@ -309,10 +375,34 @@ class CommandProcessor:
             }
         try:
             turn = int(args[0])
-            # B1: Flatten
-            return {"type": "forked", "parent_id": session_id, "turn": turn}
         except ValueError:
             return self._error(f"Invalid turn number: {args[0]}")
+
+        session_dir = self._find_session_dir(session_id)
+        if not session_dir:
+            return self._error(
+                "Session directory not found on disk. "
+                "Use the fork button on a message instead."
+            )
+        try:
+            from amplifier_foundation.session import fork_session
+
+            result = fork_session(session_dir, turn=turn)
+
+            if result.session_dir:
+                self._patch_forked_metadata(result.session_dir, session_dir, handle)
+
+            return {
+                "type": "forked",
+                "session_id": result.session_id,
+                "parent_id": result.parent_id,
+                "forked_from_turn": result.forked_from_turn,
+                "message_count": result.message_count,
+            }
+        except ImportError:
+            return self._error("Fork unavailable (amplifier-foundation not installed)")
+        except ValueError as e:
+            return self._error(str(e))
 
     def _cmd_help(self, args: list[str], **_: Any) -> dict:
         # B1: Flatten
