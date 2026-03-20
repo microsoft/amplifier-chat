@@ -112,6 +112,8 @@ def _read_session_meta(
     session_name: str | None = None
     session_description: str | None = None
     hidden: bool = False
+    forked_from_turn: int | None = None
+    forked_at: str | None = None
     metadata_path = session_dir / METADATA_FILENAME
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -135,6 +137,12 @@ def _read_session_meta(
             raw_hidden = metadata.get("hidden")
             if raw_hidden is True:
                 hidden = True
+            raw_forked_turn = metadata.get("forked_from_turn")
+            if isinstance(raw_forked_turn, int) and raw_forked_turn >= 1:
+                forked_from_turn = raw_forked_turn
+            raw_forked_at = metadata.get("forked_at")
+            if isinstance(raw_forked_at, str) and raw_forked_at:
+                forked_at = raw_forked_at
             # Fallback: CWD from metadata if not found in session-info.json
             if cwd is None:
                 raw_cwd = metadata.get("working_dir")
@@ -199,6 +207,8 @@ def _read_session_meta(
         "name": session_name,
         "description": session_description,
         "hidden": hidden,
+        "forked_from_turn": forked_from_turn,
+        "forked_at": forked_at,
     }
 
 
@@ -373,6 +383,11 @@ def scan_session_revisions(
                     and metadata["description"]
                 ):
                     row["description"] = metadata["description"]
+                if (
+                    isinstance(metadata.get("forked_from_turn"), int)
+                    and metadata["forked_from_turn"] >= 1
+                ):
+                    row["forked_from_turn"] = metadata["forked_from_turn"]
         except (OSError, json.JSONDecodeError):
             pass
         rows.append(row)

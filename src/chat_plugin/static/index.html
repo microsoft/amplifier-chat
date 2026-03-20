@@ -2957,6 +2957,12 @@
         roots.push(entry);
         continue;
       }
+      // Forked sessions are promoted to roots -- they are independent
+      // continuations, not agent sub-sessions.
+      if (session && session.forkedFromTurn) {
+        roots.push(entry);
+        continue;
+      }
       if (!parentKey) {
         // Orphaned child: has parentSessionId but parent isn't loaded.
         // This can happen when the parent is beyond the pagination window,
@@ -6918,6 +6924,7 @@
                 || childAgentRef.current[sessionId]
                 || null
               );
+              const forkedFromTurn = (typeof s.forked_from_turn === 'number' && s.forked_from_turn >= 1) ? s.forked_from_turn : null;
               if (parentSessionId) {
                 sessionParentByIdRef.current[sessionId] = parentSessionId;
               }
@@ -6969,6 +6976,7 @@
                   isNewSession: badgeNew,
                   parentSessionId: resolvedParentSessionId,
                   spawnAgent,
+                  forkedFromTurn,
                   name: s.name || null,
                   description: s.description || null,
                 });
@@ -7111,6 +7119,7 @@
               const revision = typeof s.revision === 'string' ? s.revision : null;
               const parentSessionId = normalizeSessionParentId(s.parent_session_id);
               const spawnAgent = (typeof s.spawn_agent === 'string' && s.spawn_agent) || null;
+              const forkedFromTurn = (typeof s.forked_from_turn === 'number' && s.forked_from_turn >= 1) ? s.forked_from_turn : null;
               if (parentSessionId) sessionParentByIdRef.current[sessionId] = parentSessionId;
               if (spawnAgent) childAgentRef.current[sessionId] = spawnAgent;
 
@@ -7134,6 +7143,7 @@
                 isNewSession: false,
                 parentSessionId,
                 spawnAgent,
+                forkedFromTurn,
               });
               sessionKeyById.set(sessionId, historyKey);
               changed = true;
@@ -8521,7 +8531,7 @@
                                 }}
                               >
                                 <${Icon} name="chevron-up" className="sm" />
-                                <span class="session-meta-key">parent</span>
+                                <span class="session-meta-key">${activeSession && activeSession.forkedFromTurn ? 'forked from' : 'parent'}</span>
                                 <span class="session-meta-value session-meta-value-link">${activeParentSessionId}</span>
                               </button>
                             `}
