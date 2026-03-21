@@ -5054,29 +5054,19 @@
     try { localStorage.setItem(LABS_STORAGE_KEY, JSON.stringify(state)); } catch {}
   }
 
-  function ToggleSwitch({ on, onToggle }) {
+  function ToggleSwitch({ on, onToggle, disabled }) {
     return html`
-      <button class=${'labs-toggle' + (on ? ' on' : '')} onClick=${onToggle} role="switch" aria-checked=${on}>
+      <button class=${'labs-toggle' + (on ? ' on' : '') + (disabled ? ' disabled' : '')} onClick=${disabled ? undefined : onToggle} role="switch" aria-checked=${on} disabled=${disabled} style=${disabled ? 'opacity: 0.4; cursor: not-allowed;' : ''}>
         <span class="labs-toggle-knob"></span>
       </button>
     `;
   }
 
-  function VoiceFeatureCard({ enabled, onToggle, drawerOpen }) {
+  function VoiceFeatureCard({ enabled, onToggle, voiceConfig, onRefreshVoice }) {
     const [expanded, setExpanded] = useState(false);
-    const [voiceConfig, setVoiceConfig] = useState(null);
     const [downloading, setDownloading] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [ttsVoices, setTtsVoices] = useState(null);
-    const [refreshKey, setRefreshKey] = useState(0);
-
-    // Re-fetch config whenever drawer opens, or after download/delete
-    useEffect(() => {
-      if (!enabled) return;
-      fetch('/chat/voice/config').then(r => r.ok ? r.json() : null).then(cfg => {
-        if (cfg) setVoiceConfig(cfg);
-      }).catch(() => {});
-    }, [enabled, downloading, deleting, drawerOpen, refreshKey]);
 
     // Fetch TTS voices once when expanded
     useEffect(() => {
@@ -5090,17 +5080,24 @@
       }).catch(() => {});
     }, [expanded, ttsVoices]);
 
+    const sttAvailable = voiceConfig?.stt_available ?? false;
+    const ttsAvailable = voiceConfig?.tts_available ?? false;
     const modelReady = voiceConfig?.stt_model_downloaded;
-    const sttAvailable = voiceConfig?.stt_available;
-    const ttsAvailable = voiceConfig?.tts_available;
+    const depsChecked = voiceConfig !== null;
+    const depsUnavailable = depsChecked && !sttAvailable;
 
-    const statusText = !enabled ? 'Disabled'
-      : !sttAvailable ? 'Dependencies not installed'
+    const statusText = !depsChecked ? 'Checking availability\u2026'
+      : depsUnavailable ? 'Voice features aren\u2019t set up on this server yet'
+      : !enabled ? 'Disabled'
       : !modelReady ? `${(voiceConfig?.stt_model || 'base')} model not downloaded`
       : 'Ready';
-    const statusClass = !enabled ? 'off'
+    const statusClass = !depsChecked ? 'off'
+      : depsUnavailable ? 'off'
+      : !enabled ? 'off'
       : modelReady ? 'ready'
       : 'needs-setup';
+    // Directional disable: can't turn ON when deps missing, but CAN turn OFF
+    const toggleDisabled = !depsChecked || (depsUnavailable && !enabled);
 
     const handleDownloadSpecificModel = async (modelId) => {
       setDownloading(modelId);
@@ -5115,7 +5112,7 @@
         console.error('Model download failed:', err);
       }
       setDownloading(false);
-      setRefreshKey(k => k + 1);
+      if (onRefreshVoice) onRefreshVoice();
     };
 
     const handleDeleteSpecificModel = async (modelId) => {
@@ -5134,7 +5131,7 @@
         console.error('Model delete failed:', err);
       }
       setDeleting(false);
-      setRefreshKey(k => k + 1);
+      if (onRefreshVoice) onRefreshVoice();
     };
 
     const handleSwitchModel = async (modelId) => {
@@ -5151,7 +5148,7 @@
       } catch (err) {
         console.error('Model switch failed:', err);
       }
-      setRefreshKey(k => k + 1);
+      if (onRefreshVoice) onRefreshVoice();
     };
 
     const handleVoiceChange = async (e) => {
@@ -5163,7 +5160,7 @@
           body: JSON.stringify({ tts_voice: voice }),
         });
       } catch {}
-      setRefreshKey(k => k + 1);
+      if (onRefreshVoice) onRefreshVoice();
     };
 
     return html`
@@ -5176,13 +5173,13 @@
             <h3>Voice Input & Playback</h3>
             <p>Dictate messages with your mic and listen to responses aloud.</p>
           </div>
-          <${ToggleSwitch} on=${enabled} onToggle=${onToggle} />
+          <${ToggleSwitch} on=${enabled && !depsUnavailable} onToggle=${onToggle} disabled=${toggleDisabled} />
         </div>
-        ${enabled && html`
+        ${(enabled || depsUnavailable || !depsChecked) && html`
           <div class="labs-feature-status">
             <span class=${'labs-status-dot ' + statusClass}></span>
             <span style="color: var(--text-muted)">${statusText}</span>
-            ${enabled && !expanded && html`
+            ${enabled && sttAvailable && !expanded && html`
               <button style="margin-left: auto; background: none; border: none; color: var(--accent-blue); cursor: pointer; font-size: 12px; padding: 0;" onClick=${() => setExpanded(true)}>Settings</button>
             `}
           </div>
@@ -5198,7 +5195,7 @@
                 </span>
                 <span style="font-size: 11px; color: var(--text-muted); white-space: nowrap;">${m.size_mb >= 1000 ? (m.size_mb / 1000).toFixed(1) + ' GB' : m.size_mb + ' MB'}</span>
                 ${m.downloaded && !m.active && html`
-                  <button class="labs-action-btn" style="padding: 2px 8px; font-size: 11px;" onClick=${() => handleSwitchModel(m.id)}>
+                  <button class="labs-action-btn" style="padding: 2px 8px; font-size: 11px;" onClick=${() => handleSwitchModel(m.id)} disabled=${!sttAvailable}>
                     Use
                   </button>
                 `}
@@ -5208,7 +5205,7 @@
                   </button>
                 `}
                 ${!m.downloaded && html`
-                  <button class="labs-action-btn" style="padding: 2px 8px; font-size: 11px;" onClick=${() => handleDownloadSpecificModel(m.id)} disabled=${downloading === m.id}>
+                  <button class="labs-action-btn" style="padding: 2px 8px; font-size: 11px;" onClick=${() => handleDownloadSpecificModel(m.id)} disabled=${!sttAvailable || downloading === m.id}>
                     ${downloading === m.id ? 'Downloading\u2026' : 'Download'}
                   </button>
                 `}
@@ -5235,7 +5232,7 @@
     `;
   }
 
-  function ExperimentalFeaturesDrawer({ open, onClose, labsState, onToggleFeature }) {
+  function ExperimentalFeaturesDrawer({ open, onClose, labsState, onToggleFeature, voiceConfig, onRefreshVoice }) {
     // Close on Escape
     useEffect(() => {
       if (!open) return;
@@ -5260,7 +5257,8 @@
           <${VoiceFeatureCard}
             enabled=${labsState.voice}
             onToggle=${() => onToggleFeature('voice')}
-            drawerOpen=${open}
+            voiceConfig=${voiceConfig}
+            onRefreshVoice=${onRefreshVoice}
           />
         </div>
       </div>
@@ -5344,6 +5342,19 @@
       });
     }, []);
     const hasLabsActive = Object.values(labsState).some(v => v);
+
+    // Voice availability — fetched lazily when labs drawer opens
+    const [voiceConfig, setVoiceConfig] = useState(null); // null = not yet checked
+    const voiceAvailable = voiceConfig?.stt_available || false;
+    const fetchVoiceConfig = useCallback(() => {
+      fetch('/chat/voice/config').then(r => r.ok ? r.json() : null).then(cfg => {
+        if (cfg) setVoiceConfig(cfg);
+      }).catch(() => setVoiceConfig({ stt_available: false, tts_available: false }));
+    }, []);
+    useEffect(() => {
+      if (!labsOpen || voiceConfig !== null) return;
+      fetchVoiceConfig();
+    }, [labsOpen, voiceConfig, fetchVoiceConfig]);
 
     // Feedback widget
     const feedbackSlotRef = useRef(null);
@@ -8590,7 +8601,7 @@
               } : undefined}
               turnActivityCounts=${viewMode === 'workspace' ? turnActivityCounts : undefined}
               segmentActivityCounts=${viewMode === 'workspace' ? segmentActivityCounts : undefined}
-              labsVoice=${labsState.voice}
+              labsVoice=${labsState.voice && voiceAvailable}
             />
             <${QueuePanel}
               queue=${getQueue()}
@@ -8618,7 +8629,7 @@
               viewMode=${viewMode}
               setViewMode=${setViewMode}
               activeKey=${activeKey}
-              labsVoice=${labsState.voice}
+              labsVoice=${labsState.voice && voiceAvailable}
             />
           </div>
           ${viewMode === 'workspace' && !showActivity && html`
@@ -8687,7 +8698,7 @@
                       scrollMainToTurn(turnId);
                     }}
                     onScrollTurnChange=${setActiveTurnId}
-                    labsVoice=${labsState.voice}
+                    labsVoice=${labsState.voice && voiceAvailable}
                   />`
                 }
               </div>
@@ -8702,6 +8713,8 @@
         onClose=${() => setLabsOpen(false)}
         labsState=${labsState}
         onToggleFeature=${toggleLabsFeature}
+        voiceConfig=${voiceConfig}
+        onRefreshVoice=${fetchVoiceConfig}
       />
     `;
   }
