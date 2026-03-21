@@ -4720,7 +4720,7 @@
       addImages(files);
     }, [addImages]);
 
-    const doSend = useCallback(() => {
+    const doSend = useCallback(async () => {
       const ta = textareaRef.current;
       if (!ta) return;
       const content = ta.value.trim();
@@ -4738,9 +4738,10 @@
         return;
       }
 
-      // Normal send path
+      // Normal send path — await result so we can preserve input on failure
       const images = pendingImages.map(d => d.split(',')[1]);
-      onSend(content, images);
+      const result = await onSend(content, images);
+      if (result === false) return; // send was rejected, keep input for retry
       ta.value = '';
       ta.style.height = 'auto';
       setPendingImages([]);
@@ -7365,7 +7366,7 @@
           content: 'Session is still loading. Please wait a moment and try again.',
           streaming: false, order: orderCounterRef.current++,
         }]);
-        return;
+        return false;
       }
 
       // Lazy session creation: create on first real interaction
@@ -7377,7 +7378,7 @@
             content: 'Error: Could not create session.',
             streaming: false, order: orderCounterRef.current++,
           }]);
-          return;
+          return false;
         }
       }
 
