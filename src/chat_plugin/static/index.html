@@ -5643,12 +5643,14 @@
   const MOD_KEY = _isMac ? 'metaKey' : 'ctrlKey';
   const MOD_LABEL = _isMac ? '\u2318' : 'Ctrl';
   const SHIFT_LABEL = _isMac ? '\u21E7' : 'Shift';
+  const ALT_LABEL = _isMac ? '\u2325' : 'Alt';
 
   function fmtShortcut(shortcut) {
     if (!shortcut) return '';
     return shortcut
       .replace('Mod', MOD_LABEL)
       .replace('Shift', SHIFT_LABEL)
+      .replace('Alt', ALT_LABEL)
       .replace(/\+/g, _isMac ? '' : '+');
   }
 
@@ -5684,11 +5686,14 @@
         const parts = action.shortcut.split('+');
         const needsMod = parts.includes('Mod');
         const needsShift = parts.includes('Shift');
+        const needsAlt = parts.includes('Alt');
         const key = parts[parts.length - 1];
         if (needsMod && !e[MOD_KEY]) continue;
         if (!needsMod && e[MOD_KEY]) continue;
         if (needsShift && !e.shiftKey) continue;
         if (!needsShift && e.shiftKey) continue;
+        if (needsAlt && !e.altKey) continue;
+        if (!needsAlt && e.altKey) continue;
         const eKey = e.key.length === 1 ? e.key.toLowerCase() : e.key;
         const target = key.toLowerCase();
         if (eKey === target || e.code === 'Key' + key.toUpperCase() || e.code === 'Digit' + key) return action;
@@ -9253,17 +9258,17 @@
           handler: () => setCmdPaletteOpen(true),
         },
         'show-shortcuts': {
-          label: 'Show All Shortcuts', shortcut: 'Mod+Shift+/', category: 'General',
+          label: 'Show All Shortcuts', shortcut: 'Mod+Alt+/', category: 'General',
           icon: _icons.keyboard, order: 1,
           handler: () => { setCmdPaletteOpen(false); setCheatSheetOpen(true); },
         },
         'new-session': {
-          label: 'New Session', shortcut: 'Mod+n', category: 'Navigation',
+          label: 'New Session', shortcut: 'Mod+Alt+n', category: 'Navigation',
           icon: _icons.plus, order: 10,
           handler: () => { newSession(); showToast('New session created'); },
         },
         'filter-sessions': {
-          label: 'Filter Sessions', shortcut: 'Mod+f', category: 'Navigation',
+          label: 'Filter Sessions', shortcut: 'Mod+Alt+f', category: 'Navigation',
           icon: _icons.filter, order: 12,
           handler: () => { setShowSessions(true); setShowSessionFilter(true); },
         },
@@ -9273,7 +9278,7 @@
           handler: () => setSessionSortMode(m => m === 'recent' ? 'directory' : 'recent'),
         },
         'stop-execution': {
-          label: 'Stop Execution', shortcut: 'Mod+.', category: 'Chat',
+          label: 'Stop Execution', shortcut: 'Mod+Alt+.', category: 'Chat',
           icon: _icons.stop, order: 20,
           when: (ctx) => ctx.executing,
           handler: () => stopExecution(),
@@ -9298,27 +9303,27 @@
           },
         },
         'toggle-split': {
-          label: 'Toggle Split View', shortcut: 'Mod+Shift+e', category: 'View',
+          label: 'Toggle Split View', shortcut: 'Mod+Alt+e', category: 'View',
           icon: _icons.split, order: 30,
           handler: () => { setViewMode(m => m === 'workspace' ? 'chat' : 'workspace'); },
         },
         'toggle-sessions': {
-          label: 'Toggle Sessions Panel', shortcut: 'Mod+Shift+s', category: 'View',
+          label: 'Toggle Sessions Panel', shortcut: 'Mod+Alt+s', category: 'View',
           icon: _icons.sidebar, order: 31,
           handler: () => setShowSessions(v => !v),
         },
         'toggle-activity': {
-          label: 'Toggle Activity Panel', shortcut: 'Mod+Shift+a', category: 'View',
+          label: 'Toggle Activity Panel', shortcut: 'Mod+Alt+a', category: 'View',
           icon: _icons.activity, order: 32,
           handler: () => setShowActivity(v => !v),
         },
         'toggle-theme': {
-          label: 'Toggle Theme', shortcut: 'Mod+Shift+l', category: 'View',
+          label: 'Toggle Theme', shortcut: 'Mod+Alt+l', category: 'View',
           icon: _icons.sun, order: 33,
           handler: () => { setTheme(t => t === 'dark' ? 'light' : 'dark'); showToast('Theme switched'); },
         },
         'pin-session': {
-          label: 'Pin/Unpin Session', shortcut: 'Mod+Shift+p', category: 'Session',
+          label: 'Pin/Unpin Session', shortcut: 'Mod+Alt+p', category: 'Session',
           icon: _icons.pin, order: 40,
           when: (ctx) => !!ctx.sessionId,
           handler: () => {
@@ -9330,7 +9335,7 @@
           },
         },
         'rename-session': {
-          label: 'Rename Session', shortcut: 'Mod+Shift+r', category: 'Session',
+          label: 'Rename Session', shortcut: 'Mod+Alt+r', category: 'Session',
           icon: _icons.edit, order: 41,
           when: (ctx) => !!ctx.sessionId,
           handler: () => {
@@ -9340,7 +9345,7 @@
           },
         },
         'toggle-voice': {
-          label: 'Toggle Voice Recording', shortcut: 'Mod+Shift+v', category: 'Voice',
+          label: 'Toggle Voice Recording', shortcut: 'Mod+Alt+v', category: 'Voice',
           icon: _icons.mic, order: 50,
           when: (ctx) => ctx.labsState?.voice,
           handler: () => {
