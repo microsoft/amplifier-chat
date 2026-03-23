@@ -29,6 +29,11 @@
       --action-btn-bg-active: rgba(255, 255, 255, 0.15);
       --action-btn-color: #b0b0b0;
       --action-btn-color-hover: #e8e8e8;
+
+      /* Shell mode tokens */
+      --shell-border: var(--accent-green);
+      --shell-glow: rgba(34, 197, 94, 0.15);
+      --shell-font: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
     
       /* Sub-session tokens */
       --sub-bg: rgba(255, 255, 255, 0.025);
@@ -64,6 +69,8 @@
       --action-btn-bg-active: rgba(0, 0, 0, 0.12);
       --action-btn-color: #64748b;
       --action-btn-color-hover: #0f172a;
+
+      --shell-glow: rgba(22, 163, 74, 0.1);
     
       --sub-bg: rgba(0, 0, 0, 0.025);
       --sub-bg-elevated: rgba(0, 0, 0, 0.035);
@@ -1451,6 +1458,12 @@
       font-variant-numeric: tabular-nums;
     }
     .token-usage-pill .tok-sep { color: var(--border); }
+    .tool-user-badge {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-left: 4px;
+      font-weight: 400;
+    }
     .tool-origin-badge {
       font-size: 10px;
       letter-spacing: 0.01em;
@@ -1810,9 +1823,38 @@
       overflow-y: auto;
       outline: none;
       font-family: inherit;
+      transition: border-color 200ms ease-out, box-shadow 200ms ease-out, font-family 200ms ease-out, padding-left 200ms ease-out;
     }
     #message-input:focus { border-color: var(--accent-blue); }
     #message-input::placeholder { color: var(--text-muted); }
+
+    /* Shell mode input transformation */
+    .shell-mode #message-input {
+      border-color: var(--shell-border);
+      box-shadow: 0 0 8px var(--shell-glow);
+      font-family: var(--shell-font);
+      padding-left: 28px;
+    }
+    .shell-mode #message-input:focus {
+      border-color: var(--shell-border);
+    }
+    .shell-mode .send-btn {
+      background: var(--accent-green);
+    }
+    .shell-mode .input-row {
+      position: relative;
+    }
+    .shell-prompt {
+      position: absolute;
+      left: 56px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--shell-font);
+      font-size: 14px;
+      color: var(--text-muted);
+      pointer-events: none;
+      z-index: 1;
+    }
 
     .input-btn {
       min-height: 44px;
