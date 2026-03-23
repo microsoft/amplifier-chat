@@ -4716,7 +4716,7 @@
               ${menuOpen && html`
                 <${SessionOverflowMenu}
                   isPinned=${isPinned}
-                  canPin=${hasSession && (!session.parentSessionId || isPinned)}
+                  canPin=${hasSession && (!session.parentSessionId || session.forkedFromTurn || isPinned)}
                   onPin=${() => onTogglePin(session.sessionId, isPinned)}
                   canRename=${hasSession}
                   onRename=${(e) => startEditing(e)}
