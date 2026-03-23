@@ -154,7 +154,17 @@ Add a `shell` command type alongside existing slash commands. Less clean separat
 
 Recommendation: Option A for clean architecture.
 
-### 7. Security Considerations
+### 7. Additional Behaviors
+
+**Working directory:** Shell commands execute in the active session's CWD (the value shown in the CWD picker at the top of the chat). The backend passes this as the `cwd` parameter when spawning the subprocess.
+
+**Streaming output:** For long-running commands (e.g., `!npm install`, `!pytest`), output streams to the UI in real-time via SSE chunks rather than buffering until completion. Each chunk appends to the `ToolCallCard` result area. The tool status shows "running" (spinner) until the command exits.
+
+**Multi-line commands:** Shift+Enter in shell mode inserts a newline (same as normal mode). The full multi-line text is sent as a single bash command. This supports small inline scripts.
+
+**The `$` prompt implementation:** The `!` character remains in the textarea value (it's the mode trigger). It is visually hidden using CSS (`text-indent` or `padding-left` to make room for the `$` pseudo-element). On send, the `!` is stripped programmatically. This avoids complex value manipulation while the user is typing.
+
+### 8. Security Considerations
 
 - Shell commands execute with the same permissions as the Amplifier Chat backend process
 - The same safety guardrails that apply to AI-initiated bash calls should apply here (blocked destructive commands, timeouts)
