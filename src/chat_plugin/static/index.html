@@ -4668,6 +4668,10 @@
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
     const [pendingImages, setPendingImages] = useState([]);
+    const draftsRef = useRef(new Map());
+    const prevKeyRef = useRef(activeKey);
+    const pendingImagesRef = useRef(pendingImages);
+    pendingImagesRef.current = pendingImages;
     const [slashOpen, setSlashOpen] = useState(false);
     const [slashFilter, setSlashFilter] = useState('');
     const [slashActiveIndex, setSlashActiveIndex] = useState(0);
@@ -4683,10 +4687,44 @@
     useEffect(() => {
       const ta = textareaRef.current;
       if (!ta) return;
+
+      // Save outgoing session's draft
+      const prevKey = prevKeyRef.current;
+      if (prevKey && prevKey !== activeKey) {
+        const text = ta.value;
+        const images = pendingImagesRef.current;
+        if (text || images.length > 0) {
+          draftsRef.current.set(prevKey, {
+            text,
+            images: [...images],
+            cursorPos: ta.selectionStart,
+          });
+        } else {
+          draftsRef.current.delete(prevKey);
+        }
+      }
+
+      // Restore incoming session's draft
+      const draft = draftsRef.current.get(activeKey);
+      if (draft) {
+        ta.value = draft.text || '';
+        setPendingImages(draft.images || []);
+      } else {
+        ta.value = '';
+        setPendingImages([]);
+      }
+
+      prevKeyRef.current = activeKey;
+
+      // Auto-resize textarea to fit restored content, then focus
       const rafId = window.requestAnimationFrame(() => {
-        try {
-          ta.focus();
-        } catch {}
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+        try { ta.focus(); } catch {}
+        // Restore cursor position after focus
+        if (draft && draft.cursorPos != null) {
+          ta.selectionStart = ta.selectionEnd = Math.min(draft.cursorPos, ta.value.length);
+        }
       });
       return () => window.cancelAnimationFrame(rafId);
     }, [activeKey]);
@@ -4733,6 +4771,7 @@
           ta.value = '';
           ta.style.height = 'auto';
           setPendingImages([]);
+          draftsRef.current.delete(activeKey);
           setSlashOpen(false);
         }
         return;
@@ -4744,8 +4783,9 @@
       ta.value = '';
       ta.style.height = 'auto';
       setPendingImages([]);
+      draftsRef.current.delete(activeKey);
       setSlashOpen(false);
-    }, [onSend, onQueueMessage, pendingImages, shouldQueue]);
+    }, [onSend, onQueueMessage, pendingImages, shouldQueue, activeKey]);
 
     const applySlashCommand = useCallback((cmdName) => {
       const ta = textareaRef.current;
