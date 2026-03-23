@@ -5264,7 +5264,7 @@
     `;
   }
 
-  function InputArea({ onSend, onStop, onQueueMessage, executing, shouldQueue, viewMode, setViewMode, activeKey, labsVoice }) {
+  function InputArea({ onSend, onStop, onQueueMessage, onShellExecute, executing, shouldQueue, viewMode, setViewMode, activeKey, labsVoice }) {
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
     const [pendingImages, setPendingImages] = useState([]);
@@ -5280,6 +5280,7 @@
     const [sttReady, setSttReady] = useState(null); // null = unchecked, true = ready, false = needs download
     const [sttDownloading, setSttDownloading] = useState(false);
     const [showDownloadBanner, setShowDownloadBanner] = useState(false);
+    const [shellMode, setShellMode] = useState(false);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const voiceTimerRef = useRef(null);
@@ -5379,6 +5380,19 @@
         return;
       }
 
+      // Shell mode: bypass AI, execute directly
+      if (shellMode && content.startsWith('!')) {
+        const command = content.slice(1).trim();
+        if (command && onShellExecute) {
+          onShellExecute(command);
+          ta.value = '';
+          ta.style.height = 'auto';
+          setShellMode(false);
+          setPendingImages([]);
+        }
+        return;
+      }
+
       // Normal send path
       const images = pendingImages.map(d => d.split(',')[1]);
       onSend(content, images);
@@ -5387,7 +5401,7 @@
       setPendingImages([]);
       draftsRef.current.delete(activeKey);
       setSlashOpen(false);
-    }, [onSend, onQueueMessage, pendingImages, shouldQueue, activeKey]);
+    }, [onSend, onQueueMessage, onShellExecute, pendingImages, shouldQueue, shellMode, activeKey]);
 
     const applySlashCommand = useCallback((cmdName) => {
       const ta = textareaRef.current;
@@ -5456,9 +5470,15 @@
         setSlashOpen(true);
         setSlashFilter(val.slice(1).toLowerCase());
         setSlashActiveIndex(0);
+        setShellMode(false);
+      } else if (val.startsWith('!')) {
+        setShellMode(true);
+        setSlashOpen(false);
+        setSlashActiveIndex(0);
       } else {
         setSlashOpen(false);
         setSlashActiveIndex(0);
+        setShellMode(false);
       }
     }, [autoResize]);
 
@@ -5608,7 +5628,7 @@
     const fmtVoiceTime = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 
     return html`
-      <div id="input-area">
+      <div id="input-area" class=${shellMode ? 'shell-mode' : ''}>
         ${pendingImages.length > 0 && html`
           <div class="image-previews">
             ${pendingImages.map((src, i) => html`
@@ -5667,7 +5687,7 @@
           <textarea
             id="message-input"
             ref=${textareaRef}
-            placeholder=${shouldQueue ? "Queue a message…" : "Message… (/ for commands)"}
+            placeholder=${shellMode ? "command..." : (shouldQueue ? "Queue a message…" : "Message… (/ for commands)")}
             rows="1"
             style=${{ opacity: 1 }}
             aria-label="Message input"
@@ -5695,7 +5715,7 @@
             <${Icon} name=${voiceState === 'transcribing' ? 'loader' : 'mic'} />
           </button>`}
           <button class="input-btn send-btn" onClick=${doSend}>
-            ${shouldQueue ? 'Queue' : 'Send'}
+            ${shellMode ? 'Run' : (shouldQueue ? 'Queue' : 'Send')}
           </button>
           ${executing && html`<button class="input-btn stop-btn" onClick=${onStop}>■ Stop</button>`}
         </div>
