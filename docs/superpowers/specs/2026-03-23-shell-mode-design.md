@@ -189,6 +189,34 @@ Recommendation: Option A for clean architecture.
 - Custom shell selection (always uses default shell)
 - Tab completion
 
+## Known Gaps (v1 → v2)
+
+These are identified limitations in the initial implementation that should be addressed in a follow-up iteration.
+
+### P0: Transcript Persistence
+Shell commands and output are **not persisted** to the session's `events.jsonl`. They exist only in frontend memory and vanish on page refresh or session revisit. The AI cannot reference previous shell output on subsequent turns. Fix requires the backend to inject synthetic events into the session event log via amplifierd's session system.
+
+### P0: Kill / Cancel Running Commands
+There is no way for the user to cancel a running shell command. Long-running commands (`npm install`, `pytest`) block until the 30-second timeout fires. Need a "Kill" button on the tool card while status is `running`, wired to a `DELETE /api/sessions/{id}/shell/{tool_call_id}` endpoint that kills the subprocess.
+
+### P1: Interactive Command Detection
+Commands that require stdin (`vim`, `python3`, `ssh`) hang silently until timeout. Should detect common interactive commands and either warn the user before execution or refuse with a helpful message.
+
+### P1: Dangerous Command Guardrails
+No safety checks on user-initiated shell commands. The AI-initiated bash tool blocks destructive commands (`rm -rf /`, etc.) -- shell mode should apply the same blocklist, or at minimum show a confirmation prompt for flagged commands.
+
+### P2: Concurrent Command Prevention
+Nothing prevents firing a second shell command while one is already running. Both would stream simultaneously. Should either queue commands or disable the shell input while a command is in-flight.
+
+### P2: Environment Variable Persistence
+Each `!` command spawns a fresh subprocess. `export FOO=bar` followed by `echo $FOO` in the next `!` won't work. Consider a persistent shell session or at minimum document this limitation clearly.
+
+### P2: Large Output Memory
+Output accumulates as a string in frontend memory. A `cat` of a very large file could bloat the page. Consider truncating output beyond a threshold (e.g., 100KB) with a "Show full output" toggle.
+
+### P3: Binary Output Handling
+Commands producing binary output (`cat image.png`) show garbled text. Should detect non-UTF-8 output and display a message like "Binary output (N bytes)" instead.
+
 ## Component Changes
 
 | File | Change |

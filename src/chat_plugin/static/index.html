@@ -5290,7 +5290,7 @@
     `;
   }
 
-  function InputArea({ onSend, onStop, onQueueMessage, onShellExecute, executing, shouldQueue, viewMode, setViewMode, activeKey, labsVoice }) {
+  function InputArea({ onSend, onStop, onQueueMessage, onShellExecute, executing, shouldQueue, viewMode, setViewMode, activeKey, labsVoice, labsShell }) {
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
     const [pendingImages, setPendingImages] = useState([]);
@@ -5501,7 +5501,7 @@
         setSlashOpen(true);
         setSlashFilter(val.slice(1).toLowerCase());
         setSlashActiveIndex(0);
-      } else if (!shellMode && val === '!') {
+      } else if (labsShell && !shellMode && val === '!') {
         // '!' is a trigger to enter shell mode — consume it and clear
         e.target.value = '';
         setShellMode(true);
@@ -5739,7 +5739,7 @@
           <textarea
             id="message-input"
             ref=${textareaRef}
-            placeholder=${shouldQueue ? "Queue a message…" : "Message… (/ commands, ! shell)"}
+            placeholder=${shouldQueue ? "Queue a message…" : `Message… (/ commands${labsShell ? ", ! shell" : ""})`}
             rows="1"
             style=${{ opacity: 1 }}
             aria-label="Message input"
@@ -6072,7 +6072,7 @@
       const raw = localStorage.getItem(LABS_STORAGE_KEY);
       if (raw) return JSON.parse(raw);
     } catch {}
-    return { voice: false };
+    return { voice: false, shell: false };
   }
 
   function saveLabsState(state) {
@@ -6287,6 +6287,18 @@
             onToggle=${() => onToggleFeature('voice')}
             drawerOpen=${open}
           />
+          <div class=${'labs-feature-card' + (labsState.shell ? ' enabled' : '')}>
+            <div class="labs-feature-head">
+              <div class="labs-feature-icon">
+                <${Icon} name="terminal" />
+              </div>
+              <div class="labs-feature-info">
+                <h3>Shell Mode</h3>
+                <p>Type <code>!</code> to run shell commands directly from chat. Output streams inline.</p>
+              </div>
+              <${ToggleSwitch} on=${labsState.shell} onToggle=${() => onToggleFeature('shell')} />
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -10096,6 +10108,7 @@
               onQueueMessage=${pushToQueue}
               onShellExecute=${handleShellExecute}
               executing=${executing}
+              labsShell=${labsState.shell}
               shouldQueue=${executing || getQueueDrainState() === 'countdown' || (getQueueDrainState() === 'paused' && getQueue().length > 0)}
               viewMode=${viewMode}
               setViewMode=${setViewMode}
