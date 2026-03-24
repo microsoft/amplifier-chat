@@ -10,7 +10,11 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from chat_plugin.commands import CommandProcessor
 from chat_plugin.pin_storage import PinStorage
-from chat_plugin.session_history import scan_session_revisions, scan_sessions
+from chat_plugin.session_history import (
+    scan_session_revisions,
+    scan_sessions,
+    search_sessions,
+)
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -117,6 +121,23 @@ def create_history_routes(
             "has_more": offset + limit < total_count,
             "pinned_count": len(pinned_sessions),
         }
+
+    @router.get("/api/sessions/search")
+    async def search_session_history(
+        q: str = Query(default="", max_length=200),
+        limit: int = Query(default=20, ge=1, le=100),
+    ) -> dict:
+        """Search all sessions on disk matching the query string."""
+        results = await asyncio.to_thread(search_sessions, projects_dir, q, limit)
+
+        def _has_content(row: dict) -> bool:
+            return (
+                (row.get("message_count") or 0) > 0
+                or bool(row.get("last_user_message"))
+            ) and not row.get("hidden")
+
+        results = [row for row in results if _has_content(row)]
+        return {"sessions": results, "query": q}
 
     @router.get("/api/sessions/revisions")
     async def list_session_revisions(
@@ -343,9 +364,7 @@ def create_fork_routes(
 
     def _find_session_dir(session_id: str) -> Path:
         if projects_dir is None:
-            raise HTTPException(
-                status_code=500, detail="projects_dir not configured"
-            )
+            raise HTTPException(status_code=500, detail="projects_dir not configured")
         for project_dir in projects_dir.iterdir():
             if not project_dir.is_dir():
                 continue

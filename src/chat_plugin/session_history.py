@@ -394,3 +394,146 @@ def scan_session_revisions(
 
     rows.sort(key=lambda s: s["last_updated"], reverse=True)
     return rows
+
+
+def _read_session_meta_light(
+    session_dir: Path, project_slug: str | None = None
+) -> dict[str, Any] | None:
+    """Read only cheap metadata (metadata.json + session-info.json + stat).
+
+    Skips transcript parsing entirely.  Returns *None* for hidden sessions
+    so the caller can discard them cheaply.
+    """
+    session_id = session_dir.name
+
+    # CWD from session-info.json
+    cwd: str | None = None
+    info_path = session_dir / SESSION_INFO_FILENAME
+    try:
+        data = json.loads(info_path.read_text(encoding="utf-8"))
+        raw = data.get("working_dir")
+        if isinstance(raw, str) and raw:
+            normalized = os.path.normpath(raw)
+            if os.path.isabs(normalized) and len(normalized) <= 4096:
+                cwd = normalized
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    # Metadata fields
+    name: str | None = None
+    description: str | None = None
+    parent_session_id: str | None = None
+    spawn_agent: str | None = None
+    metadata_path = session_dir / METADATA_FILENAME
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if isinstance(metadata, dict):
+            if metadata.get("hidden") is True:
+                return None
+            raw_name = metadata.get("name")
+            if isinstance(raw_name, str) and raw_name:
+                name = raw_name
+            raw_desc = metadata.get("description")
+            if isinstance(raw_desc, str) and raw_desc:
+                description = raw_desc
+            if cwd is None:
+                raw_cwd = metadata.get("working_dir")
+                if isinstance(raw_cwd, str) and raw_cwd:
+                    normalized = os.path.normpath(raw_cwd)
+                    if os.path.isabs(normalized) and len(normalized) <= 4096:
+                        cwd = normalized
+            raw_parent = metadata.get("parent_id") or metadata.get("parent_session_id")
+            if (
+                isinstance(raw_parent, str)
+                and raw_parent
+                and _VALID_SESSION_ID_RE.fullmatch(raw_parent)
+            ):
+                parent_session_id = raw_parent
+            raw_agent = metadata.get("agent_name")
+            if isinstance(raw_agent, str) and raw_agent:
+                spawn_agent = raw_agent
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    if cwd is None and project_slug is not None:
+        cwd = _decode_cwd(project_slug)
+
+    last_updated, revision = _session_revision_signature(session_dir)
+
+    # Cheap message count: check if transcript exists and has any content
+    transcript_path = session_dir / TRANSCRIPT_FILENAME
+    has_content = False
+    try:
+        has_content = transcript_path.exists() and transcript_path.stat().st_size > 10
+    except OSError:
+        pass
+
+    if not has_content:
+        return None
+
+    return {
+        "session_id": session_id,
+        "cwd": cwd,
+        "name": name,
+        "description": description,
+        "parent_session_id": parent_session_id,
+        "spawn_agent": spawn_agent,
+        "last_updated": last_updated,
+        "revision": revision,
+        "message_count": 1,  # placeholder — transcript exists
+        "last_user_message": None,
+    }
+
+
+def search_sessions(
+    projects_dir: Path | None,
+    query: str,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Search sessions matching *query* against metadata fields (fast).
+
+    Uses lightweight metadata reads only — no transcript parsing.
+    Searches session name, description, CWD, and session_id.
+    Returns up to *limit* results sorted newest-first.
+    """
+    if projects_dir is None or not query.strip():
+        return []
+
+    query_lower = query.strip().lower()
+    all_entries = list(_iter_session_dirs(projects_dir))
+    if not all_entries:
+        return []
+
+    matches: list[tuple[str, dict[str, Any]]] = []
+    max_workers = min(8, len(all_entries))
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_map = {
+            pool.submit(_read_session_meta_light, d, slug): (d, slug)
+            for d, slug in all_entries
+        }
+        for future in as_completed(future_map):
+            try:
+                meta = future.result()
+            except Exception:  # noqa: BLE001
+                continue
+
+            if meta is None:
+                continue
+
+            haystack = " ".join(
+                str(v).lower()
+                for v in [
+                    meta.get("session_id"),
+                    meta.get("name"),
+                    meta.get("description"),
+                    meta.get("cwd"),
+                    meta.get("spawn_agent"),
+                ]
+                if v
+            )
+            if query_lower in haystack:
+                ts = meta.get("last_updated", "")
+                matches.append((ts, meta))
+
+    matches.sort(key=lambda t: t[0], reverse=True)
+    return [m[1] for m in matches[:limit]]
