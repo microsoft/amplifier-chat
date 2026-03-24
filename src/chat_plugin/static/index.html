@@ -9957,6 +9957,11 @@
           icon: _icons.sun, order: 33,
           handler: () => { setTheme(t => t === 'dark' ? 'light' : 'dark'); showToast('Theme switched'); },
         },
+        'toggle-labs': {
+          label: 'Experimental Features', category: 'View',
+          icon: _icons.flask, order: 34,
+          handler: () => setLabsOpen(o => !o),
+        },
         'pin-session': {
           label: 'Pin/Unpin Session', shortcut: 'Mod+Shift+p', category: 'Session',
           icon: _icons.pin, order: 40,
@@ -10067,51 +10072,9 @@
         <${StatusDot} status=${sseStatus} />
         <span class="app-name">Amplifier</span>
         <span class="header-spacer"></span>
-        <button
-          class=${'btn header-icon-btn split-toggle' + (viewMode === 'workspace' ? ' active' : '')}
-          title=${viewMode === 'workspace' ? 'Single column' : 'Split view'}
-          aria-label=${viewMode === 'workspace' ? 'Switch to single column view' : 'Switch to split view'}
-          onClick=${() => setViewMode(m => m === 'workspace' ? 'chat' : 'workspace')}
-        >
-          ${viewMode === 'workspace'
-            ? html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/></svg>`
-            : html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="9" y1="2" x2="9" y2="14"/></svg>`
-          }
-        </button>
         <button class=${'btn header-icon-btn cmd-palette-trigger' + (fmtShortcut('Mod+k') ? ' has-hint' : '')} title=${'Actions (' + fmtShortcut('Mod+k') + ')'} onClick=${() => setCmdPaletteOpen(true)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
           <span class="cmd-palette-trigger-hint">${fmtShortcut('Mod+k')}</span>
-        </button>
-        <button
-          class="btn header-icon-btn theme-toggle"
-          title=${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          onClick=${() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-        >
-          <span class=${'theme-chip' + (theme === 'light' ? ' active' : '')}>
-            <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="4"></circle>
-              <line x1="12" y1="2" x2="12" y2="5"></line>
-              <line x1="12" y1="19" x2="12" y2="22"></line>
-              <line x1="2" y1="12" x2="5" y2="12"></line>
-              <line x1="19" y1="12" x2="22" y2="12"></line>
-              <line x1="4.9" y1="4.9" x2="7" y2="7"></line>
-              <line x1="17" y1="17" x2="19.1" y2="19.1"></line>
-              <line x1="4.9" y1="19.1" x2="7" y2="17"></line>
-              <line x1="17" y1="7" x2="19.1" y2="4.9"></line>
-            </svg>
-          </span>
-          <span class=${'theme-chip' + (theme === 'dark' ? ' active' : '')}>
-            <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3 7 7 0 0 0 21 14.5Z"></path>
-            </svg>
-          </span>
-        </button>
-        <button class="btn header-icon-btn labs-btn" title="Experimental features" onClick=${() => setLabsOpen(true)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 3h6v7l4.5 7.5A2 2 0 0 1 17.77 21H6.23a2 2 0 0 1-1.73-3.5L9 10z"></path>
-            <path d="M9 3h6"></path>
-          </svg>
-          ${hasLabsActive && html`<span class="labs-indicator"></span>`}
         </button>
         <span ref=${feedbackSlotRef}></span>
       </div>
