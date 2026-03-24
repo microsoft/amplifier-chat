@@ -2332,6 +2332,241 @@
     .fork-preview-wrap .fork-preview-actions button:disabled { opacity: 0.5; cursor: default; }
     .fork-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--accent-blue); margin-top: 4px; cursor: pointer; opacity: 0.8; transition: opacity 0.15s ease; }
     .fork-indicator:hover { opacity: 1; text-decoration: underline; }
+
+    /* ── Command Palette ──────────────────────────────────── */
+    .cmd-palette-backdrop {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding-top: min(20vh, 160px);
+      animation: cmdFadeIn 0.12s ease-out;
+    }
+    body[data-theme="light"] .cmd-palette-backdrop { background: rgba(0, 0, 0, 0.25); }
+
+    @keyframes cmdFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes cmdScaleIn { from { opacity: 0; transform: scale(0.96) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+    @keyframes cmdSlideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes cmdFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+    .cmd-palette {
+      width: min(520px, calc(100vw - 32px));
+      max-height: min(440px, 60vh);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      animation: cmdScaleIn 0.15s ease-out;
+    }
+    body[data-theme="light"] .cmd-palette { box-shadow: 0 16px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06); }
+    .cmd-palette-backdrop.closing { animation: cmdFadeOut 0.1s ease-in forwards; }
+    .cmd-palette-backdrop.closing .cmd-palette { animation: none; opacity: 0; transform: scale(0.98); transition: all 0.1s ease-in; }
+
+    .cmd-palette-input-wrap {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cmd-palette-input-wrap svg { flex-shrink: 0; color: var(--text-muted); }
+    .cmd-palette-input {
+      flex: 1; background: none; border: none; outline: none;
+      font-size: 15px; font-family: inherit;
+      color: var(--text-primary);
+      caret-color: var(--accent-blue);
+    }
+    .cmd-palette-input::placeholder { color: var(--text-muted); }
+    .cmd-palette-input-badge {
+      font-size: 11px; color: var(--text-muted);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 5px; padding: 2px 7px;
+      font-family: inherit; white-space: nowrap;
+    }
+
+    .cmd-palette-list {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 6px;
+      scroll-behavior: smooth;
+    }
+    .cmd-palette-list::-webkit-scrollbar { width: 4px; }
+    .cmd-palette-list::-webkit-scrollbar-track { background: transparent; }
+    .cmd-palette-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    body[data-theme="light"] .cmd-palette-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); }
+
+    .cmd-palette-group-label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      padding: 10px 10px 4px;
+      user-select: none;
+    }
+
+    .cmd-palette-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.08s ease;
+      user-select: none;
+    }
+    .cmd-palette-item:hover { background: var(--bg-tertiary); }
+    .cmd-palette-item.selected {
+      background: rgba(59, 130, 246, 0.12);
+      color: var(--text-primary);
+      outline: 1px solid rgba(59, 130, 246, 0.25);
+      outline-offset: -1px;
+    }
+    body[data-theme="light"] .cmd-palette-item.selected {
+      background: rgba(37, 99, 235, 0.08);
+      outline-color: rgba(37, 99, 235, 0.2);
+    }
+    .cmd-palette-item.selected .cmd-palette-item-shortcut { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border-color: rgba(59, 130, 246, 0.2); }
+    .cmd-palette-item.selected .cmd-palette-item-icon { color: var(--accent-blue); }
+
+    .cmd-palette-item-icon {
+      width: 18px; height: 18px; flex-shrink: 0;
+      color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cmd-palette-item-label { flex: 1; font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cmd-palette-item-shortcut {
+      font-size: 11px; color: var(--text-muted);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 5px; padding: 1px 6px;
+      font-family: inherit; white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .cmd-palette-empty {
+      padding: 24px 16px; text-align: center;
+      color: var(--text-muted); font-size: 13px;
+    }
+    .cmd-palette-footer {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--text-muted);
+    }
+    .cmd-palette-footer kbd {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; padding: 0 4px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px; font-size: 11px;
+      font-family: inherit; color: var(--text-secondary);
+    }
+    .cmd-palette-footer-item { display: flex; align-items: center; gap: 4px; }
+
+    /* ── Cheat Sheet ──────────────────────────────────────── */
+    .cheatsheet-backdrop {
+      position: fixed; inset: 0; z-index: 10000;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      animation: cmdFadeIn 0.12s ease-out;
+    }
+    body[data-theme="light"] .cheatsheet-backdrop { background: rgba(0, 0, 0, 0.3); }
+
+    .cheatsheet {
+      width: min(640px, calc(100vw - 32px));
+      max-height: min(520px, 70vh);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+      overflow: hidden; display: flex; flex-direction: column;
+      animation: cmdScaleIn 0.15s ease-out;
+    }
+    .cheatsheet-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cheatsheet-header h2 { font-size: 15px; font-weight: 600; margin: 0; }
+    .cheatsheet-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); padding: 4px;
+      border-radius: 6px; transition: color 0.1s;
+    }
+    .cheatsheet-close:hover { color: var(--text-primary); }
+    .cheatsheet-body {
+      flex: 1; overflow-y: auto; padding: 16px 20px 20px;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 20px; align-content: start;
+    }
+    .cheatsheet-group h3 {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-muted);
+      margin: 0 0 8px;
+    }
+    .cheatsheet-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 0; font-size: 13px; color: var(--text-secondary);
+    }
+    .cheatsheet-row kbd {
+      font-size: 11px; color: var(--text-muted);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 5px; padding: 2px 7px;
+      font-family: inherit;
+    }
+
+    /* ── Toast ────────────────────────────────────────────── */
+    .toast-container {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 10001; display: flex; flex-direction: column-reverse;
+      gap: 8px; align-items: center; pointer-events: none;
+    }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(8px); } }
+    .toast-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px; color: var(--text-primary);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      animation: toastIn 0.2s ease-out;
+      pointer-events: auto;
+      white-space: nowrap;
+    }
+    body[data-theme="light"] .toast-item { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+    .toast-item.exiting { animation: toastOut 0.15s ease-in forwards; }
+
+    .cmd-palette-trigger {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 4px; padding: 4px 8px;
+    }
+    .cmd-palette-trigger-hint { font-size: 11px; opacity: 0.6; }
+
+    @media (max-width: 768px) {
+      .cmd-palette-trigger { min-width: 36px; min-height: 36px; padding: 6px; }
+      .cmd-palette-trigger-hint { display: none; }
+      .cmd-palette-backdrop {
+        padding-top: 0; padding-left: 0; padding-right: 0;
+        align-items: flex-end;
+      }
+      .cmd-palette {
+        width: 100%; max-height: 80vh; max-height: 80dvh;
+        border-radius: 14px 14px 0 0;
+        animation: cmdSlideUp 0.2s ease-out;
+      }
+      .cmd-palette-backdrop.closing .cmd-palette { transform: translateY(100%); transition: transform 0.15s ease-in; }
+      .cmd-palette-input-wrap { padding: 16px; }
+      .cmd-palette-input { font-size: 16px; } /* prevent iOS zoom */
+      .cmd-palette-item { padding: 12px 12px; gap: 12px; min-height: 44px; } /* 44px touch targets */
+      .cmd-palette-item-shortcut { display: none; } /* hide keyboard hints on mobile */
+      .cmd-palette-footer { display: none; } /* hide keyboard nav hints on mobile */
+      .cmd-palette-input-badge { display: none; } /* hide ESC badge */
+      .cmd-palette-group-label { padding: 12px 12px 6px; }
+      .cheatsheet-backdrop { display: none; } /* cheat sheet irrelevant on mobile */
+      .toast-container { bottom: max(24px, env(safe-area-inset-bottom, 24px)); }
+    }
   </style>
 </head>
 <body>
@@ -5428,6 +5663,293 @@
 
   // —— ChatApp root ——————————————————————————————————————————————————————
   // ── Experimental Features System ──────────────────
+  // ── Command Palette & Shortcuts System ────────────
+  const _isMac = typeof navigator !== 'undefined' && (/Mac|iPhone|iPad|iPod/.test(navigator.platform) || navigator.userAgentData?.platform === 'macOS');
+  const MOD_KEY = _isMac ? 'metaKey' : 'ctrlKey';
+  const MOD_LABEL = _isMac ? '\u2318' : 'Ctrl';
+  const SHIFT_LABEL = _isMac ? '\u21E7' : 'Shift';
+  const ALT_LABEL = _isMac ? '\u2325' : 'Alt';
+  // "App" modifier: Ctrl on Mac (unused by browsers), Alt on Win/Linux (unused by browsers)
+  const APP_KEY = _isMac ? 'ctrlKey' : 'altKey';
+  const APP_LABEL = _isMac ? '\u2303' : 'Alt';
+
+  function fmtShortcut(shortcut) {
+    if (!shortcut) return '';
+    return shortcut
+      .replace('App', APP_LABEL)
+      .replace('Mod', MOD_LABEL)
+      .replace('Shift', SHIFT_LABEL)
+      .replace('Alt', ALT_LABEL)
+      .replace(/\+/g, _isMac ? '' : '+');
+  }
+
+  function createActionRegistry() {
+    const actions = new Map();
+    const listeners = new Set();
+    const usage = new Map();
+    function register(id, def) { actions.set(id, { ...def, id }); }
+    function registerAll(defs) { for (const [id, def] of Object.entries(defs)) register(id, def); }
+    function get(id) { return actions.get(id); }
+    function getAll() { return Array.from(actions.values()); }
+    function getVisible(ctx) {
+      return getAll()
+        .filter(a => !a.hidden && (!a.when || a.when(ctx)))
+        .sort((a, b) => {
+          const ua = usage.get(a.id) || 0, ub = usage.get(b.id) || 0;
+          if (ub !== ua) return ub - ua;
+          return (a.order || 99) - (b.order || 99);
+        });
+    }
+    function execute(id, ctx) {
+      const action = actions.get(id);
+      if (action && action.handler) {
+        usage.set(id, (usage.get(id) || 0) + 1);
+        action.handler(ctx);
+        listeners.forEach(fn => fn({ type: 'execute', id, label: action.label }));
+      }
+    }
+    function onEvent(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+    function matchShortcut(e) {
+      for (const action of actions.values()) {
+        if (!action.shortcut) continue;
+        const parts = action.shortcut.split('+');
+        const needsMod = parts.includes('Mod');
+        const needsShift = parts.includes('Shift');
+        const needsAlt = parts.includes('Alt');
+        const needsApp = parts.includes('App');
+        const key = parts[parts.length - 1];
+        if (needsMod && !e[MOD_KEY]) continue;
+        if (!needsMod && !needsApp && e[MOD_KEY]) continue;
+        if (needsApp && !e[APP_KEY]) continue;
+        if (!needsApp && !needsMod && e[APP_KEY]) continue;
+        if (needsShift && !e.shiftKey) continue;
+        if (!needsShift && e.shiftKey) continue;
+        if (needsAlt && !e.altKey) continue;
+        if (!needsAlt && !needsApp && e.altKey) continue;
+        // Match by e.code first (physical key, unaffected by modifiers), then e.key
+        const code = e.code;
+        const eKey = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+        const target = key.toLowerCase();
+        const matched = eKey === target
+          || code === 'Key' + key.toUpperCase()
+          || code === 'Digit' + key
+          || (key === '[' && code === 'BracketLeft')
+          || (key === ']' && code === 'BracketRight')
+          || (key === '.' && (code === 'Period' || e.key === '.'))
+          || (key === '/' && (code === 'Slash' || e.key === '/'));
+        if (matched) return action;
+      }
+      return null;
+    }
+    return { register, registerAll, get, getAll, getVisible, execute, onEvent, matchShortcut };
+  }
+
+  const actionRegistry = createActionRegistry();
+
+  // Inline SVG icons for palette items
+  const _icons = {
+    plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    stop: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+    copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    fork: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9"/><line x1="12" y1="12" x2="12" y2="15"/></svg>',
+    split: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="9" y1="2" x2="9" y2="14"/></svg>',
+    sidebar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
+    activity: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+    sun: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/></svg>',
+    pin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/></svg>',
+    edit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    mic: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>',
+    flask: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v7l4.5 7.5A2 2 0 0 1 17.77 21H6.23a2 2 0 0 1-1.73-3.5L9 10z"/><path d="M9 3h6"/></svg>',
+    terminal: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+    info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    keyboard: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="8" y1="12" x2="8.01" y2="12"/><line x1="12" y1="12" x2="12.01" y2="12"/><line x1="16" y1="12" x2="16.01" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg>',
+    filter: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>',
+    sort: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="8" y2="18"/></svg>',
+    focus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>',
+  };
+
+  function useShortcutListener(registry, ctxRef, isOpen) {
+    useEffect(() => {
+      function handler(e) {
+        const tag = e.target?.tagName;
+        const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable;
+        // Always let Mod+K and Escape through; also let App-modified keys through
+        // (Ctrl on Mac / Alt on Win are never used for typing in inputs)
+        const hasAppMod = e[APP_KEY];
+        const isModK = e[MOD_KEY] && e.key.toLowerCase() === 'k';
+        if (isInput && !isModK && !hasAppMod && e.key !== 'Escape') return;
+        if (isOpen) return;
+        const action = registry.matchShortcut(e);
+        if (action && (!action.when || action.when(ctxRef.current))) {
+          e.preventDefault();
+          e.stopPropagation();
+          registry.execute(action.id, ctxRef.current);
+        }
+      }
+      window.addEventListener('keydown', handler, true);
+      return () => window.removeEventListener('keydown', handler, true);
+    }, [registry, isOpen]);
+  }
+
+  // Toast system
+  const _toastListeners = new Set();
+  function showToast(message, duration = 2200) {
+    _toastListeners.forEach(fn => fn({ message, duration, id: Date.now() }));
+  }
+
+  function ToastContainer() {
+    const [toasts, setToasts] = useState([]);
+    useEffect(() => {
+      const handler = (toast) => {
+        setToasts(prev => [...prev, toast]);
+        setTimeout(() => {
+          setToasts(prev => prev.map(t => t.id === toast.id ? { ...t, exiting: true } : t));
+          setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toast.id)), 160);
+        }, toast.duration);
+      };
+      _toastListeners.add(handler);
+      return () => _toastListeners.delete(handler);
+    }, []);
+    if (toasts.length === 0) return null;
+    return html`<div class="toast-container">
+      ${toasts.map(t => html`<div key=${t.id} class=${'toast-item' + (t.exiting ? ' exiting' : '')}>${t.message}</div>`)}
+    </div>`;
+  }
+
+  // Command Palette Component
+  function CommandPalette({ open, onClose, registry, appCtx }) {
+    const [query, setQuery] = useState('');
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    const inputRef = useRef(null);
+    const listRef = useRef(null);
+    const [closing, setClosing] = useState(false);
+
+    useEffect(() => { if (open) { setQuery(''); setSelectedIndex(0); setClosing(false); } }, [open]);
+    useEffect(() => { if (open && inputRef.current) requestAnimationFrame(() => inputRef.current?.focus()); }, [open]);
+
+    const close = useCallback(() => { setClosing(true); setTimeout(onClose, 100); }, [onClose]);
+
+    const items = useMemo(() => {
+      const all = registry.getVisible(appCtx);
+      if (!query) return all;
+      const q = query.toLowerCase();
+      return all.filter(a =>
+        a.label.toLowerCase().includes(q)
+        || (a.keywords && a.keywords.some(k => k.includes(q)))
+        || (a.category && a.category.toLowerCase().includes(q))
+      );
+    }, [query, registry, appCtx]);
+
+    const grouped = useMemo(() => {
+      const groups = new Map();
+      for (const item of items) {
+        const cat = item.category || 'Actions';
+        if (!groups.has(cat)) groups.set(cat, []);
+        groups.get(cat).push(item);
+      }
+      return groups;
+    }, [items]);
+
+    useEffect(() => { if (selectedIndex >= items.length) setSelectedIndex(Math.max(0, items.length - 1)); }, [items.length, selectedIndex]);
+    useEffect(() => {
+      if (!listRef.current) return;
+      const el = listRef.current.querySelector('.cmd-palette-item.selected');
+      if (el) el.scrollIntoView({ block: 'nearest' });
+    }, [selectedIndex]);
+
+    const handleKeyDown = useCallback((e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex(i => (i + 1) % Math.max(1, items.length)); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex(i => (i - 1 + items.length) % Math.max(1, items.length)); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (items[selectedIndex]) { registry.execute(items[selectedIndex].id, appCtx); close(); } }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    }, [items, selectedIndex, registry, appCtx, close]);
+
+    if (!open) return null;
+
+    return html`
+      <div class=${'cmd-palette-backdrop' + (closing ? ' closing' : '')} onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>
+        <div class="cmd-palette" role="dialog" aria-label="Command palette">
+          <div class="cmd-palette-input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input ref=${inputRef} class="cmd-palette-input" type="text"
+              placeholder="Type a command or search..."
+              value=${query}
+              onInput=${(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
+              onKeyDown=${handleKeyDown}
+              autocomplete="off" spellcheck="false" />
+            <span class="cmd-palette-input-badge">ESC</span>
+          </div>
+          <div class="cmd-palette-list" ref=${listRef}>
+            ${items.length === 0
+              ? html`<div class="cmd-palette-empty">No matching commands</div>`
+              : Array.from(grouped.entries()).map(([cat, groupItems]) => html`
+                  <div class="cmd-palette-group-label">${cat}</div>
+                  ${groupItems.map(item => {
+                    const idx = items.indexOf(item);
+                    return html`
+                      <div class=${'cmd-palette-item' + (idx === selectedIndex ? ' selected' : '')}
+                        onClick=${() => { registry.execute(item.id, appCtx); close(); }}
+                        onMouseEnter=${() => setSelectedIndex(idx)}
+                        role="option" aria-selected=${idx === selectedIndex}>
+                        ${item.icon ? html`<span class="cmd-palette-item-icon" dangerouslySetInnerHTML=${{ __html: item.icon }}></span>` : null}
+                        <span class="cmd-palette-item-label">${item.label}</span>
+                        ${item.shortcut ? html`<span class="cmd-palette-item-shortcut">${fmtShortcut(item.shortcut)}</span>` : null}
+                      </div>`;
+                  })}`)
+            }
+          </div>
+          <div class="cmd-palette-footer">
+            <span class="cmd-palette-footer-item"><kbd>\u2191</kbd><kbd>\u2193</kbd> navigate</span>
+            <span class="cmd-palette-footer-item"><kbd>\u21B5</kbd> select</span>
+            <span class="cmd-palette-footer-item"><kbd>esc</kbd> close</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Cheat Sheet Component
+  function CheatSheet({ open, onClose, registry, appCtx }) {
+    useEffect(() => {
+      if (!open) return;
+      const handler = (e) => { if (e.key === 'Escape') onClose(); };
+      window.addEventListener('keydown', handler);
+      return () => window.removeEventListener('keydown', handler);
+    }, [open, onClose]);
+    if (!open) return null;
+
+    const items = registry.getAll().filter(a => a.shortcut && !a.hidden);
+    const groups = new Map();
+    for (const item of items) {
+      const cat = item.category || 'Actions';
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat).push(item);
+    }
+
+    return html`
+      <div class="cheatsheet-backdrop" onClick=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div class="cheatsheet" role="dialog" aria-label="Keyboard shortcuts">
+          <div class="cheatsheet-header">
+            <h2>Keyboard Shortcuts</h2>
+            <button class="cheatsheet-close" onClick=${onClose} aria-label="Close">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="cheatsheet-body">
+            ${Array.from(groups.entries()).map(([cat, groupItems]) => html`
+              <div class="cheatsheet-group">
+                <h3>${cat}</h3>
+                ${groupItems.map(item => html`
+                  <div class="cheatsheet-row">
+                    <span>${item.label}</span>
+                    <kbd>${fmtShortcut(item.shortcut)}</kbd>
+                  </div>`)}
+              </div>`)}
+          </div>
+        </div>
+      </div>`;
+  }
+
   const LABS_STORAGE_KEY = 'amplifier-chat-labs';
 
   function loadLabsState() {
@@ -5737,6 +6259,10 @@
       });
     }, []);
     const hasLabsActive = Object.values(labsState).some(v => v);
+
+    // Command palette state
+    const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
+    const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
 
     // Feedback widget
     const feedbackSlotRef = useRef(null);
@@ -8757,6 +9283,216 @@
       }
     }, [turnMap]);
 
+    // ── Command Palette: register actions & wire shortcuts ──
+    const cmdCtxRef = useRef({});
+    useEffect(() => {
+      cmdCtxRef.current = {
+        executing, activeKey, sessionId, sessions,
+        labsState, showSessions, showActivity: showActivity,
+        viewMode, theme, pinnedSessionIds,
+      };
+    });
+
+    useEffect(() => {
+      actionRegistry.registerAll({
+        'open-palette': {
+          label: 'Command Palette', shortcut: 'Mod+k', category: 'General',
+          icon: _icons.search, order: 0, hidden: true,
+          handler: () => setCmdPaletteOpen(true),
+        },
+        'show-shortcuts': {
+          label: 'Show All Shortcuts', shortcut: 'Mod+Shift+/', category: 'General',
+          icon: _icons.keyboard, order: 1,
+          when: () => window.innerWidth > 768,
+          handler: () => { setCmdPaletteOpen(false); setCheatSheetOpen(true); },
+        },
+        'new-session': {
+          label: 'New Session', shortcut: 'App+n', category: 'Navigation',
+          icon: _icons.plus, order: 10,
+          handler: () => { newSession(); showToast('New session created'); },
+        },
+        'filter-sessions': {
+          label: 'Filter Sessions', shortcut: 'App+f', category: 'Navigation',
+          icon: _icons.filter, order: 12,
+          handler: () => { setShowSessions(true); setShowSessionFilter(true); },
+        },
+        'prev-session': {
+          label: 'Previous Session', shortcut: 'App+[', category: 'Navigation',
+          icon: _icons.sidebar, order: 13,
+          handler: () => {
+            const keys = Array.from(sessionsRef.current.keys());
+            const currentIdx = keys.indexOf(activeKeyRef.current);
+            if (currentIdx > 0) {
+              const targetKey = keys[currentIdx - 1];
+              switchSessionRef.current && switchSessionRef.current(targetKey);
+              // Wait for Preact to re-render with new .active class, then scroll
+              setTimeout(() => {
+                const card = document.querySelector('.session-card.active');
+                if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }, 50);
+            }
+          },
+        },
+        'next-session': {
+          label: 'Next Session', shortcut: 'App+]', category: 'Navigation',
+          icon: _icons.sidebar, order: 14,
+          handler: () => {
+            const keys = Array.from(sessionsRef.current.keys());
+            const currentIdx = keys.indexOf(activeKeyRef.current);
+            if (currentIdx >= 0 && currentIdx < keys.length - 1) {
+              const targetKey = keys[currentIdx + 1];
+              switchSessionRef.current && switchSessionRef.current(targetKey);
+              setTimeout(() => {
+                const card = document.querySelector('.session-card.active');
+                if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }, 50);
+            }
+          },
+        },
+        'toggle-sort': {
+          label: 'Toggle Session Sort', category: 'Navigation',
+          icon: _icons.sort, order: 15,
+          handler: () => setSessionSortMode(m => m === 'recent' ? 'directory' : 'recent'),
+        },
+        'stop-execution': {
+          label: 'Stop Execution', shortcut: 'Mod+.', category: 'Chat',
+          icon: _icons.stop, order: 20,
+          when: (ctx) => ctx.executing,
+          handler: () => stopExecution(),
+        },
+        'focus-input': {
+          label: 'Focus Chat Input', shortcut: 'Mod+/', category: 'Chat',
+          icon: _icons.focus, order: 21,
+          handler: () => {
+            const el = document.querySelector('.msg-input');
+            if (el) el.focus();
+          },
+        },
+        'copy-last-response': {
+          label: 'Copy Last Response', category: 'Chat',
+          icon: _icons.copy, order: 22,
+          handler: () => {
+            const msgs = chronoItemsRef.current.filter(i => i.type === 'text' && i.role === 'assistant');
+            if (msgs.length > 0) {
+              const last = msgs[msgs.length - 1];
+              navigator.clipboard.writeText(last.content || '').then(() => showToast('Copied to clipboard'));
+            }
+          },
+        },
+        'toggle-split': {
+          label: 'Toggle Split View', shortcut: 'Mod+Shift+e', category: 'View',
+          icon: _icons.split, order: 30,
+          handler: () => { setViewMode(m => m === 'workspace' ? 'chat' : 'workspace'); },
+        },
+        'toggle-sessions': {
+          label: 'Toggle Sessions Panel', shortcut: 'Mod+Shift+s', category: 'View',
+          icon: _icons.sidebar, order: 31,
+          handler: () => setShowSessions(v => !v),
+        },
+        'toggle-activity': {
+          label: 'Toggle Activity Panel', shortcut: 'Mod+Shift+a', category: 'View',
+          icon: _icons.activity, order: 32,
+          handler: () => setShowActivity(v => !v),
+        },
+        'toggle-theme': {
+          label: 'Toggle Theme', shortcut: 'Mod+Shift+l', category: 'View',
+          icon: _icons.sun, order: 33,
+          handler: () => { setTheme(t => t === 'dark' ? 'light' : 'dark'); showToast('Theme switched'); },
+        },
+        'pin-session': {
+          label: 'Pin/Unpin Session', shortcut: 'Mod+Shift+p', category: 'Session',
+          icon: _icons.pin, order: 40,
+          when: (ctx) => !!ctx.sessionId,
+          handler: () => {
+            if (sessionIdRef.current) {
+              const isPinned = pinnedSessionIds.has(sessionIdRef.current);
+              handleTogglePin(sessionIdRef.current, isPinned);
+              showToast(isPinned ? 'Session unpinned' : 'Session pinned');
+            }
+          },
+        },
+        'rename-session': {
+          label: 'Rename Session', shortcut: 'App+r', category: 'Session',
+          icon: _icons.edit, order: 41,
+          when: (ctx) => !!ctx.sessionId,
+          handler: () => {
+            // Click the active session card's more button to trigger rename
+            const activeCard = document.querySelector('.session-card.active .session-card-action-btn');
+            if (activeCard) activeCard.click();
+          },
+        },
+        'toggle-voice': {
+          label: 'Toggle Voice Recording', shortcut: 'App+v', category: 'Voice',
+          icon: _icons.mic, order: 50,
+          when: (ctx) => ctx.labsState?.voice,
+          handler: () => {
+            const micBtn = document.querySelector('.mic-btn');
+            if (micBtn) micBtn.click();
+          },
+        },
+        'open-labs': {
+          label: 'Experimental Features', category: 'Settings',
+          icon: _icons.flask, order: 60,
+          handler: () => setLabsOpen(true),
+        },
+        'cmd-status': {
+          label: 'Show Status', category: 'Commands',
+          icon: _icons.info, order: 70,
+          when: (ctx) => !!ctx.sessionId,
+          handler: () => sendMessage('/status'),
+          keywords: ['status', 'session'],
+        },
+        'cmd-tools': {
+          label: 'List Tools', category: 'Commands',
+          icon: _icons.terminal, order: 71,
+          when: (ctx) => !!ctx.sessionId,
+          handler: () => sendMessage('/tools'),
+          keywords: ['tools', 'available'],
+        },
+        'cmd-agents': {
+          label: 'List Agents', category: 'Commands',
+          icon: _icons.terminal, order: 72,
+          when: (ctx) => !!ctx.sessionId,
+          handler: () => sendMessage('/agents'),
+          keywords: ['agents', 'available'],
+        },
+        'cmd-config': {
+          label: 'Show Config', category: 'Commands',
+          icon: _icons.info, order: 73,
+          when: (ctx) => !!ctx.sessionId,
+          handler: () => sendMessage('/config'),
+          keywords: ['config', 'configuration', 'settings'],
+        },
+        'cmd-modes': {
+          label: 'List Modes', category: 'Commands',
+          icon: _icons.terminal, order: 74,
+          when: (ctx) => !!ctx.sessionId,
+          handler: () => sendMessage('/modes'),
+          keywords: ['modes', 'mode'],
+        },
+        'cmd-clear': {
+          label: 'Clear Context', category: 'Commands',
+          icon: _icons.terminal, order: 75,
+          when: (ctx) => !!ctx.sessionId,
+          handler: () => sendMessage('/clear'),
+          keywords: ['clear', 'reset', 'context'],
+        },
+        'cmd-help': {
+          label: 'Show Help', category: 'Commands',
+          icon: _icons.info, order: 76,
+          handler: () => sendMessage('/help'),
+          keywords: ['help', 'commands'],
+        },
+      });
+
+      // Show toasts on action execution (except palette/cheatsheet actions)
+      return actionRegistry.onEvent((evt) => {
+        // toast is shown inline for specific actions above
+      });
+    }, []);
+
+    useShortcutListener(actionRegistry, cmdCtxRef, cmdPaletteOpen || cheatSheetOpen);
+
     const mainFilter = viewMode === 'workspace' ? (i => i.type === 'text') : null;
     const activityFilter = viewMode === 'workspace' ? (i => i.type !== 'text' || (i.type === 'text' && i.role === 'assistant')) : null;
 
@@ -8783,6 +9519,10 @@
             ? html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/></svg>`
             : html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="9" y1="2" x2="9" y2="14"/></svg>`
           }
+        </button>
+        <button class="btn cmd-palette-trigger" title=${'Command Palette (' + fmtShortcut('Mod+k') + ')'} onClick=${() => setCmdPaletteOpen(true)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span class="cmd-palette-trigger-hint">${fmtShortcut('Mod+k')}</span>
         </button>
         <button class="btn labs-btn" title="Experimental features" onClick=${() => setLabsOpen(true)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -9222,6 +9962,19 @@
         labsState=${labsState}
         onToggleFeature=${toggleLabsFeature}
       />
+      <${CommandPalette}
+        open=${cmdPaletteOpen}
+        onClose=${() => setCmdPaletteOpen(false)}
+        registry=${actionRegistry}
+        appCtx=${cmdCtxRef.current}
+      />
+      <${CheatSheet}
+        open=${cheatSheetOpen}
+        onClose=${() => setCheatSheetOpen(false)}
+        registry=${actionRegistry}
+        appCtx=${cmdCtxRef.current}
+      />
+      <${ToastContainer} />
     `;
   }
 
