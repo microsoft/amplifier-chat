@@ -5381,10 +5381,9 @@
       }
 
       // Shell mode: bypass AI, execute directly
-      if (shellMode && content.startsWith('!')) {
-        const command = content.slice(1).trim();
-        if (command && onShellExecute) {
-          onShellExecute(command);
+      if (shellMode) {
+        if (content && onShellExecute) {
+          onShellExecute(content);
           ta.value = '';
           ta.style.height = 'auto';
           setShellMode(false);
@@ -5460,27 +5459,34 @@
       if (e.key === 'Escape') {
         setSlashOpen(false);
         setSlashActiveIndex(0);
+        if (shellMode) {
+          e.preventDefault();
+          setShellMode(false);
+          const ta = textareaRef.current;
+          if (ta) { ta.value = ''; ta.style.height = 'auto'; }
+        }
       }
     }, [doSend, slashMenuOpen, filteredCmds, activeSlashIndex, applySlashCommand]);
 
     const handleInput = useCallback((e) => {
       autoResize();
       const val = e.target.value;
-      if (val.startsWith('/')) {
+      if (!shellMode && val.startsWith('/')) {
         setSlashOpen(true);
         setSlashFilter(val.slice(1).toLowerCase());
         setSlashActiveIndex(0);
-        setShellMode(false);
-      } else if (val.startsWith('!')) {
+      } else if (!shellMode && val === '!') {
+        // '!' is a trigger to enter shell mode — consume it and clear
+        e.target.value = '';
         setShellMode(true);
         setSlashOpen(false);
         setSlashActiveIndex(0);
-      } else {
+      } else if (!shellMode) {
         setSlashOpen(false);
         setSlashActiveIndex(0);
-        setShellMode(false);
       }
-    }, [autoResize]);
+      // In shell mode, no slash detection — just let user type freely
+    }, [autoResize, shellMode]);
 
     const stopRecording = useCallback(() => {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
