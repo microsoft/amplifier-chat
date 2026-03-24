@@ -2347,6 +2347,7 @@
 
     @keyframes cmdFadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes cmdScaleIn { from { opacity: 0; transform: scale(0.96) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+    @keyframes cmdSlideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
     @keyframes cmdFadeOut { from { opacity: 1; } to { opacity: 0; } }
 
     .cmd-palette {
@@ -2537,10 +2538,34 @@
     body[data-theme="light"] .toast-item { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
     .toast-item.exiting { animation: toastOut 0.15s ease-in forwards; }
 
+    .cmd-palette-trigger {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 4px; padding: 4px 8px;
+    }
+    .cmd-palette-trigger-hint { font-size: 11px; opacity: 0.6; }
+
     @media (max-width: 768px) {
-      .cmd-palette { width: calc(100vw - 16px); max-height: 50vh; border-radius: 10px; }
-      .cmd-palette-backdrop { padding-top: 60px; }
-      .cheatsheet-body { grid-template-columns: 1fr; }
+      .cmd-palette-trigger { min-width: 36px; min-height: 36px; padding: 6px; }
+      .cmd-palette-trigger-hint { display: none; }
+      .cmd-palette-backdrop {
+        padding-top: 0; padding-left: 0; padding-right: 0;
+        align-items: flex-end;
+      }
+      .cmd-palette {
+        width: 100%; max-height: 80vh; max-height: 80dvh;
+        border-radius: 14px 14px 0 0;
+        animation: cmdSlideUp 0.2s ease-out;
+      }
+      .cmd-palette-backdrop.closing .cmd-palette { transform: translateY(100%); transition: transform 0.15s ease-in; }
+      .cmd-palette-input-wrap { padding: 16px; }
+      .cmd-palette-input { font-size: 16px; } /* prevent iOS zoom */
+      .cmd-palette-item { padding: 12px 12px; gap: 12px; min-height: 44px; } /* 44px touch targets */
+      .cmd-palette-item-shortcut { display: none; } /* hide keyboard hints on mobile */
+      .cmd-palette-footer { display: none; } /* hide keyboard nav hints on mobile */
+      .cmd-palette-input-badge { display: none; } /* hide ESC badge */
+      .cmd-palette-group-label { padding: 12px 12px 6px; }
+      .cheatsheet-backdrop { display: none; } /* cheat sheet irrelevant on mobile */
+      .toast-container { bottom: max(24px, env(safe-area-inset-bottom, 24px)); }
     }
   </style>
 </head>
@@ -9267,6 +9292,7 @@
         'show-shortcuts': {
           label: 'Show All Shortcuts', shortcut: 'Mod+Shift+/', category: 'General',
           icon: _icons.keyboard, order: 1,
+          when: () => window.innerWidth > 768,
           handler: () => { setCmdPaletteOpen(false); setCheatSheetOpen(true); },
         },
         'new-session': {
@@ -9450,10 +9476,9 @@
             : html`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="9" y1="2" x2="9" y2="14"/></svg>`
           }
         </button>
-        <button class="btn" title=${'Command Palette (' + fmtShortcut('Mod+k') + ')'} onClick=${() => setCmdPaletteOpen(true)}
-          style="display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:4px 8px;">
+        <button class="btn cmd-palette-trigger" title=${'Command Palette (' + fmtShortcut('Mod+k') + ')'} onClick=${() => setCmdPaletteOpen(true)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <span style="font-size:11px;opacity:0.6">${fmtShortcut('Mod+k')}</span>
+          <span class="cmd-palette-trigger-hint">${fmtShortcut('Mod+k')}</span>
         </button>
         <button class="btn labs-btn" title="Experimental features" onClick=${() => setLabsOpen(true)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
