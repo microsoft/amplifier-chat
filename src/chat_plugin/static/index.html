@@ -9322,7 +9322,15 @@
           handler: () => {
             const keys = Array.from(sessionsRef.current.keys());
             const currentIdx = keys.indexOf(activeKeyRef.current);
-            if (currentIdx > 0) switchSession(keys[currentIdx - 1]);
+            if (currentIdx > 0) {
+              const targetKey = keys[currentIdx - 1];
+              switchSessionRef.current && switchSessionRef.current(targetKey);
+              // Wait for Preact to re-render with new .active class, then scroll
+              setTimeout(() => {
+                const card = document.querySelector('.session-card.active');
+                if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }, 50);
+            }
           },
         },
         'next-session': {
@@ -9331,7 +9339,14 @@
           handler: () => {
             const keys = Array.from(sessionsRef.current.keys());
             const currentIdx = keys.indexOf(activeKeyRef.current);
-            if (currentIdx >= 0 && currentIdx < keys.length - 1) switchSession(keys[currentIdx + 1]);
+            if (currentIdx >= 0 && currentIdx < keys.length - 1) {
+              const targetKey = keys[currentIdx + 1];
+              switchSessionRef.current && switchSessionRef.current(targetKey);
+              setTimeout(() => {
+                const card = document.querySelector('.session-card.active');
+                if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }, 50);
+            }
           },
         },
         'toggle-sort': {
