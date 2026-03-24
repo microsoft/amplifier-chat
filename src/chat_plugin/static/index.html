@@ -6278,6 +6278,7 @@
     const sessionParentByIdRef = useRef({});
     const activeKeyRef = useRef(null);
     const sessionsRef = useRef(new Map());
+    const visibleSessionKeysRef = useRef([]);
     const chronoItemsRef = useRef([]);
     const activityScrollRef = useRef(null);
     const turnCountRef = useRef(0);
@@ -9082,6 +9083,26 @@
       });
       return groups;
     })();
+    // Compute flat visual order of root session keys for keyboard navigation (Ctrl+[/])
+    {
+      const pinnedKeys = rootSessionEntries
+        .filter(([, s]) => s && s.sessionId && pinnedSessionIds.has(s.sessionId))
+        .map(([key]) => key);
+      const pinnedSet = new Set(pinnedKeys);
+      let orderedKeys;
+      if (sessionSortMode === 'directory') {
+        const dirKeys = directoryGroups.flatMap(g =>
+          g.items.map(([key]) => key).filter(k => !pinnedSet.has(k))
+        );
+        orderedKeys = [...pinnedKeys, ...dirKeys];
+      } else {
+        const unpinnedKeys = rootSessionEntries
+          .filter(([, s]) => !s || !s.sessionId || !pinnedSessionIds.has(s.sessionId))
+          .map(([key]) => key);
+        orderedKeys = [...pinnedKeys, ...unpinnedKeys];
+      }
+      visibleSessionKeysRef.current = orderedKeys;
+    }
     const hasSessionFilter = !!sessionFilterQuery.trim();
     const hasSessionResults = filteredSessionEntries.length > 0;
     const isSessionFilterOpen = showSessionFilter || hasSessionFilter;
@@ -9320,7 +9341,7 @@
           label: 'Previous Session', shortcut: 'App+[', category: 'Navigation',
           icon: _icons.sidebar, order: 13,
           handler: () => {
-            const keys = Array.from(sessionsRef.current.keys());
+            const keys = visibleSessionKeysRef.current;
             const currentIdx = keys.indexOf(activeKeyRef.current);
             if (currentIdx > 0) {
               const targetKey = keys[currentIdx - 1];
@@ -9337,7 +9358,7 @@
           label: 'Next Session', shortcut: 'App+]', category: 'Navigation',
           icon: _icons.sidebar, order: 14,
           handler: () => {
-            const keys = Array.from(sessionsRef.current.keys());
+            const keys = visibleSessionKeysRef.current;
             const currentIdx = keys.indexOf(activeKeyRef.current);
             if (currentIdx >= 0 && currentIdx < keys.length - 1) {
               const targetKey = keys[currentIdx + 1];
