@@ -5728,7 +5728,12 @@
         if (!needsAlt && !needsApp && e.altKey) continue;
         const eKey = e.key.length === 1 ? e.key.toLowerCase() : e.key;
         const target = key.toLowerCase();
-        if (eKey === target || e.code === 'Key' + key.toUpperCase() || e.code === 'Digit' + key) return action;
+        if (eKey === target || e.code === 'Key' + key.toUpperCase() || e.code === 'Digit' + key
+          || (key === '[' && (e.key === '[' || e.code === 'BracketLeft'))
+          || (key === ']' && (e.key === ']' || e.code === 'BracketRight'))
+          || (key === '.' && e.key === '.')
+          || (key === '/' && (e.key === '/' || e.code === 'Slash'))
+        ) return action;
       }
       return null;
     }
@@ -9305,9 +9310,27 @@
           icon: _icons.filter, order: 12,
           handler: () => { setShowSessions(true); setShowSessionFilter(true); },
         },
+        'prev-session': {
+          label: 'Previous Session', shortcut: 'App+[', category: 'Navigation',
+          icon: _icons.sidebar, order: 13,
+          handler: () => {
+            const keys = Array.from(sessionsRef.current.keys());
+            const currentIdx = keys.indexOf(activeKeyRef.current);
+            if (currentIdx > 0) switchSession(keys[currentIdx - 1]);
+          },
+        },
+        'next-session': {
+          label: 'Next Session', shortcut: 'App+]', category: 'Navigation',
+          icon: _icons.sidebar, order: 14,
+          handler: () => {
+            const keys = Array.from(sessionsRef.current.keys());
+            const currentIdx = keys.indexOf(activeKeyRef.current);
+            if (currentIdx >= 0 && currentIdx < keys.length - 1) switchSession(keys[currentIdx + 1]);
+          },
+        },
         'toggle-sort': {
           label: 'Toggle Session Sort', category: 'Navigation',
-          icon: _icons.sort, order: 13,
+          icon: _icons.sort, order: 15,
           handler: () => setSessionSortMode(m => m === 'recent' ? 'directory' : 'recent'),
         },
         'stop-execution': {
