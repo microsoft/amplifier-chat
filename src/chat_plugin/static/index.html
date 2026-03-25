@@ -8394,6 +8394,7 @@
             const el = document.querySelector('[data-session-id="' + sessionId + '"]');
             if (el) {
               el.classList.add('session-card-just-unpinned');
+              el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
               setTimeout(() => el.classList.remove('session-card-just-unpinned'), 400);
             }
           });
@@ -8405,6 +8406,7 @@
           const el = document.querySelector('[data-session-id="' + sessionId + '"]');
           if (el) {
             el.classList.add('session-card-just-pinned');
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             setTimeout(() => el.classList.remove('session-card-just-pinned'), 250);
           }
         });
@@ -9845,13 +9847,11 @@
 
     // ── Command Palette: register actions & wire shortcuts ──
     const cmdCtxRef = useRef({});
-    useEffect(() => {
-      cmdCtxRef.current = {
-        executing, activeKey, sessionId, sessions,
-        labsState, showSessions, showActivity: showActivity,
-        viewMode, theme, pinnedSessionIds,
-      };
-    });
+    cmdCtxRef.current = {
+      executing, activeKey, sessionId, sessions,
+      labsState, showSessions, showActivity: showActivity,
+      viewMode, theme, pinnedSessionIds,
+    };
 
     useEffect(() => {
       actionRegistry.registerAll({
@@ -9979,7 +9979,7 @@
           when: (ctx) => !!ctx.sessionId,
           handler: () => {
             if (sessionIdRef.current) {
-              const isPinned = pinnedSessionIds.has(sessionIdRef.current);
+              const isPinned = cmdCtxRef.current.pinnedSessionIds.has(sessionIdRef.current);
               handleTogglePin(sessionIdRef.current, isPinned);
               showToast(isPinned ? 'Session unpinned' : 'Session pinned');
             }
