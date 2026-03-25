@@ -6532,6 +6532,7 @@
     const localIndexRef = useRef(0);
     const toolMapRef = useRef({});
     const childToToolRef = useRef({});
+    const pendingChildEventsRef = useRef(new Map()); // childSessionId -> buffered msgs before session_fork
     const childAgentRef = useRef({});
     const sessionParentByIdRef = useRef({});
     const activeKeyRef = useRef(null);
@@ -7259,6 +7260,14 @@
         return;
       }
 
+      // Fix A: buffer early child events that arrive before session_fork is processed
+      if (msg.child_session_id && !childToToolRef.current[msg.child_session_id]) {
+        const buf = pendingChildEventsRef.current.get(msg.child_session_id) || [];
+        buf.push(msg);
+        pendingChildEventsRef.current.set(msg.child_session_id, buf);
+        return;
+      }
+
       switch (msg.type) {
         case 'auth_ok':
           break;
@@ -7713,7 +7722,7 @@
         }
 
         case 'session_fork': {
-          const childId = typeof msg.child_id === 'string' ? msg.child_id : null;
+          const childId = msg.child_id ?? msg.sub_session_id ?? null;
           applySessionForkLineage(msg);
           // Guarantee child→parent mapping from the routing-derived ownerKey,
           // regardless of whether msg.parent_id was normalized correctly.
@@ -7724,7 +7733,7 @@
             }
           }
 
-          let parentToolCallId = msg.parent_tool_call_id || null;
+          let parentToolCallId = msg.parent_tool_call_id || msg.tool_call_id || null;
           let parentItemId = parentToolCallId ? toolMapRef.current[parentToolCallId] : null;
 
           if (!parentItemId) {
@@ -7751,6 +7760,15 @@
 
           createSubSession(parentToolCallId, childId, msg.agent);
 
+          // Fix A: flush buffered events that arrived before session_fork
+          if (childId && pendingChildEventsRef.current.has(childId)) {
+            const buffered = pendingChildEventsRef.current.get(childId);
+            pendingChildEventsRef.current.delete(childId);
+            for (const bufferedMsg of buffered) {
+              handleWsMessage(bufferedMsg);
+            }
+          }
+
           setChronoItems(prev => prev.map(item =>
             item.id === parentItemId
               ? { ...item, subSessionId: childId }
@@ -7760,9 +7778,18 @@
         }
 
         case 'display_message': {
+          const subKey = resolveSubSessionKey(msg);
+          if (subKey) {
+            addSubSessionContent(subKey, {
+              id: makeId(), type: 'text', role: 'system',
+              content: msg.level ? `[${msg.level}] ${msg.message}` : msg.message,
+              streaming: false,
+            });
+            break;
+          }
           setChronoItems(prev => [...prev, {
             id: makeId(), type: 'text', role: 'system',
-            content: `[${msg.level}] ${msg.message}`,
+            content: msg.level ? `[${msg.level}] ${msg.message}` : msg.message,
             streaming: false, order: orderCounterRef.current++,
           }]);
           break;
@@ -7867,6 +7894,17 @@
           // Don't show an error — just retry the drain after a delay.
           if (msg.error && /already executing/i.test(msg.error)) {
             setTimeout(() => tryDrainQueue(), 2000);
+            break;
+          }
+
+          // Fix C: route sub-session errors to the sub-session display, not the parent
+          const execErrSubKey = resolveSubSessionKey(msg);
+          if (execErrSubKey) {
+            addSubSessionContent(execErrSubKey, {
+              id: makeId(), type: 'text', role: 'system',
+              content: 'Warning: ' + (msg.error || 'Unknown error'),
+              streaming: false,
+            });
             break;
           }
 
@@ -8041,7 +8079,14 @@
           }
 
           if (!ownerKey) return;
-          try { handleWsMessage(msg, ownerKey); } catch (err) {
+          // When routing a child-session event to its parent, inject child_session_id
+          // so resolveSubSessionKey can correlate it to the right ToolCallCard.
+          // Content events from sub-sessions carry parent_id but not child_session_id,
+          // so without this the childToToolRef lookup always gets null as the key.
+          const effectiveMsg = (sessionParentByIdRef.current[eventSessionId] && !msg.child_session_id)
+            ? { ...msg, child_session_id: eventSessionId }
+            : msg;
+          try { handleWsMessage(effectiveMsg, ownerKey); } catch (err) {
             console.error('[SSE] handler error', err);
           }
         },
