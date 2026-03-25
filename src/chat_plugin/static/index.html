@@ -6654,10 +6654,11 @@
 
     function startCountdown(callback) {
       cancelCountdown(); // clear any existing countdown
-      let remaining = 5;
-      setCountdownRemaining(remaining);
+      const COUNTDOWN_SECONDS = 5;
+      const deadline = Date.now() + COUNTDOWN_SECONDS * 1000;
+      setCountdownRemaining(COUNTDOWN_SECONDS);
       const tick = () => {
-        remaining -= 1;
+        const remaining = Math.ceil((deadline - Date.now()) / 1000);
         if (remaining <= 0) {
           countdownTimerRef.current = null;
           setCountdownRemaining(null);
@@ -6670,39 +6671,104 @@
       countdownTimerRef.current = setTimeout(tick, 1000);
     }
 
-    function tryDrainQueue() {
-      const key = activeKeyRef.current;
+    // — Shared turn lifecycle —
+    // Used by both sendMessage (active session) and tryDrainQueue (any session).
+    // Adds UI items only when the target session is currently active.
+    // On API failure, resets session status and attempts the next queued item.
+    function startTurn(key, sessionId, content, images) {
+      const isActive = (key === activeKeyRef.current);
+
+      if (isActive) {
+        setChronoItems(prev => [...prev, {
+          id: makeId(), type: 'text', role: 'user',
+          content, streaming: false, order: orderCounterRef.current++,
+        }]);
+        const placeholderId = makeId();
+        placeholderIdRef.current = placeholderId;
+        setChronoItems(prev => [...prev, {
+          id: placeholderId, type: 'thinking', content: '',
+          streaming: true, order: orderCounterRef.current++,
+        }]);
+        setExecuting(true);
+        executingRef.current = true;
+      }
+
+      const nowIso = new Date().toISOString();
+      setSessions(prev => {
+        const next = new Map(prev);
+        const s = next.get(key) || {};
+        next.set(key, {
+          ...s, status: 'running',
+          lastUserMessage: content || s.lastUserMessage || null,
+          lastUpdated: nowIso,
+        });
+        return next;
+      });
+
+      api.executeStream(sessionId, content, images || []).catch(err => {
+        console.error('[startTurn] executeStream failed', err);
+        if (key === activeKeyRef.current) {
+          setChronoItems(prev => [...prev, {
+            id: makeId(), type: 'text', role: 'system',
+            content: 'Error: ' + (err?.message || 'Could not start execution'),
+            streaming: false, order: orderCounterRef.current++,
+          }]);
+          setExecuting(false);
+          executingRef.current = false;
+        }
+        // Update sessionsRef synchronously before tryDrainQueue reads it
+        const cur = sessionsRef.current.get(key) || {};
+        sessionsRef.current.set(key, { ...cur, status: 'idle' });
+        setSessions(prev => {
+          const next = new Map(prev);
+          next.set(key, sessionsRef.current.get(key));
+          return next;
+        });
+        tryDrainQueue(key);
+      });
+    }
+
+    // — Queue drain —
+    // Pops the next queued message for a session and sends it via startTurn.
+    // Active session: shows a 5s countdown UI before sending.
+    // Background session: fires immediately (countdown is a UI-only affordance).
+    function tryDrainQueue(sessionKey) {
+      const key = sessionKey || activeKeyRef.current;
       if (!key) return;
-      if (executingRef.current) return;
+      const isActive = (key === activeKeyRef.current);
+      const session = sessionsRef.current.get(key);
+      // Skip if still executing
+      if (isActive ? executingRef.current : (session && session.status === 'running')) return;
       const queue = getQueue(key);
       const drainState = getQueueDrainState(key);
       if (queue.length === 0 || drainState === 'paused' || drainState === 'countdown') {
         if (drainState !== 'paused') setQueueDrainStateFn('idle', key);
         return;
       }
+      const sid = session && session.sessionId;
+      if (!sid) return;
+
+      if (!isActive) {
+        // Background: fire immediately
+        const nextMsg = queue[0];
+        console.log('[queue] background drain for', key, 'sid:', sid, 'msg:', nextMsg.content?.slice(0, 50));
+        removeFromQueue(nextMsg.id, key);
+        startTurn(key, sid, nextMsg.content, nextMsg.images || []);
+        return;
+      }
+
+      // Active: countdown UI, then send
       setQueueDrainStateFn('countdown', key);
       startCountdown(() => {
-        // Guard: session switched away or execution started while counting down
-        if (executingRef.current || activeKeyRef.current !== key) {
-          setQueueDrainStateFn('idle', key);
-          return;
-        }
-        // Pop the first item and send it
         const q = getQueue(key);
-        if (q.length === 0) {
+        if (q.length === 0 || executingRef.current) {
           setQueueDrainStateFn('idle', key);
           return;
         }
         const nextMsg = q[0];
         removeFromQueue(nextMsg.id, key);
         setQueueDrainStateFn('idle', key);
-        // sendMessage may fail — if so, re-push the item to front of queue
-        try {
-          sendMessage(nextMsg.content, nextMsg.images || []);
-        } catch (err) {
-          console.error('[queue] sendMessage failed for queued item, re-queuing', err);
-          prependToQueue(nextMsg, key);
-        }
+        startTurn(key, sid, nextMsg.content, nextMsg.images || []);
       });
     }
 
@@ -7167,30 +7233,38 @@
 
         if (msg.type === 'prompt_complete') {
           const nowIso = new Date().toISOString();
+          // Update sessionsRef synchronously so tryDrainQueue sees fresh status
+          // (setSessions is async/batched by React — the ref update must come first)
+          const cur = sessionsRef.current.get(ownerKey) || {};
+          const nextTurn = (cur.turnCount || 0) + 1;
+          sessionsRef.current.set(ownerKey, {
+            ...cur,
+            turnCount: nextTurn,
+            savedTurnCount: nextTurn,
+            status: 'idle',
+            pendingApproval: false,
+            lastUpdated: nowIso,
+          });
           setSessions(prev => {
             const next = new Map(prev);
-            const s = next.get(ownerKey) || {};
-            const nextTurn = (s.turnCount || 0) + 1;
-            next.set(ownerKey, {
-              ...s,
-              turnCount: nextTurn,
-              savedTurnCount: nextTurn,
-              status: 'idle',
-              pendingApproval: false,
-              lastUpdated: nowIso,
-            });
+            next.set(ownerKey, sessionsRef.current.get(ownerKey));
             return next;
           });
+          const bgQueue = getQueue(ownerKey);
+          console.log('[queue] bg prompt_complete for', ownerKey, 'queue length:', bgQueue.length, 'status:', sessionsRef.current.get(ownerKey)?.status);
+          tryDrainQueue(ownerKey);
           return;
         }
 
         if (msg.type === 'execution_cancelled') {
+          const cur = sessionsRef.current.get(ownerKey) || {};
+          sessionsRef.current.set(ownerKey, { ...cur, status: 'idle' });
           setSessions(prev => {
             const next = new Map(prev);
-            const s = next.get(ownerKey) || {};
-            next.set(ownerKey, { ...s, status: 'idle' });
+            next.set(ownerKey, sessionsRef.current.get(ownerKey));
             return next;
           });
+          tryDrainQueue(ownerKey);
           return;
         }
 
@@ -7205,15 +7279,17 @@
         }
 
         if (msg.type === 'execution_error') {
+          const cur = sessionsRef.current.get(ownerKey) || {};
+          sessionsRef.current.set(ownerKey, {
+            ...cur,
+            status: cur.source === 'history' ? 'history' : 'error',
+          });
           setSessions(prev => {
             const next = new Map(prev);
-            const s = next.get(ownerKey) || {};
-            next.set(ownerKey, {
-              ...s,
-              status: s.source === 'history' ? 'history' : 'error',
-            });
+            next.set(ownerKey, sessionsRef.current.get(ownerKey));
             return next;
           });
+          tryDrainQueue(ownerKey);
         }
 
         if (msg.type === 'session_renamed') {
@@ -7805,8 +7881,8 @@
               setExecuting(false);
               executingRef.current = false;
               clearWatchdogTimer();
-              tryDrainQueue();
             }
+            tryDrainQueue(ownerKey);
             setTurnCount(nextTurn ?? (turnCountRef.current + 1));
           }
           // Flush accumulated token usage as a chrono item
@@ -7847,8 +7923,8 @@
           if (ownerKey === activeKeyRef.current) {
             setExecuting(false);
             executingRef.current = false;
-            tryDrainQueue();
           }
+          tryDrainQueue(ownerKey);
           // Clean up mid-stream state orphaned by cancellation
           blockMapRef.current = {};
           cycleRef.current = 0;
@@ -7866,7 +7942,7 @@
           // "Already executing" means the server was still locked (e.g. naming hook).
           // Don't show an error — just retry the drain after a delay.
           if (msg.error && /already executing/i.test(msg.error)) {
-            setTimeout(() => tryDrainQueue(), 2000);
+            setTimeout(() => tryDrainQueue(ownerKey), 2000);
             break;
           }
 
@@ -7890,8 +7966,8 @@
           if (ownerKey === activeKeyRef.current) {
             setExecuting(false);
             executingRef.current = false;
-            tryDrainQueue();
           }
+          tryDrainQueue(ownerKey);
           setChronoItems(prev => [...prev, {
             id: makeId(), type: 'text', role: 'system',
             content: 'Warning: ' + (msg.error || 'Unknown error'),
@@ -8061,7 +8137,6 @@
                         activeDelegatesRef.current = 0;
                         setExecuting(false);
                         executingRef.current = false;
-                        tryDrainQueue();
                       }
                       setSessions(prev => {
                         const next = new Map(prev);
@@ -8069,6 +8144,7 @@
                         next.set(key, { ...s, status: 'idle' });
                         return next;
                       });
+                      tryDrainQueue(key);
                     }
                   })
                   .catch(() => {});
@@ -8437,6 +8513,8 @@
           if (activeKeyRef.current) {
             refreshSessionFromDisk(activeKeyRef.current, { activeOnly: true, notifyBottom: true });
           }
+          // Resume queue drain — timers may have been throttled while backgrounded
+          tryDrainQueue();
         }
       };
       const intervalId = window.setInterval(() => {
@@ -8754,53 +8832,8 @@
         return;
       }
 
-      // Normal message
-      setChronoItems(prev => [...prev, {
-        id: makeId(), type: 'text', role: 'user',
-        content, streaming: false, order: orderCounterRef.current++,
-      }]);
-
-      // Add client-side placeholder for immediate feedback
-      const placeholderId = makeId();
-      placeholderIdRef.current = placeholderId;
-      setChronoItems(prev => [...prev, {
-        id: placeholderId,
-        type: 'thinking',
-        content: '',
-        streaming: true,
-        order: orderCounterRef.current++,
-      }]);
-
-      setExecuting(true);
-      executingRef.current = true;
-      const nowIso = new Date().toISOString();
-      setSessions(prev => {
-        const next = new Map(prev);
-        const key = activeKeyRef.current;
-        if (key && next.has(key)) {
-          const s = next.get(key);
-          next.set(key, {
-            ...s,
-            status: 'running',
-            lastUserMessage: content || s.lastUserMessage || null,
-            lastUpdated: nowIso,
-          });
-        }
-        return next;
-      });
-
-      // Kick off the SSE-streamed execution via REST
-      api.executeStream(sessionId, content, images).catch(err => {
-        console.error('[chat] executeStream failed', err);
-        setChronoItems(prev => [...prev, {
-          id: makeId(), type: 'text', role: 'system',
-          content: 'Error: ' + (err?.message || 'Could not start execution'),
-          streaming: false, order: orderCounterRef.current++,
-        }]);
-        setExecuting(false);
-        executingRef.current = false;
-        tryDrainQueue();
-      });
+      // Normal message — delegate to startTurn for the shared execution flow
+      startTurn(key, sessionId, content, images);
     }, [connect]);
 
     // Shell mode: user-initiated command execution (! trigger)
@@ -8978,10 +9011,10 @@
       setActiveTurnId(null);
       setSelectedTurnId(null);
       setSelectedSegmentId(null);
-      // Cancel any countdown and clear queue from the previous session
+      // Cancel any active countdown (queue items for prevKey are preserved
+      // so they continue draining even after switching away)
       cancelCountdown();
       activeDelegatesRef.current = 0;
-      if (prevKey) clearSessionQueue(prevKey);
       setExecuting(false);
       setPendingApproval(null);
       placeholderIdRef.current = null;
