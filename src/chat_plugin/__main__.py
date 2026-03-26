@@ -50,6 +50,12 @@ def main() -> None:
         state.settings.sessions_dir = args.sessions_dir
 
     app = FastAPI(title="amplifier-chat (dev)")
+
+    # Mock amplifierd endpoints (session create/execute/events) so the UI
+    # can run end-to-end — including the token usage pill — without a daemon.
+    from chat_plugin.mock_routes import create_mock_amplifierd_routes
+
+    app.include_router(create_mock_amplifierd_routes())
     app.include_router(create_router(state))
 
     @app.get("/", include_in_schema=False)
