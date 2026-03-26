@@ -2737,7 +2737,7 @@
 <script src="./feedback-widget.js"></script>
 <script>
   const { h, render } = window.preact;
-  const { useState, useRef, useEffect, useCallback, useMemo } = window.preactHooks;
+  const { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } = window.preactHooks;
   const { html } = window;
   const { marked } = window;
 
@@ -4799,8 +4799,21 @@
       ) ? prev : { canTop, canBottom, hasOverflow });
     }, []);
 
-    useEffect(() => {
-      initialAnchorDoneRef.current = false;
+    // Use useLayoutEffect so the scroll-to-bottom fires synchronously after
+    // Preact commits the DOM but BEFORE the browser paints. Without this,
+    // switching sessions briefly shows the top of the conversation (the first
+    // long message) for ~32ms (two rAF frames) before the scroll anchor fires.
+    useLayoutEffect(() => {
+      const el = listRef.current;
+      if (el) {
+        // Scroll to bottom immediately — user never sees the top of the thread
+        el.scrollTop = el.scrollHeight;
+        // Mark anchor done so the [sorted.length] effect skips the double-rAF
+        initialAnchorDoneRef.current = true;
+      } else {
+        // No DOM yet (initial mount) — let the [sorted.length] effect handle it
+        initialAnchorDoneRef.current = false;
+      }
       nearBottomRef.current = true;
       lastNoticeSignalRef.current = bottomNoticeSignal;
       setShowBottomNotice(false);
