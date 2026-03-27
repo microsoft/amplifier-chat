@@ -225,6 +225,27 @@ def test_scan_sessions_not_hidden_by_default(tmp_path):
 # ── pinned_ids ───────────────────────────────────────────────────────────────
 
 
+def test_scan_session_revisions_excludes_hidden(tmp_path):
+    """S-13: Hidden sessions must not appear in revision results."""
+    _make_session(
+        tmp_path,
+        "visible-sess",
+        transcript='{"role": "user", "content": "hi"}\n',
+    )
+    _make_session(
+        tmp_path,
+        "hidden-sess",
+        transcript='{"role": "user", "content": "secret"}\n',
+        metadata={"hidden": True},
+    )
+    rows = scan_session_revisions(tmp_path)
+    ids = {r["session_id"] for r in rows}
+    assert "visible-sess" in ids
+    assert "hidden-sess" not in ids, (
+        "Hidden sessions must be excluded from revision results"
+    )
+
+
 def test_scan_sessions_pinned_priority(tmp_path):
     """Pinned sessions are returned separately, outside the pagination window."""
     import time
@@ -267,9 +288,7 @@ def test_scan_sessions_pinned_not_in_regular(tmp_path):
         transcript='{"role": "user", "content": "b"}\n',
     )
 
-    regular, pinned, total = scan_sessions(
-        tmp_path, pinned_ids={"sess-a"}
-    )
+    regular, pinned, total = scan_sessions(tmp_path, pinned_ids={"sess-a"})
 
     regular_ids = {r["session_id"] for r in regular}
     pinned_ids_set = {p["session_id"] for p in pinned}

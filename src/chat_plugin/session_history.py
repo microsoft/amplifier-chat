@@ -372,6 +372,8 @@ def scan_session_revisions(
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             if isinstance(metadata, dict):
+                if metadata.get("hidden") is True:
+                    continue
                 if isinstance(metadata.get("name"), str) and metadata["name"]:
                     row["name"] = metadata["name"]
                 if (
