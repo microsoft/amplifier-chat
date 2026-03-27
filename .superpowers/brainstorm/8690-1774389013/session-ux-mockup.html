@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amplifier Chat - Session UX Redesign Mockup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #161616;
+      --bg-tertiary: #1e1e1e;
+      --bg-card: #1a1a1a;
+      --border: rgba(255,255,255,0.08);
+      --text-primary: #e8e8e8;
+      --text-secondary: #999;
+      --text-muted: #6b6b6b;
+      --accent-blue: #3b82f6;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+    }
+
+    body {
+      background: #111;
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      font-size: 14px;
+      padding: 24px;
+    }
+
+    .page-title {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .page-title h1 {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .page-title p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .comparison-section {
+      margin-bottom: 48px;
+    }
+    .section-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .section-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent-blue);
+      letter-spacing: 0.02em;
+    }
+    .section-header p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .comparison-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .panel-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .panel-label.before {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--accent-red);
+    }
+    .panel-label.after {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--accent-green);
+    }
+
+    /* ====== MOCK APP CHROME ====== */
+    .app-mock {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      height: 520px;
+      display: flex;
+    }
+
+    .app-mock.tall {
+      height: 580px;
+    }
+
+    /* Sidebar */
+    .mock-sidebar {
+      width: 230px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sidebar-header span {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .sidebar-new-btn {
+      font-size: 11px;
+      color: var(--accent-blue);
+      background: none;
+      border: 1px solid rgba(59,130,246,0.3);
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+
+    .sidebar-sessions {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+
+    .session-card {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+    }
+    .session-card:hover { background: var(--bg-tertiary); }
+    .session-card.active {
+      border-left-color: var(--accent-blue);
+      background: var(--bg-tertiary);
+    }
+    .session-card-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-card-name.auto-named { color: var(--text-secondary); }
+    .session-card-cwd {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .session-card-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .session-card-model {
+      color: var(--text-muted);
+      font-size: 10px;
+      background: rgba(255,255,255,0.04);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    /* Sidebar footer */
+    .sidebar-footer {
+      border-top: 1px solid var(--border);
+      padding: 8px;
+      flex-shrink: 0;
+    }
+
+    .new-session-cwd-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+
+    .new-session-cwd-input {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      outline: none;
+      font-family: inherit;
+    }
+    .new-session-cwd-input:focus {
+      border-color: var(--accent-blue);
+      color: var(--text-primary);
+    }
+
+    /* Session metadata (current design) */
+    .active-cwd-display {
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 8px;
+    }
+    .session-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      margin-bottom: 4px;
+    }
+    .session-meta-row:last-child { margin-bottom: 0; }
+    .session-meta-key {
+      color: var(--text-muted);
+      min-width: 34px;
+      flex-shrink: 0;
+      font-size: 11px;
+    }
+    .session-meta-value {
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 11px;
+    }
+
+    /* Icons (using simple SVG-like representations) */
+    .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* ====== MAIN CHAT AREA ====== */
+    .mock-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* Context bar (proposed) */
+    .context-bar {
+      padding: 6px 14px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .context-bar-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .context-bar-separator {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+    .context-bar-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+    }
+    .context-bar-chevron {
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 10px;
+      margin-left: 4px;
+    }
+
+    /* Context bar expanded */
+    .context-bar-expanded {
+      padding: 10px 14px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .context-bar-expanded-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 12px;
+      font-size: 12px;
+    }
+    .context-bar-expanded-key {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .context-bar-expanded-value {
+      color: var(--text-secondary);
+      font-size: 11px;
+    }
+    .context-bar-expanded-value.primary {
+      color: var(--text-primary);
+    }
+    .context-bar-expanded-value .copy-btn {
+      font-size: 9px;
+      color: var(--text-muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0 4px;
+      margin-left: 6px;
+      cursor: pointer;
+    }
+
+    .mock-chat {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .chat-welcome {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .chat-welcome h2 {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .chat-welcome p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .chat-bubble {
+      margin-bottom: 12px;
+      max-width: 80%;
+    }
+    .chat-bubble.user {
+      margin-left: auto;
+      text-align: right;
+    }
+    .chat-bubble-inner {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      text-align: left;
+    }
+    .chat-bubble.user .chat-bubble-inner {
+      background: var(--accent-blue);
+      color: white;
+    }
+    .chat-bubble.assistant .chat-bubble-inner {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .mock-input-area {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .mock-input-bar {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* ====== PROPOSED: Recent directories dropdown ====== */
+    .cwd-picker {
+      position: relative;
+    }
+    .cwd-input-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cwd-input-enhanced {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 4px 4px 0 0;
+      outline: none;
+      font-family: inherit;
+      border-bottom: 1px solid var(--accent-blue);
+    }
+    .cwd-recents {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      padding: 2px 0;
+    }
+    .cwd-recents-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 4px 8px 2px;
+    }
+    .cwd-recent-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .cwd-recent-item:hover {
+      background: rgba(59,130,246,0.1);
+      color: var(--text-primary);
+    }
+    .cwd-recent-icon {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* ====== PROPOSED: Improved session info panel ====== */
+    .session-info-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .session-info-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+    }
+    .session-info-icon {
+      font-size: 10px;
+      color: var(--text-muted);
+      width: 14px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .session-info-label {
+      color: var(--text-muted);
+      min-width: 40px;
+    }
+    .session-info-value {
+      color: var(--text-secondary);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .session-info-value.highlight {
+      color: var(--text-primary);
+    }
+
+    /* Annotation callouts */
+    .callout {
+      margin-top: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+    .callout.issue {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .callout.improvement {
+      background: rgba(34, 197, 94, 0.08);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    .callout strong {
+      color: var(--text-primary);
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 32px 0;
+    }
+
+    /* Session card improved */
+    .session-card-model-badge {
+      display: inline-block;
+      font-size: 10px;
+      color: var(--accent-blue);
+      background: rgba(59,130,246,0.1);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-title">
+    <h1>Amplifier Chat - Session UX Redesign</h1>
+    <p>Side-by-side comparison of current vs proposed UI for CWD selection and session metadata</p>
+  </div>
+
+  <!-- ============================================= -->
+  <!-- SECTION 1: NEW SESSION - CWD EDITOR           -->
+  <!-- ============================================= -->
+  <div class="comparison-section">
+    <div class="section-header">
+      <h2>1. New Session: Working Directory Selection</h2>
+      <p>How we present the CWD input when a new session is created (turnCount = 0)</p>
+    </div>
+
+    <div class="comparison-row">
+      <!-- BEFORE -->
+      <div>
+        <div class="panel-label before">Current</div>
+        <div class="app-mock">
+          <div class="mock-sidebar">
+            <div class="sidebar-header">
+              <span>Sessions</span>
+              <button class="sidebar-new-btn">+ New</button>
+            </div>
+            <div class="sidebar-sessions">
+              <div class="session-card active">
+                <div class="session-card-name auto-named">new session / turn 0</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/repo</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>just now</span>
+                </div>
+              </div>
+              <div class="session-card">
+                <div class="session-card-name">API Auth Implementation</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/repo/amplifier-chat</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>23 min ago</span>
+                </div>
+              </div>
+              <div class="session-card">
+                <div class="session-card-name auto-named">session / 8 turns</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/dev/amplifier-core</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>2 hours ago</span>
+                </div>
+              </div>
+            </div>
+            <div class="sidebar-footer">
+              <div class="new-session-cwd-label">New Session CWD</div>
+              <input type="text" class="new-session-cwd-input" value="~/repo" readonly>
+            </div>
+          </div>
+          <div class="mock-main">
+            <div class="mock-chat">
+              <div class="chat-welcome">
+                <h2>Amplifier</h2>
+                <p>Start a conversation to begin</p>
+              </div>
+            </div>
+            <div class="mock-input-area">
+              <div class="mock-input-bar">Send a message...</div>
+            </div>
+          </div>
+        </div>
+        <div class="callout issue">
+          <strong>Issues:</strong> Label "New Session CWD" is jargon. Input is at the very bottom -- lowest visibility position. No recent dirs, no autocomplete, no project context. Disappears after first message.
+        </div>
+      </div>
+
+      <!-- AFTER -->
+      <div>
+        <div class="panel-label after">Proposed</div>
+        <div class="app-mock">
+          <div class="mock-sidebar">
+            <div class="sidebar-header">
+              <span>Sessions</span>
+              <button class="sidebar-new-btn">+ New</button>
+            </div>
+            <div class="sidebar-sessions">
+              <div class="session-card active">
+                <div class="session-card-name auto-named">new session / turn 0</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/repo</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>just now</span>
+                </div>
+              </div>
+              <div class="session-card">
+                <div class="session-card-name">API Auth Implementation</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/repo/amplifier-chat</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>23 min ago &middot;</span>
+                  <span class="session-card-model-badge">sonnet-4-5</span>
+                </div>
+              </div>
+              <div class="session-card">
+                <div class="session-card-name auto-named">session / 8 turns</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/dev/amplifier-core</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>2 hours ago &middot;</span>
+                  <span class="session-card-model-badge">opus-4-5</span>
+                </div>
+              </div>
+            </div>
+            <div class="sidebar-footer">
+              <div class="new-session-cwd-label">Working Directory</div>
+              <div class="cwd-picker">
+                <input type="text" class="cwd-input-enhanced" value="~/repo" readonly>
+                <div class="cwd-recents">
+                  <div class="cwd-recents-label">Recent</div>
+                  <div class="cwd-recent-item">
+                    <span class="cwd-recent-icon">&gt;</span>
+                    ~/repo/amplifier-chat
+                  </div>
+                  <div class="cwd-recent-item">
+                    <span class="cwd-recent-icon">&gt;</span>
+                    ~/dev/amplifier-core
+                  </div>
+                  <div class="cwd-recent-item">
+                    <span class="cwd-recent-icon">&gt;</span>
+                    ~/dev/amplifier-foundation
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-main">
+            <div class="mock-chat">
+              <div class="chat-welcome">
+                <h2>Amplifier</h2>
+                <p>Start a conversation to begin</p>
+              </div>
+            </div>
+            <div class="mock-input-area">
+              <div class="mock-input-bar">Send a message...</div>
+            </div>
+          </div>
+        </div>
+        <div class="callout improvement">
+          <strong>Improvements:</strong> Renamed to "Working Directory" (clearer). Recent directories dropdown for one-click switching -- pulls from session history. Model badge on session cards. Input still editable for custom paths.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ============================================= -->
+  <!-- SECTION 2: ACTIVE SESSION - METADATA           -->
+  <!-- ============================================= -->
+  <div class="comparison-section">
+    <div class="section-header">
+      <h2>2. Active Session: Metadata Display</h2>
+      <p>How we show session context during an ongoing conversation (turnCount &gt; 0)</p>
+    </div>
+
+    <div class="comparison-row">
+      <!-- BEFORE -->
+      <div>
+        <div class="panel-label before">Current</div>
+        <div class="app-mock tall">
+          <div class="mock-sidebar">
+            <div class="sidebar-header">
+              <span>Sessions</span>
+              <button class="sidebar-new-btn">+ New</button>
+            </div>
+            <div class="sidebar-sessions">
+              <div class="session-card active">
+                <div class="session-card-name">API Auth Implementation</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/repo/amplifier-chat</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>23 min ago</span>
+                </div>
+              </div>
+              <div class="session-card">
+                <div class="session-card-name auto-named">session / 8 turns</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/dev/amplifier-core</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>2 hours ago</span>
+                </div>
+              </div>
+            </div>
+            <div class="sidebar-footer">
+              <div class="new-session-cwd-label">Session Metadata</div>
+              <div class="active-cwd-display">
+                <div class="session-meta-row">
+                  <span class="icon">&gt;</span>
+                  <span class="session-meta-key">cwd</span>
+                  <span class="session-meta-value">/Users/samule/repo/amplifier-chat</span>
+                </div>
+                <div class="session-meta-row">
+                  <span class="icon">&gt;</span>
+                  <span class="session-meta-key">sid</span>
+                  <span class="session-meta-value">7c13ee7e-2c3f-4034-8119-381b9310b5e1</span>
+                </div>
+                <div class="session-meta-row">
+                  <span class="icon">&gt;</span>
+                  <span class="session-meta-key">turn</span>
+                  <span class="session-meta-value">3</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-main">
+            <div class="mock-chat">
+              <div class="chat-bubble user">
+                <div class="chat-bubble-inner">Fix the auth middleware</div>
+              </div>
+              <div class="chat-bubble assistant">
+                <div class="chat-bubble-inner">I'll look at the authentication middleware. Let me explore the codebase...</div>
+              </div>
+              <div class="chat-bubble user">
+                <div class="chat-bubble-inner">Focus on the JWT validation</div>
+              </div>
+              <div class="chat-bubble assistant">
+                <div class="chat-bubble-inner">Found the issue in the token validation flow...</div>
+              </div>
+            </div>
+            <div class="mock-input-area">
+              <div class="mock-input-bar">Send a message...</div>
+            </div>
+          </div>
+        </div>
+        <div class="callout issue">
+          <strong>Issues:</strong> No model name shown anywhere. Raw session ID is noise for most users. No bundle, no duration. Only visible in sidebar -- if sidebar is collapsed, zero context about the session. CWD shows absolute path (wastes space).
+        </div>
+      </div>
+
+      <!-- AFTER -->
+      <div>
+        <div class="panel-label after">Proposed</div>
+        <div class="app-mock tall">
+          <div class="mock-sidebar">
+            <div class="sidebar-header">
+              <span>Sessions</span>
+              <button class="sidebar-new-btn">+ New</button>
+            </div>
+            <div class="sidebar-sessions">
+              <div class="session-card active">
+                <div class="session-card-name">API Auth Implementation</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/repo/amplifier-chat</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>23 min ago &middot;</span>
+                  <span class="session-card-model-badge">sonnet-4-5</span>
+                </div>
+              </div>
+              <div class="session-card">
+                <div class="session-card-name auto-named">session / 8 turns</div>
+                <div class="session-card-cwd">
+                  <span class="icon">&gt;</span>
+                  <span>~/dev/amplifier-core</span>
+                </div>
+                <div class="session-card-meta">
+                  <span>2 hours ago &middot;</span>
+                  <span class="session-card-model-badge">opus-4-5</span>
+                </div>
+              </div>
+            </div>
+            <div class="sidebar-footer">
+              <div class="new-session-cwd-label">Session Info</div>
+              <div class="active-cwd-display">
+                <div class="session-info-panel">
+                  <div class="session-info-row">
+                    <span class="session-info-icon">&gt;</span>
+                    <span class="session-info-label">model</span>
+                    <span class="session-info-value highlight">claude-sonnet-4-5</span>
+                  </div>
+                  <div class="session-info-row">
+                    <span class="session-info-icon">&gt;</span>
+                    <span class="session-info-label">cwd</span>
+                    <span class="session-info-value">~/repo/amplifier-chat</span>
+                  </div>
+                  <div class="session-info-row">
+                    <span class="session-info-icon">&gt;</span>
+                    <span class="session-info-label">bundle</span>
+                    <span class="session-info-value">amplifier-start</span>
+                  </div>
+                  <div class="session-info-row">
+                    <span class="session-info-icon">&gt;</span>
+                    <span class="session-info-label">turns</span>
+                    <span class="session-info-value">3 &middot; 23 min</span>
+                  </div>
+                  <div class="session-info-row" style="opacity: 0.5">
+                    <span class="session-info-icon">&gt;</span>
+                    <span class="session-info-label">sid</span>
+                    <span class="session-info-value" style="font-size:10px">7c13ee7e... <button style="font-size:9px;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:3px;padding:0 4px;cursor:pointer">copy</button></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-main">
+            <!-- CONTEXT BAR -->
+            <div class="context-bar">
+              <div class="context-bar-item">
+                <span class="icon">&gt;</span>
+                <span>~/repo/amplifier-chat</span>
+              </div>
+              <span class="context-bar-separator">&middot;</span>
+              <div class="context-bar-item">
+                <span>claude-sonnet-4-5</span>
+              </div>
+              <span class="context-bar-separator">&middot;</span>
+              <div class="context-bar-item">
+                <span>turn 3</span>
+              </div>
+              <div class="context-bar-status">
+                <div class="status-dot"></div>
+                <span style="font-size:11px; color: var(--accent-green)">idle</span>
+              </div>
+            </div>
+            <div class="mock-chat">
+              <div class="chat-bubble user">
+                <div class="chat-bubble-inner">Fix the auth middleware</div>
+              </div>
+              <div class="chat-bubble assistant">
+                <div class="chat-bubble-inner">I'll look at the authentication middleware. Let me explore the codebase...</div>
+              </div>
+              <div class="chat-bubble user">
+                <div class="chat-bubble-inner">Focus on the JWT validation</div>
+              </div>
+              <div class="chat-bubble assistant">
+                <div class="chat-bubble-inner">Found the issue in the token validation flow...</div>
+              </div>
+            </div>
+            <div class="mock-input-area">
+              <div class="mock-input-bar">Send a message...</div>
+            </div>
+          </div>
+        </div>
+        <div class="callout improvement">
+          <strong>Improvements:</strong> Persistent context bar above chat shows CWD + model + turn + status (visible even with sidebar collapsed). Sidebar renamed to "Session Info" with model as top item. Bundle + duration added. Session ID de-emphasized with copy button. CWD uses ~ shorthand. Model badge on all session cards.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ============================================= -->
+  <!-- SECTION 3: CONTEXT BAR - EXPANDED STATE        -->
+  <!-- ============================================= -->
+  <div class="comparison-section">
+    <div class="section-header">
+      <h2>3. Context Bar: Expanded Detail View</h2>
+      <p>Clicking the context bar reveals full session details via progressive disclosure</p>
+    </div>
+
+    <div class="comparison-row">
+      <!-- Collapsed -->
+      <div>
+        <div class="panel-label" style="background:rgba(59,130,246,0.15);color:var(--accent-blue)">Collapsed (Default)</div>
+        <div class="app-mock" style="height: 200px;">
+          <div class="mock-main" style="border-radius: 10px;">
+            <div class="context-bar" style="cursor: pointer;">
+              <div class="context-bar-item">
+                <span class="icon">&gt;</span>
+                <span>~/repo/amplifier-chat</span>
+              </div>
+              <span class="context-bar-separator">&middot;</span>
+              <div class="context-bar-item">
+                <span>claude-sonnet-4-5</span>
+              </div>
+              <span class="context-bar-separator">&middot;</span>
+              <div class="context-bar-item">
+                <span>turn 3</span>
+              </div>
+              <div class="context-bar-status">
+                <div class="status-dot"></div>
+                <span style="font-size:11px; color: var(--accent-green)">idle</span>
+                <span class="context-bar-chevron">&blacktriangledown;</span>
+              </div>
+            </div>
+            <div class="mock-chat" style="padding: 20px;">
+              <div class="chat-bubble assistant">
+                <div class="chat-bubble-inner">Found the issue in the token validation flow. The JWT signature check was using the wrong key...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="callout improvement">
+          <strong>Always visible:</strong> CWD (shortened), model name, turn count, and live status indicator. One line, minimal space. Click chevron to expand.
+        </div>
+      </div>
+
+      <!-- Expanded -->
+      <div>
+        <div class="panel-label" style="background:rgba(59,130,246,0.15);color:var(--accent-blue)">Expanded (On Click)</div>
+        <div class="app-mock" style="height: 200px;">
+          <div class="mock-main" style="border-radius: 10px;">
+            <div class="context-bar-expanded">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Session Detail</span>
+                <span class="context-bar-chevron" style="cursor:pointer">&blacktriangle;</span>
+              </div>
+              <div class="context-bar-expanded-grid">
+                <span class="context-bar-expanded-key">Directory</span>
+                <span class="context-bar-expanded-value primary">~/repo/amplifier-chat</span>
+
+                <span class="context-bar-expanded-key">Model</span>
+                <span class="context-bar-expanded-value primary">claude-sonnet-4-5</span>
+
+                <span class="context-bar-expanded-key">Bundle</span>
+                <span class="context-bar-expanded-value">amplifier-start</span>
+
+                <span class="context-bar-expanded-key">Turns</span>
+                <span class="context-bar-expanded-value">3 &middot; Started 23 min ago</span>
+
+                <span class="context-bar-expanded-key">Session</span>
+                <span class="context-bar-expanded-value">7c13ee7e-2c3f-4034... <button class="copy-btn" style="font-size:9px;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:3px;padding:0 4px;cursor:pointer">copy</button></span>
+
+                <span class="context-bar-expanded-key">Status</span>
+                <span class="context-bar-expanded-value" style="color:var(--accent-green);">idle</span>
+              </div>
+            </div>
+            <div class="mock-chat" style="padding: 20px;">
+              <div class="chat-bubble assistant">
+                <div class="chat-bubble-inner">Found the issue in the token validation...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="callout improvement">
+          <strong>Progressive disclosure:</strong> Full metadata grid on click. All info available without the sidebar. Session ID behind copy button. Collapses back to one-line bar. Respects the recognition-over-recall principle.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ============================================= -->
+  <!-- SECTION 4: INFORMATION HIERARCHY                -->
+  <!-- ============================================= -->
+  <div class="comparison-section">
+    <div class="section-header">
+      <h2>4. Information Priority Hierarchy</h2>
+      <p>What metadata to show at each visibility tier</p>
+    </div>
+
+    <div style="max-width: 700px; margin: 0 auto;">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <!-- Tier 1 -->
+        <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <div style="background: var(--accent-green); color: #111; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;">ALWAYS VISIBLE</div>
+            <span style="font-size: 11px; color: var(--text-muted);">Context bar (above chat)</span>
+          </div>
+          <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+            <span><strong style="color:var(--text-primary)">Model</strong> - What am I talking to?</span>
+            <span><strong style="color:var(--text-primary)">CWD</strong> - Where am I working?</span>
+            <span><strong style="color:var(--text-primary)">Status</strong> - Is it thinking?</span>
+          </div>
+        </div>
+
+        <!-- Tier 2 -->
+        <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <div style="background: var(--accent-amber); color: #111; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;">ON CLICK</div>
+            <span style="font-size: 11px; color: var(--text-muted);">Expanded bar or sidebar panel</span>
+          </div>
+          <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+            <span><strong style="color:var(--text-primary)">Bundle</strong> - What capabilities?</span>
+            <span><strong style="color:var(--text-primary)">Turn count</strong> + Duration</span>
+            <span><strong style="color:var(--text-primary)">Parent/Fork</strong> info</span>
+          </div>
+        </div>
+
+        <!-- Tier 3 -->
+        <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <div style="background: var(--text-muted); color: #111; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;">ON DEMAND</div>
+            <span style="font-size: 11px; color: var(--text-muted);">Hidden behind copy/expand actions</span>
+          </div>
+          <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+            <span><strong style="color:var(--text-primary)">Session ID</strong> - Copy button</span>
+            <span><strong style="color:var(--text-primary)">Full CWD path</strong> - Tooltip</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

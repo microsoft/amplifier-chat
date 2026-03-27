@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session UX Improvement Plan</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #161616;
+      --bg-tertiary: #1e1e1e;
+      --bg-card: #1a1a1a;
+      --border: rgba(255,255,255,0.08);
+      --border-strong: rgba(255,255,255,0.14);
+      --text-primary: #e8e8e8;
+      --text-secondary: #999;
+      --text-muted: #6b6b6b;
+      --accent-blue: #3b82f6;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #818cf8;
+    }
+
+    body {
+      background: #0a0a0a;
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      font-size: 14px;
+      padding: 0;
+    }
+
+    /* ====== PAGE STRUCTURE ====== */
+    .hero {
+      text-align: center;
+      padding: 40px 24px 32px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(59,130,246,0.04) 0%, transparent 100%);
+    }
+    .hero h1 {
+      font-size: 26px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .hero p {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .section {
+      padding: 40px 32px;
+      border-bottom: 1px solid var(--border);
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .section-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 3px 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    .section-badge.change1 { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+    .section-badge.change2 { background: rgba(129,140,248,0.15); color: var(--accent-purple); }
+    .section-badge.change3 { background: rgba(34,197,94,0.15); color: var(--accent-green); }
+    .section-badge.change4 { background: rgba(245,158,11,0.15); color: var(--accent-amber); }
+    .section-badge.change5 { background: rgba(239,68,68,0.12); color: var(--accent-red); }
+
+    .section h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .section .desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      max-width: 700px;
+    }
+
+    /* ====== COMPARISON LAYOUT ====== */
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .compare-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .compare-label.before { background: rgba(239,68,68,0.12); color: var(--accent-red); }
+    .compare-label.after { background: rgba(34,197,94,0.12); color: var(--accent-green); }
+
+    .annotation {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+    .annotation.issue { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15); }
+    .annotation.win { background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.15); }
+    .annotation strong { color: var(--text-primary); }
+
+    /* ====== APP MOCK CHROME ====== */
+    .app {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* Sidebar */
+    .sb {
+      width: 224px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sb-hdr {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sb-hdr span { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+    .sb-new-btn {
+      font-size: 11px;
+      color: var(--accent-blue);
+      background: none;
+      border: 1px solid rgba(59,130,246,0.3);
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: default;
+    }
+    .sb-list { flex: 1; overflow-y: auto; padding: 2px 0; }
+    .sb-footer {
+      border-top: 1px solid var(--border);
+      padding: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Session cards */
+    .card {
+      padding: 8px 12px;
+      border-left: 2px solid transparent;
+    }
+    .card:hover { background: var(--bg-tertiary); }
+    .card.active { border-left-color: var(--accent-blue); background: var(--bg-tertiary); }
+
+    .card-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-name.auto { color: var(--text-secondary); }
+    .card-cwd {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 1px;
+    }
+    .card-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-top: 2px;
+    }
+    .card-preview {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+
+    /* Status dot */
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+    .dot.green { background: var(--accent-green); }
+    .dot.amber { background: var(--accent-amber); }
+    .dot.red { background: var(--accent-red); }
+    .dot.muted { background: var(--text-muted); opacity: 0.5; }
+    .dot.idle { background: transparent; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .dot.pulse { animation: pulse 1.5s ease-in-out infinite; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .badge.new { border: 1px solid rgba(99,102,241,0.45); color: var(--accent-purple); }
+    .badge.updated { border: 1px solid rgba(245,158,11,0.38); color: var(--accent-amber); }
+    .badge.queue { border: 1px solid rgba(59,130,246,0.3); color: var(--accent-blue); }
+    .badge.model {
+      background: rgba(59,130,246,0.1);
+      color: var(--accent-blue);
+      font-weight: 500;
+      font-size: 10px;
+      border: none;
+    }
+
+    /* CWD group header */
+    .grp-hdr {
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: default;
+    }
+    .grp-hdr:first-child { border-top: none; }
+    .grp-hdr .icon { font-size: 10px; }
+
+    /* Main area */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* Context bar */
+    .ctx-bar {
+      padding: 6px 14px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .ctx-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .ctx-sep { color: var(--text-muted); font-size: 10px; }
+    .ctx-status { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+
+    .chat-area { flex: 1; padding: 16px; overflow-y: auto; }
+    .chat-welcome { text-align: center; padding: 40px 20px; }
+    .chat-welcome h2 { font-size: 18px; font-weight: 500; margin-bottom: 6px; }
+    .chat-welcome p { font-size: 12px; color: var(--text-muted); }
+
+    .bubble { margin-bottom: 10px; max-width: 80%; }
+    .bubble.user { margin-left: auto; text-align: right; }
+    .bubble-inner {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      text-align: left;
+    }
+    .bubble.user .bubble-inner { background: var(--accent-blue); color: white; }
+    .bubble.assist .bubble-inner { background: var(--bg-tertiary); color: var(--text-primary); }
+
+    .input-bar {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .input-mock {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Footer labels */
+    .ft-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .ft-input {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    .ft-meta {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .ft-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .ft-row:last-child { margin-bottom: 0; }
+    .ft-key { color: var(--text-muted); min-width: 34px; flex-shrink: 0; font-size: 11px; }
+    .ft-val { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+
+    /* Recents dropdown */
+    .recents {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      padding: 2px 0;
+    }
+    .recents-label { font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 8px 2px; }
+    .recents-item { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: 11px; color: var(--text-secondary); cursor: default; }
+    .recents-item:hover { background: rgba(59,130,246,0.08); }
+
+    /* Session info panel */
+    .info-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .info-row:last-child { margin-bottom: 0; }
+    .info-label { color: var(--text-muted); min-width: 40px; }
+    .info-val { color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .info-val.hi { color: var(--text-primary); }
+    .copy-btn { font-size: 9px; color: var(--text-muted); background: none; border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; cursor: default; margin-left: 4px; }
+
+    /* ====== PLAN TABLE ====== */
+    .plan-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .plan-table th {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 2px solid var(--border-strong);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .plan-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .plan-table tr:last-child td { border-bottom: none; }
+    .plan-table .pri {
+      font-weight: 700;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .pri.p0 { color: var(--accent-red); }
+    .pri.p1 { color: var(--accent-amber); }
+    .pri.p2 { color: var(--accent-blue); }
+    .pri.p3 { color: var(--text-muted); }
+
+    .effort-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .effort-badge.trivial { background: rgba(34,197,94,0.12); color: var(--accent-green); }
+    .effort-badge.low { background: rgba(59,130,246,0.12); color: var(--accent-blue); }
+    .effort-badge.med { background: rgba(245,158,11,0.12); color: var(--accent-amber); }
+
+    /* Strike-through for removed items */
+    .removed { text-decoration: line-through; color: var(--text-muted); }
+
+    /* Hierarchy diagram */
+    .tier { border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
+    .tier.t1 { background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.2); }
+    .tier.t2 { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); }
+    .tier.t3 { background: rgba(107,107,107,0.06); border: 1px solid rgba(107,107,107,0.2); }
+    .tier-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+      display: inline-block;
+      margin-bottom: 6px;
+    }
+    .tier-label.t1 { background: var(--accent-green); color: #111; }
+    .tier-label.t2 { background: var(--accent-amber); color: #111; }
+    .tier-label.t3 { background: var(--text-muted); color: #111; }
+    .tier-items { font-size: 12px; color: var(--text-secondary); display: flex; gap: 16px; flex-wrap: wrap; }
+    .tier-items strong { color: var(--text-primary); }
+
+    /* ====== NUMBERED MARKER ====== */
+    .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-right: 2px;
+    }
+    .num.n1 { background: rgba(59,130,246,0.2); color: var(--accent-blue); }
+    .num.n2 { background: rgba(129,140,248,0.2); color: var(--accent-purple); }
+    .num.n3 { background: rgba(34,197,94,0.2); color: var(--accent-green); }
+    .num.n4 { background: rgba(245,158,11,0.2); color: var(--accent-amber); }
+    .num.n5 { background: rgba(239,68,68,0.15); color: var(--accent-red); }
+  </style>
+</head>
+<body>
+
+<!-- ====== HERO ====== -->
+<div class="hero">
+  <h1>Session UX Improvement Plan</h1>
+  <p>5 changes across the session sidebar, context bar, and metadata panel.<br>Each shown as current vs proposed with the exact amplifier-chat theme.</p>
+</div>
+
+
+<!-- ================================================ -->
+<!-- CHANGE 1: SESSION CARD DECLUTTER                  -->
+<!-- ================================================ -->
+<div class="section">
+  <div class="section-badge change1"><span class="num n1">1</span> Session Cards</div>
+  <h2>Declutter Session Cards</h2>
+  <p class="desc">Current cards show 4 rows of data per session (~110px). Cut to 2 rows (~48px) to show 2x more sessions. Remove CWD (redundant with group header), move preview to hover, replace status text with colored dots.</p>
+
+  <div class="compare">
+    <!-- BEFORE: Current 4-row cards -->
+    <div>
+      <div class="compare-label before">Current &mdash; 4 rows, ~110px per card</div>
+      <div class="app" style="height:480px;">
+        <div class="sb" style="width:100%;">
+          <div class="sb-hdr">
+            <span>Sessions</span>
+            <button class="sb-new-btn">+ New</button>
+          </div>
+          <div class="sb-list">
+            <div class="grp-hdr"><span class="icon">&rsaquo;</span> ~/repo/amplifier-chat</div>
+
+            <div class="card active">
+              <div class="card-name">API Auth Implementation</div>
+              <div class="card-cwd"><span style="font-size:10px">&rsaquo;</span> ~/repo/amplifier-chat</div>
+              <div class="card-meta"><span>turn 3</span></div>
+              <div class="card-preview">Fix the auth middleware to handle...</div>
+            </div>
+
+            <div class="card">
+              <div class="card-name">Sidebar Refactor</div>
+              <div class="card-cwd"><span style="font-size:10px">&rsaquo;</span> ~/repo/amplifier-chat</div>
+              <div class="card-meta"><span>turn 12</span> <span class="badge updated">Updated</span></div>
+              <div class="card-preview">Refactor the session list component</div>
+            </div>
+
+            <div class="card">
+              <div class="card-name auto">session / 5 turns</div>
+              <div class="card-cwd"><span style="font-size:10px">&rsaquo;</span> ~/repo/amplifier-chat</div>
+              <div class="card-meta"><span>turn 5</span></div>
+              <div class="card-preview">How do I add a new route?</div>
+            </div>
+
+            <div class="grp-hdr"><span class="icon">&rsaquo;</span> ~/dev/amplifier-core</div>
+
+            <div class="card">
+              <div class="card-name">Release v1.2.6</div>
+              <div class="card-cwd"><span style="font-size:10px">&rsaquo;</span> ~/dev/amplifier-core</div>
+              <div class="card-meta"><span>12 msgs</span></div>
+              <div class="card-preview">Bump version and run smoke tests</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="annotation issue">
+        <strong>Problems:</strong> CWD repeated on every card (already in group header). Preview takes a full row for low-signal text. Turn count alone doesn't help find sessions. Only ~4 sessions visible. Status is invisible (no icon for idle).
+      </div>
+    </div>
+
+    <!-- AFTER: Compact 2-row cards -->
+    <div>
+      <div class="compare-label after">Proposed &mdash; 2 rows, ~48px per card</div>
+      <div class="app" style="height:480px;">
+        <div class="sb" style="width:100%;">
+          <div class="sb-hdr">
+            <span>Sessions</span>
+            <button class="sb-new-btn">+ New</button>
+          </div>
+          <div class="sb-list">
+            <div class="grp-hdr"><span class="icon">&rsaquo;</span> ~/repo/amplifier-chat</div>
+
+            <div class="card active">
+              <div class="card-name"><span class="dot green pulse"></span> API Auth Implementation</div>
+              <div class="card-meta"><span>23 min ago</span> <span class="badge model">sonnet-4-5</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-name"><span class="dot muted"></span> Sidebar Refactor</div>
+              <div class="card-meta"><span>1 hr ago</span> <span class="badge model">sonnet-4-5</span> <span class="badge updated">Updated</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-name auto"><span class="dot muted"></span> session / 5 turns</div>
+              <div class="card-meta"><span>2 hr ago</span> <span class="badge model">opus-4-5</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-name auto"><span class="dot muted"></span> Command palette fixes</div>
+              <div class="card-meta"><span>3 hr ago</span> <span class="badge model">sonnet-4-5</span></div>
+            </div>
+
+            <div class="grp-hdr"><span class="icon">&rsaquo;</span> ~/dev/amplifier-core</div>
+
+            <div class="card">
+              <div class="card-name"><span class="dot muted"></span> Release v1.2.6</div>
+              <div class="card-meta"><span>5 hr ago</span> <span class="badge model">opus-4-5</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-name"><span class="dot muted"></span> RetryConfig migration</div>
+              <div class="card-meta"><span>yesterday</span> <span class="badge model">sonnet-4-5</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-name auto"><span class="dot muted"></span> session / 2 turns</div>
+              <div class="card-meta"><span>2 days ago</span> <span class="badge model">sonnet-4-5</span></div>
+            </div>
+
+            <div class="grp-hdr"><span class="icon">&rsaquo;</span> ~/dev/amplifier-foundation</div>
+
+            <div class="card">
+              <div class="card-name"><span class="dot muted"></span> Bundle Guide Updates</div>
+              <div class="card-meta"><span>yesterday</span> <span class="badge model">sonnet-4-5</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-name"><span class="dot muted"></span> Explorer agent improvements</div>
+              <div class="card-meta"><span>3 days ago</span> <span class="badge model">opus-4-5</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="annotation win">
+        <strong>Wins:</strong> CWD removed (group header has it). Preview removed. <strong>9 sessions visible</strong> vs 4 before. "Time ago" replaces turn count. Colored status dots (green=running, muted=idle). Model badge on every card. Badges only when needed (no wasted row).
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================ -->
+<!-- CHANGE 2: CWD PICKER                              -->
+<!-- ================================================ -->
+<div class="section">
+  <div class="section-badge change2"><span class="num n2">2</span> Working Directory</div>
+  <h2>Replace CWD Input with Project Picker</h2>
+  <p class="desc">Rename "New Session CWD" to "Working Directory". Add a recent directories dropdown populated from session history. Users pick a project, not type a Unix path.</p>
+
+  <div class="compare">
+    <div>
+      <div class="compare-label before">Current</div>
+      <div style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:8px;padding:8px;width:224px;">
+        <div class="ft-label">New Session CWD</div>
+        <input type="text" class="ft-input" value="~/repo" readonly style="cursor:default">
+      </div>
+      <div class="annotation issue"><strong>Issues:</strong> "CWD" is jargon. No recent dirs. No autocomplete. User must remember and type paths.</div>
+    </div>
+    <div>
+      <div class="compare-label after">Proposed</div>
+      <div style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:8px;padding:8px;width:224px;">
+        <div class="ft-label">Working Directory</div>
+        <input type="text" class="ft-input" value="~/repo" readonly style="border-radius:4px 4px 0 0;border-bottom:1px solid var(--accent-blue);cursor:default">
+        <div class="recents">
+          <div class="recents-label">Recent</div>
+          <div class="recents-item"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> ~/repo/amplifier-chat</div>
+          <div class="recents-item"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> ~/dev/amplifier-core</div>
+          <div class="recents-item"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> ~/dev/amplifier-foundation</div>
+        </div>
+      </div>
+      <div class="annotation win"><strong>Wins:</strong> Clearer label. One-click recent dirs from session history. Still editable for custom paths. 80%+ of the time, users work in recent dirs.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================ -->
+<!-- CHANGE 3: CONTEXT BAR                             -->
+<!-- ================================================ -->
+<div class="section">
+  <div class="section-badge change3"><span class="num n3">3</span> Context Bar</div>
+  <h2>Add Persistent Context Bar Above Chat</h2>
+  <p class="desc">A single-line bar above the chat area showing model, CWD, and status. Visible even when the sidebar is collapsed. Clickable to expand full details.</p>
+
+  <div class="compare">
+    <div>
+      <div class="compare-label before">Current &mdash; no context above chat</div>
+      <div class="app" style="height:200px;">
+        <div class="main">
+          <div class="chat-area" style="padding:20px">
+            <div class="bubble assist">
+              <div class="bubble-inner">Found the issue in the token validation flow. The JWT signature was using...</div>
+            </div>
+          </div>
+          <div class="input-bar"><div class="input-mock">Send a message...</div></div>
+        </div>
+      </div>
+      <div class="annotation issue"><strong>Problem:</strong> Zero session context visible in the main area. If sidebar is collapsed, user has no idea what model, CWD, or status they're in.</div>
+    </div>
+    <div>
+      <div class="compare-label after">Proposed &mdash; persistent context bar</div>
+      <div class="app" style="height:200px;">
+        <div class="main">
+          <div class="ctx-bar">
+            <div class="ctx-item"><span style="font-size:10px">&rsaquo;</span> ~/repo/amplifier-chat</div>
+            <span class="ctx-sep">&middot;</span>
+            <div class="ctx-item">claude-sonnet-4-5</div>
+            <span class="ctx-sep">&middot;</span>
+            <div class="ctx-item">turn 3</div>
+            <div class="ctx-status">
+              <span class="dot green"></span>
+              <span style="font-size:11px;color:var(--accent-green)">idle</span>
+              <span style="color:var(--text-muted);font-size:10px;cursor:default">&blacktriangledown;</span>
+            </div>
+          </div>
+          <div class="chat-area" style="padding:20px">
+            <div class="bubble assist">
+              <div class="bubble-inner">Found the issue in the token validation flow. The JWT signature was using...</div>
+            </div>
+          </div>
+          <div class="input-bar"><div class="input-mock">Send a message...</div></div>
+        </div>
+      </div>
+      <div class="annotation win"><strong>Wins:</strong> Model + CWD + status always visible. Works with sidebar collapsed. Click chevron to expand full detail panel. Follows recognition-over-recall principle.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================ -->
+<!-- CHANGE 4: SESSION METADATA PANEL                  -->
+<!-- ================================================ -->
+<div class="section">
+  <div class="section-badge change4"><span class="num n4">4</span> Session Info</div>
+  <h2>Richer Session Metadata Panel</h2>
+  <p class="desc">Rename "Session Metadata" to "Session Info". Add model (top priority), bundle, and duration. De-emphasize session ID behind a copy button. Use ~ paths instead of absolute paths.</p>
+
+  <div class="compare">
+    <div>
+      <div class="compare-label before">Current</div>
+      <div style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:8px;padding:8px;width:224px;">
+        <div class="ft-label">Session Metadata</div>
+        <div class="ft-meta">
+          <div class="ft-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="ft-key">cwd</span> <span class="ft-val">/Users/samule/repo/amplifier-chat</span></div>
+          <div class="ft-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="ft-key">sid</span> <span class="ft-val">7c13ee7e-2c3f-4034-8119-381b93...</span></div>
+          <div class="ft-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="ft-key">turn</span> <span class="ft-val">3</span></div>
+        </div>
+      </div>
+      <div class="annotation issue"><strong>Problems:</strong> No model name. No bundle. No duration. Absolute path wastes space. Raw session ID is noise. Label is jargon.</div>
+    </div>
+    <div>
+      <div class="compare-label after">Proposed</div>
+      <div style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:8px;padding:8px;width:224px;">
+        <div class="ft-label">Session Info</div>
+        <div class="ft-meta">
+          <div class="info-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">model</span> <span class="info-val hi">claude-sonnet-4-5</span></div>
+          <div class="info-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">cwd</span> <span class="info-val">~/repo/amplifier-chat</span></div>
+          <div class="info-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">bundle</span> <span class="info-val">amplifier-start</span></div>
+          <div class="info-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">turns</span> <span class="info-val">3 &middot; 23 min</span></div>
+          <div class="info-row" style="opacity:0.5"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">sid</span> <span class="info-val" style="font-size:10px">7c13ee7e... <button class="copy-btn">copy</button></span></div>
+        </div>
+      </div>
+      <div class="annotation win"><strong>Wins:</strong> Model at top (highest priority). Bundle + duration added. ~ path saves space. Session ID faded with copy button. Label simplified.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================ -->
+<!-- CHANGE 5: UNIFIED FOOTER (no mode toggle)         -->
+<!-- ================================================ -->
+<div class="section">
+  <div class="section-badge change5"><span class="num n5">5</span> Sidebar Footer</div>
+  <h2>Unify Sidebar Footer (No Mode Toggle)</h2>
+  <p class="desc">Currently the sidebar footer switches between CWD editor (draft) and metadata (active) in the same slot. This is jarring. Instead: always show session context, with the CWD editable only for draft sessions.</p>
+
+  <div class="compare">
+    <div>
+      <div class="compare-label before">Current &mdash; two different UIs in same slot</div>
+      <div style="display:flex;gap:12px;">
+        <div style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:8px;padding:8px;width:180px;">
+          <div class="ft-label" style="color:var(--accent-purple)">Draft (turn 0)</div>
+          <div class="ft-label">New Session CWD</div>
+          <input type="text" class="ft-input" value="~/repo" readonly style="cursor:default">
+        </div>
+        <div style="font-size:20px;color:var(--text-muted);display:flex;align-items:center">&rarr;</div>
+        <div style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:8px;padding:8px;width:180px;">
+          <div class="ft-label" style="color:var(--accent-green)">Active (turn &gt; 0)</div>
+          <div class="ft-label">Session Metadata</div>
+          <div class="ft-meta">
+            <div class="ft-row"><span class="ft-key">cwd</span> <span class="ft-val">~/repo</span></div>
+            <div class="ft-row"><span class="ft-key">sid</span> <span class="ft-val">7c13ee7e...</span></div>
+            <div class="ft-row"><span class="ft-key">turn</span> <span class="ft-val">3</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="annotation issue"><strong>Problem:</strong> UI snaps from an input field to a read-only panel the moment you send your first message. Jarring. Confusing. Two completely different layouts in the same 80px of space.</div>
+    </div>
+    <div>
+      <div class="compare-label after">Proposed &mdash; consistent panel, editable when draft</div>
+      <div style="display:flex;gap:12px;">
+        <div style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:8px;padding:8px;width:180px;">
+          <div class="ft-label" style="color:var(--accent-purple)">Draft (turn 0)</div>
+          <div class="ft-label">Working Directory</div>
+          <input type="text" class="ft-input" value="~/repo" readonly style="border-color:var(--accent-blue);cursor:default">
+          <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-style:italic">editable - type or pick from recents</div>
+        </div>
+        <div style="font-size:20px;color:var(--text-muted);display:flex;align-items:center">&rarr;</div>
+        <div style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:8px;padding:8px;width:180px;">
+          <div class="ft-label" style="color:var(--accent-green)">Active (turn &gt; 0)</div>
+          <div class="ft-label">Session Info</div>
+          <div class="ft-meta">
+            <div class="info-row"><span class="info-label">model</span> <span class="info-val hi">sonnet-4-5</span></div>
+            <div class="info-row"><span class="info-label">cwd</span> <span class="info-val">~/repo</span></div>
+            <div class="info-row"><span class="info-label">bundle</span> <span class="info-val">amplifier-start</span></div>
+            <div class="info-row"><span class="info-label">turns</span> <span class="info-val">3 &middot; 23 min</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="annotation win"><strong>Win:</strong> Smooth transition from editable CWD picker to read-only session info. Same visual weight, same area. No jarring layout swap. The footer always provides context about the session.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================ -->
+<!-- INFORMATION HIERARCHY                             -->
+<!-- ================================================ -->
+<div class="section">
+  <h2>Information Hierarchy</h2>
+  <p class="desc">What to show at each visibility tier, applying progressive disclosure.</p>
+
+  <div style="max-width: 700px;">
+    <div class="tier t1">
+      <div class="tier-label t1">Always Visible</div>
+      <div class="tier-items">
+        <span><strong>Model</strong> &mdash; what am I talking to?</span>
+        <span><strong>CWD</strong> &mdash; where am I working?</span>
+        <span><strong>Status</strong> &mdash; thinking / idle / error</span>
+        <span><strong>Session name</strong> &mdash; primary identifier</span>
+        <span><strong>Time ago</strong> &mdash; recency for scanning</span>
+      </div>
+    </div>
+    <div class="tier t2">
+      <div class="tier-label t2">On Click / Hover</div>
+      <div class="tier-items">
+        <span><strong>Bundle</strong> &mdash; what capabilities?</span>
+        <span><strong>Turn count</strong> &mdash; session depth</span>
+        <span><strong>Duration</strong> &mdash; how long running</span>
+        <span><strong>Parent / fork info</strong> &mdash; lineage</span>
+        <span><strong>Last message preview</strong> &mdash; quick peek</span>
+        <span><strong>Full CWD path</strong> &mdash; tooltip on short path</span>
+      </div>
+    </div>
+    <div class="tier t3">
+      <div class="tier-label t3">On Demand</div>
+      <div class="tier-items">
+        <span><strong>Session ID</strong> &mdash; copy button</span>
+        <span><strong>Queue count</strong> &mdash; only when non-zero</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================ -->
+<!-- SESSION CARD DATA: WHAT CHANGES                   -->
+<!-- ================================================ -->
+<div class="section">
+  <h2>Session Card Data: What Stays, Moves, or Goes</h2>
+  <p class="desc">Detailed breakdown of every data element in the current session card and where it lands in the new design.</p>
+
+  <table class="plan-table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Current</th>
+        <th>Proposed</th>
+        <th>Rationale</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Session name</strong></td>
+        <td>Card row 1</td>
+        <td>Card row 1 (keep)</td>
+        <td>Primary identifier. Never remove.</td>
+      </tr>
+      <tr>
+        <td><strong>Status</strong></td>
+        <td>Unicode icon (text)</td>
+        <td><span class="dot green" style="display:inline-block;vertical-align:middle;margin-right:4px"></span> Colored dot</td>
+        <td>Scannable at a glance. Green=running, amber=connecting, red=error, muted=idle/history.</td>
+      </tr>
+      <tr>
+        <td><strong>CWD path</strong></td>
+        <td>Card row 2 (always)</td>
+        <td class="removed">Removed when grouped</td>
+        <td>100% redundant with group header. In chronological mode: show leaf name only (e.g., "amplifier-chat").</td>
+      </tr>
+      <tr>
+        <td><strong>Turn / msg count</strong></td>
+        <td>Card row 3 (always)</td>
+        <td>Hover / detail panel</td>
+        <td>Inspection metadata, not navigation. Nobody scans by turn count.</td>
+      </tr>
+      <tr>
+        <td><strong>Time ago</strong></td>
+        <td style="color:var(--accent-red)">Missing!</td>
+        <td>Card row 2 (new)</td>
+        <td>Second most useful scanning signal after name. "23 min ago" vs "2 days ago" helps find sessions fast.</td>
+      </tr>
+      <tr>
+        <td><strong>Model badge</strong></td>
+        <td style="color:var(--accent-red)">Missing!</td>
+        <td>Card row 2 (new)</td>
+        <td>"Which session was I using opus for?" -- critical for distinguishing sessions.</td>
+      </tr>
+      <tr>
+        <td><strong>Last message preview</strong></td>
+        <td>Card row 4</td>
+        <td>Hover tooltip</td>
+        <td>Low signal in 230px. Truncates poorly (code fragments). Name should be the identifier.</td>
+      </tr>
+      <tr>
+        <td><strong>New / Updated badge</strong></td>
+        <td>Card row 3</td>
+        <td>Card row 2 (keep, inline)</td>
+        <td>Actionable state change. High signal. Keep but inline with meta row instead of dedicated space.</td>
+      </tr>
+      <tr>
+        <td><strong>Queue badge</strong></td>
+        <td>Card row 3</td>
+        <td>Card row 2 (keep, when present)</td>
+        <td>Only appears when non-zero. Keep inline.</td>
+      </tr>
+      <tr>
+        <td><strong>Overflow menu (...)</strong></td>
+        <td>Always visible</td>
+        <td>Show on hover</td>
+        <td>Reclaim horizontal space for longer names. Right-click as alternative entry point.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ================================================ -->
+<!-- IMPLEMENTATION PLAN                               -->
+<!-- ================================================ -->
+<div class="section">
+  <h2>Implementation Priority</h2>
+  <p class="desc">Ordered by impact and effort. P0 items are quick wins that should ship first.</p>
+
+  <table class="plan-table">
+    <thead>
+      <tr>
+        <th>Priority</th>
+        <th>Change</th>
+        <th>Effort</th>
+        <th>Impact</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="pri p0">P0</span></td>
+        <td>Rename "New Session CWD" &rarr; "Working Directory" and "Session Metadata" &rarr; "Session Info"</td>
+        <td><span class="effort-badge trivial">Trivial</span></td>
+        <td>Immediate clarity. Two string changes.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p0">P0</span></td>
+        <td>Add model name to session metadata panel</td>
+        <td><span class="effort-badge low">Low</span></td>
+        <td>Critical missing information. Data already available from session.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p0">P0</span></td>
+        <td>Add "time ago" to session cards, replace turn count as primary meta</td>
+        <td><span class="effort-badge low">Low</span></td>
+        <td>Better session scanning. Data already available (lastUpdated).</td>
+      </tr>
+      <tr>
+        <td><span class="pri p1">P1</span></td>
+        <td>Remove CWD row from cards when grouped by directory</td>
+        <td><span class="effort-badge low">Low</span></td>
+        <td>Biggest density win. Removes 24px per card. Show 2x more sessions.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p1">P1</span></td>
+        <td>Replace status Unicode icons with colored dots</td>
+        <td><span class="effort-badge low">Low</span></td>
+        <td>Better scannability. Consistent visual language.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p1">P1</span></td>
+        <td>Add model badge to session cards</td>
+        <td><span class="effort-badge low">Low</span></td>
+        <td>Distinguish sessions by model at a glance.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p1">P1</span></td>
+        <td>Add persistent context bar above chat (CWD + model + status)</td>
+        <td><span class="effort-badge med">Medium</span></td>
+        <td>Biggest UX improvement. Session context always visible.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p1">P1</span></td>
+        <td>Add recent directories dropdown to CWD picker</td>
+        <td><span class="effort-badge med">Medium</span></td>
+        <td>Major usability win. Pull from session history.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p2">P2</span></td>
+        <td>Move last message preview to hover tooltip</td>
+        <td><span class="effort-badge low">Low</span></td>
+        <td>Recover 24px per card. Still accessible on hover.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p2">P2</span></td>
+        <td>Unify sidebar footer (smooth draft &rarr; active transition)</td>
+        <td><span class="effort-badge med">Medium</span></td>
+        <td>No jarring mode switch. Consistent visual weight.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p2">P2</span></td>
+        <td>Add bundle name + duration to session info panel</td>
+        <td><span class="effort-badge low">Low</span></td>
+        <td>More complete session context.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p2">P2</span></td>
+        <td>Show overflow menu on hover only (not always)</td>
+        <td><span class="effort-badge trivial">Trivial</span></td>
+        <td>More horizontal space for session names.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p3">P3</span></td>
+        <td>De-emphasize session ID behind copy button</td>
+        <td><span class="effort-badge trivial">Trivial</span></td>
+        <td>Cleaner metadata panel.</td>
+      </tr>
+      <tr>
+        <td><span class="pri p3">P3</span></td>
+        <td>Context bar expanded/collapsed toggle with progressive disclosure</td>
+        <td><span class="effort-badge med">Medium</span></td>
+        <td>Full metadata without sidebar. Power-user feature.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ================================================ -->
+<!-- FULL APP MOCK: EVERYTHING TOGETHER                -->
+<!-- ================================================ -->
+<div class="section" style="border-bottom:none;">
+  <h2>Full View: All Changes Applied</h2>
+  <p class="desc">The complete proposed UI with all 5 improvements applied together.</p>
+
+  <div class="app" style="height:620px;max-width:900px;">
+    <!-- SIDEBAR -->
+    <div class="sb">
+      <div class="sb-hdr">
+        <span>Sessions</span>
+        <button class="sb-new-btn">+ New</button>
+      </div>
+      <div class="sb-list">
+        <!-- Group 1 -->
+        <div class="grp-hdr"><span class="icon">&rsaquo;</span> ~/repo/amplifier-chat</div>
+
+        <div class="card active">
+          <div class="card-name"><span class="dot green pulse"></span> API Auth Implementation</div>
+          <div class="card-meta"><span>23 min ago</span> <span class="badge model">sonnet-4-5</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-name"><span class="dot muted"></span> Sidebar Refactor</div>
+          <div class="card-meta"><span>1 hr ago</span> <span class="badge model">sonnet-4-5</span> <span class="badge updated">Updated</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-name auto"><span class="dot muted"></span> session / 5 turns</div>
+          <div class="card-meta"><span>2 hr ago</span> <span class="badge model">opus-4-5</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-name"><span class="dot muted"></span> Command palette fixes</div>
+          <div class="card-meta"><span>3 hr ago</span> <span class="badge model">sonnet-4-5</span></div>
+        </div>
+
+        <!-- Group 2 -->
+        <div class="grp-hdr"><span class="icon">&rsaquo;</span> ~/dev/amplifier-core</div>
+
+        <div class="card">
+          <div class="card-name"><span class="dot muted"></span> Release v1.2.6</div>
+          <div class="card-meta"><span>5 hr ago</span> <span class="badge model">opus-4-5</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-name"><span class="dot muted"></span> RetryConfig migration</div>
+          <div class="card-meta"><span>yesterday</span> <span class="badge model">sonnet-4-5</span></div>
+        </div>
+
+        <!-- Group 3 -->
+        <div class="grp-hdr"><span class="icon">&rsaquo;</span> ~/dev/amplifier-foundation</div>
+
+        <div class="card">
+          <div class="card-name"><span class="dot muted"></span> Bundle Guide Updates</div>
+          <div class="card-meta"><span>yesterday</span> <span class="badge model">sonnet-4-5</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-name"><span class="dot muted"></span> Explorer agent fix</div>
+          <div class="card-meta"><span>3 days ago</span> <span class="badge model">opus-4-5</span></div>
+        </div>
+      </div>
+
+      <!-- FOOTER: Session Info panel -->
+      <div class="sb-footer">
+        <div class="ft-label">Session Info</div>
+        <div class="ft-meta">
+          <div class="info-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">model</span> <span class="info-val hi">claude-sonnet-4-5</span></div>
+          <div class="info-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">cwd</span> <span class="info-val">~/repo/amplifier-chat</span></div>
+          <div class="info-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">bundle</span> <span class="info-val">amplifier-start</span></div>
+          <div class="info-row"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">turns</span> <span class="info-val">3 &middot; 23 min</span></div>
+          <div class="info-row" style="opacity:0.5"><span style="font-size:10px;color:var(--text-muted)">&rsaquo;</span> <span class="info-label">sid</span> <span class="info-val" style="font-size:10px">7c13ee7e... <button class="copy-btn">copy</button></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN AREA -->
+    <div class="main">
+      <!-- CONTEXT BAR -->
+      <div class="ctx-bar">
+        <div class="ctx-item"><span style="font-size:10px">&rsaquo;</span> ~/repo/amplifier-chat</div>
+        <span class="ctx-sep">&middot;</span>
+        <div class="ctx-item">claude-sonnet-4-5</div>
+        <span class="ctx-sep">&middot;</span>
+        <div class="ctx-item">turn 3</div>
+        <div class="ctx-status">
+          <span class="dot green"></span>
+          <span style="font-size:11px;color:var(--accent-green)">idle</span>
+          <span style="color:var(--text-muted);font-size:10px;cursor:default">&blacktriangledown;</span>
+        </div>
+      </div>
+
+      <!-- CHAT -->
+      <div class="chat-area">
+        <div class="bubble user">
+          <div class="bubble-inner">Fix the auth middleware to handle expired JWT tokens</div>
+        </div>
+        <div class="bubble assist">
+          <div class="bubble-inner">I'll investigate the authentication middleware. Let me explore the codebase to find the JWT validation logic...</div>
+        </div>
+        <div class="bubble user">
+          <div class="bubble-inner">Focus on the token refresh flow specifically</div>
+        </div>
+        <div class="bubble assist">
+          <div class="bubble-inner">Found the issue. The refresh token validation in <code>auth/jwt.py:142</code> doesn't check the <code>exp</code> claim before attempting a refresh. Here's the fix...</div>
+        </div>
+      </div>
+
+      <div class="input-bar">
+        <div class="input-mock">Send a message...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

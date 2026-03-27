@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amplifier Chat — Product Launch</title>
+<style>
+
+/* ── RESET & BASE ──────────────────────────────────────────── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #000;
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  background: #000;
+}
+
+#viewport {
+  width: 1920px;
+  height: 1080px;
+  background: #0a0a0a;
+  position: absolute;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
+/* ── SCENE BASE ────────────────────────────────────────────── */
+.scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.65s ease;
+}
+.scene.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── PROGRESS BAR ──────────────────────────────────────────── */
+#progress-track {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  z-index: 1000;
+}
+#progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  transition: none;
+}
+
+/* ── CONTROLS HINT ─────────────────────────────────────────── */
+#controls-hint {
+  position: absolute;
+  bottom: 16px; right: 24px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.22);
+  z-index: 1000;
+  letter-spacing: 0.05em;
+  display: flex;
+  gap: 20px;
+}
+
+/* ── PAUSE FLASH ───────────────────────────────────────────── */
+#pause-flash {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2000; pointer-events: none;
+  opacity: 0; transition: opacity 0.25s;
+}
+#pause-flash.show { opacity: 1; }
+#pause-icon {
+  width: 72px; height: 72px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(16px);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; color: rgba(255,255,255,0.85);
+}
+
+/* ╔═══════════════════════════════════════════════════════════
+   KEYFRAME ANIMATIONS
+═══════════════════════════════════════════════════════════╗ */
+
+/* Ken Burns variants */
+@keyframes kbBottomCenter {
+  from { transform: scale(1)    translate(0,    0);     }
+  to   { transform: scale(1.06) translate(0%,  -2.5%); }
+}
+@keyframes kbGentle {
+  from { transform: scale(1)    translate(0,    0);    }
+  to   { transform: scale(1.03) translate(-0.5%, -0.5%); }
+}
+@keyframes kbRightPanel {
+  from { transform: scale(1)    translate(0,  0);    }
+  to   { transform: scale(1.07) translate(-6%, -1%); }
+}
+@keyframes kbCorrelation {
+  from { transform: scale(1)    translate(0,   0);    }
+  to   { transform: scale(1.06) translate(-2%, -2%); }
+}
+@keyframes kbModal {
+  from { transform: scale(1)    translate(0,    0);     }
+  to   { transform: scale(1.05) translate(0%,  -1.5%); }
+}
+
+/* UI micro-animations */
+@keyframes thinkDot {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.75); }
+  40%           { opacity: 1;   transform: scale(1); }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+@keyframes resizerPulse {
+  0%, 100% { opacity: 0.2; }
+  50%      { opacity: 0.85; }
+}
+@keyframes radialBreathe {
+  0%, 100% { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 0.75; transform: translate(-50%, -50%) scale(1.08); }
+}
+@keyframes fadeSlideInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* ╔═══════════════════════════════════════════════════════════
+   SCREENSHOT LAYER
+═══════════════════════════════════════════════════════════╗ */
+
+.ss-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ss-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  will-change: transform;
+  transform-origin: center center;
+}
+
+/* ── Ken Burns triggered by scene becoming active ── */
+/* Gentle KB for first images in crossfade scenes */
+#s5.active [data-kb="gentle"],
+#s7.active [data-kb="gentle"] {
+  animation: kbGentle 6s ease-out forwards;
+}
+
+/* ── Ken Burns for crossfade images — applied via JS at crossfade moment ── */
+.kb-right-panel  { animation: kbRightPanel  14s ease-out forwards !important;
+                   transform-origin: 78% 38% !important; }
+.kb-correlation  { animation: kbCorrelation 14s ease-out forwards !important;
+                   transform-origin: 32% 42% !important; }
+.kb-modal-center { animation: kbModal       14s ease-out forwards !important;
+                   transform-origin: center 68% !important; }
+
+/* ── Crossfade transition on overlay images ── */
+.ss-crossfade {
+  opacity: 0;
+  transition: opacity 0.85s ease;
+}
+
+/* ── Cinematic vignette (always-on) ── */
+.vignette {
+  position: absolute; inset: 0;
+  z-index: 3; pointer-events: none;
+  background: radial-gradient(ellipse at center,
+    transparent 50%, rgba(0,0,0,0.5) 100%);
+}
+
+/* ╔═══════════════════════════════════════════════════════════
+   DIM / SPOTLIGHT OVERLAYS
+═══════════════════════════════════════════════════════════╗ */
+
+.dim-overlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+.dim-overlay.show { opacity: 1; }
+
+/* ╔═══════════════════════════════════════════════════════════
+   RESIZER GLOW — Scene 5
+   Thin vertical bar at resizer position in chat-workspace.png
+═══════════════════════════════════════════════════════════╗ */
+
+.resizer-glow {
+  position: absolute;
+  /* Resizer divider in chat-workspace.png is 1px at x=1437 */
+  left: 1436px; width: 3px;
+  top: 52px; bottom: 0;
+  background: #2563EB;
+  box-shadow: 0 0 8px rgba(37,99,235,0.5), 0 0 20px rgba(37,99,235,0.2);
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.55s ease;
+}
+.resizer-glow.show {
+  opacity: 1;
+  animation: resizerPulse 1.7s ease-in-out infinite;
+}
+
+/* ╔═══════════════════════════════════════════════════════════
+   SCENE VIDEO — fills scene like screenshots do
+═══════════════════════════════════════════════════════════╗ */
+
+.scene-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ╔═══════════════════════════════════════════════════════════
+   CALLOUT LABELS
+═══════════════════════════════════════════════════════════╗ */
+
+/* Standard callout: pill + horizontal stem + dot */
+.callout {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  pointer-events: none;
+  z-index: 60;
+}
+.callout.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.callout-lbl {
+  background: rgba(15,23,42,0.88);
+  border: 1px solid rgba(15,23,42,0.2);
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-size: 12px;
+  color: #F1F5F9;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.callout-stem {
+  height: 1px;
+  background: rgba(15,23,42,0.35);
+  flex-shrink: 0;
+}
+
+.callout-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: rgba(15,23,42,0.5);
+  flex-shrink: 0;
+}
+
+/* Bottom-center annotation (no stem, no dot) */
+.callout-banner {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  pointer-events: none;
+  z-index: 60;
+}
+.callout-banner.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.callout-banner .callout-lbl {
+  font-size: 11px;
+  color: #CBD5E1;
+}
+
+/* ╔═══════════════════════════════════════════════════════════
+   SCENE 1 — OPENING
+═══════════════════════════════════════════════════════════╗ */
+
+#s1 { flex-direction: column; background: #000; z-index: 2; }
+#s1-inner { text-align: center; }
+
+#s1-amplifier {
+  font-size: 128px;
+  font-weight: 700;
+  color: #818cf8;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+#s1-amplifier.visible { opacity: 1; transform: translateY(0); }
+
+#s1-chat {
+  font-size: 80px;
+  font-weight: 300;
+  color: rgba(129,140,248,0.42);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+#s1-chat.visible { opacity: 1; }
+
+#s1-tagline {
+  font-size: 22px;
+  color: #5a5a5a;
+  margin-top: 38px;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+#s1-tagline.visible { opacity: 1; }
+
+/* ╔═══════════════════════════════════════════════════════════
+   FEATURE TITLE CARDS
+═══════════════════════════════════════════════════════════╗ */
+
+.title-scene {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 200px;
+  background: #000;
+  z-index: 2;
+}
+.ft-label {
+  font-size: 12px;
+  color: #6366f1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 20px;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.ft-label.visible { opacity: 1; }
+
+.ft-title {
+  font-size: 108px;
+  font-weight: 700;
+  color: #e8e8e8;
+  letter-spacing: -0.04em;
+  line-height: 0.93;
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.ft-title.visible { opacity: 1; transform: translateY(0); }
+
+.ft-subtitle {
+  font-size: 28px;
+  color: #505050;
+  font-weight: 400;
+  margin-top: 24px;
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transition: opacity 0.5s ease 0.12s;
+}
+.ft-subtitle.visible { opacity: 1; }
+
+.ft-line {
+  height: 3px; width: 0;
+  border-radius: 2px; margin-top: 40px;
+  transition: width 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.15s;
+}
+.ft-line.blue   { background: #3b82f6; }
+.ft-line.purple { background: #5B4DE3; }
+.ft-line.animate { width: 80px; }
+
+/* ╔═══════════════════════════════════════════════════════════
+   SCENE 10 — CLOSING
+═══════════════════════════════════════════════════════════╗ */
+
+#s10 { background: #000; z-index: 2; }
+#s10-inner { position: relative; width: 100%; height: 100%; }
+
+.feat-grid {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 34px 88px;
+  transition: opacity 0.55s ease;
+}
+.feat-grid.fade-out { opacity: 0; }
+
+.feat-item {
+  display: flex; align-items: center; gap: 20px;
+  opacity: 0; transform: translateY(12px);
+  transition: opacity 0.45s, transform 0.45s;
+}
+.feat-item.show { opacity: 1; transform: translateY(0); }
+.feat-emoji { font-size: 32px; }
+.feat-name  { font-size: 22px; color: #e8e8e8; font-weight: 500; letter-spacing: -0.01em; }
+
+.closing-wordmark {
+  position: absolute;
+  font-size: 120px; font-weight: 700;
+  color: #818cf8; letter-spacing: -0.04em; line-height: 1;
+  opacity: 0; transition: opacity 0.75s ease;
+  white-space: nowrap;
+  top: 42%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+.closing-wordmark.show { opacity: 1; }
+
+.closing-tagline {
+  position: absolute;
+  font-size: 30px; color: #e8e8e8; letter-spacing: -0.01em;
+  opacity: 0; transition: opacity 0.65s ease 0.3s;
+  top: 58%; left: 50%;
+  transform: translate(-50%, 0%);
+}
+.closing-tagline.show { opacity: 1; }
+
+.radial-glow {
+  position: absolute;
+  width: 900px; height: 900px;
+  background: radial-gradient(circle, rgba(99,102,241,0.13) 0%, transparent 68%);
+  border-radius: 50%;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0; transition: opacity 1.1s ease;
+  pointer-events: none;
+  animation: radialBreathe 4s ease-in-out infinite;
+}
+.radial-glow.show { opacity: 1; }
+
+</style>
+</head>
+<body>
+
+<div id="stage">
+<div id="viewport">
+
+<!-- PRELOAD all screenshots eagerly -->
+<link rel="preload" as="image" href="video-assets/chat-base.png">
+<link rel="preload" as="image" href="video-assets/chat-workspace.png">
+<link rel="preload" as="image" href="video-assets/chat-correlation.png">
+<link rel="preload" as="image" href="video-assets/chat-header-detail.png">
+
+<!-- PROGRESS BAR -->
+<div id="progress-track"><div id="progress-fill"></div></div>
+
+<!-- CONTROLS HINT -->
+<div id="controls-hint">
+  <span>SPACE · play/pause</span>
+  <span>R · restart</span>
+</div>
+
+<!-- PAUSE FLASH -->
+<div id="pause-flash"><div id="pause-icon">⏸</div></div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 1 · OPENING  (0–4s)
+     Pure text: amplifier / chat / tagline
+═══════════════════════════════════════════════════════════ -->
+<div class="scene" id="s1">
+  <div id="s1-inner">
+    <div id="s1-amplifier">amplifier</div>
+    <div id="s1-chat">chat</div>
+    <div id="s1-tagline">Your AI conversation, reimagined.</div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 2 · TITLE — TYPE AHEAD  (4–6s)
+═══════════════════════════════════════════════════════════ -->
+<div class="scene title-scene" id="s2">
+  <div>
+    <div class="ft-label" id="s2-label">Feature 01</div>
+    <div class="ft-title" id="s2-title">Type Ahead.</div>
+    <div class="ft-subtitle" id="s2-sub">Queue messages while your AI works.</div>
+    <div class="ft-line blue" id="s2-line"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 3 · MESSAGE QUEUE DEMO  (6–18s)
+     Real screenshot: chat-base.png
+     Overlay: queue panel above input area with countdown
+═══════════════════════════════════════════════════════════ -->
+<div class="scene" id="s3">
+
+  <!-- Recorded queue-demo clip — fills scene, plays at 1.75x to fit 12s window -->
+  <video id="s3-video" class="scene-video" muted playsinline
+         src="video-assets/queue-clip.mp4"></video>
+
+  <!-- Cinematic vignette -->
+  <div class="vignette"></div>
+
+  <!-- Callout: Queue panel label (left side, stem pointing right) -->
+  <div class="callout" id="s3-c-queue" style="left: 460px; top: 870px;">
+    <div class="callout-lbl">Queue panel — messages wait here</div>
+    <div class="callout-stem" style="width: 88px; margin-left: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Callout: Countdown label (right side, stem pointing left) -->
+  <div class="callout" id="s3-c-count"
+       style="right: 14px; top: 840px; flex-direction: row-reverse;">
+    <div class="callout-lbl">5-second countdown before sending</div>
+    <div class="callout-stem" style="width: 88px; margin-right: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Callout: Input active (left side, pointing at input bar below) -->
+  <div class="callout" id="s3-c-input" style="left: 460px; top: 1020px;">
+    <div class="callout-lbl">Input stays active while AI works</div>
+    <div class="callout-stem" style="width: 88px; margin-left: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 4 · TITLE — SEE EVERYTHING  (18–20s)
+═══════════════════════════════════════════════════════════ -->
+<div class="scene title-scene" id="s4">
+  <div>
+    <div class="ft-label" id="s4-label">Feature 02</div>
+    <div class="ft-title" id="s4-title">See Everything.</div>
+    <div class="ft-subtitle" id="s4-sub">Conversation meets context.</div>
+    <div class="ft-line blue" id="s4-line"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 5 · SPLIT VIEW DEMO  (20–32s)
+     chat-base.png → dramatic crossfade → chat-workspace.png
+     Ken Burns pans toward right Activity panel
+═══════════════════════════════════════════════════════════ -->
+<div class="scene" id="s5">
+
+  <!-- Screenshot layers: base first, workspace crossfades in on top -->
+  <div class="ss-layer">
+    <img src="video-assets/chat-base.png"
+         class="ss-img" data-kb="gentle"
+         id="s5-img-base" loading="eager" alt="">
+
+    <img src="video-assets/chat-workspace.png"
+         class="ss-img ss-crossfade"
+         id="s5-img-workspace" loading="eager" alt="">
+  </div>
+
+  <div class="vignette"></div>
+
+  <!-- Blue pulse on the resizer divider in the workspace screenshot -->
+  <div class="resizer-glow" id="s5-resizer"></div>
+
+  <!-- Callout: Conversation panel (left side, vertical center of messages) -->
+  <div class="callout" id="s5-c-conv" style="left: 14px; top: 560px;">
+    <div class="callout-lbl">Conversation</div>
+    <div class="callout-stem" style="width: 130px; margin-left: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Callout: Activity panel header label (right side, at y=89) -->
+  <div class="callout" id="s5-c-act"
+       style="right: 14px; top: 89px; flex-direction: row-reverse;">
+    <div class="callout-lbl">Activity</div>
+    <div class="callout-stem" style="width: 185px; margin-right: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Callout: Tool calls content (right side, center of cards zone y=440) -->
+  <div class="callout" id="s5-c-tools"
+       style="right: 14px; top: 440px; flex-direction: row-reverse;">
+    <div class="callout-lbl">Tool calls, thinking, tokens — all visible</div>
+    <div class="callout-stem" style="width: 185px; margin-right: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Callout: Drag to resize (pointing at resizer at x=1437) -->
+  <div class="callout" id="s5-c-resize" style="left: 1449px; top: 534px;">
+    <div class="callout-dot"></div>
+    <div class="callout-stem" style="width: 28px; margin-left: 0; margin-right: 8px;"></div>
+    <div class="callout-lbl">Drag to resize</div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 6 · TITLE — CONNECTED  (32–34s)
+═══════════════════════════════════════════════════════════ -->
+<div class="scene title-scene" id="s6">
+  <div>
+    <div class="ft-label" id="s6-label">Feature 03</div>
+    <div class="ft-title" id="s6-title">Connected.</div>
+    <div class="ft-subtitle" id="s6-sub">Every message tells a story.</div>
+    <div class="ft-line blue" id="s6-line"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 7 · CORRELATION DEMO  (34–46s)
+     chat-workspace.png → crossfade → chat-correlation.png
+     Zooms toward selected message + highlighted activity
+═══════════════════════════════════════════════════════════ -->
+<div class="scene" id="s7">
+
+  <div class="ss-layer">
+    <img src="video-assets/chat-workspace.png"
+         class="ss-img" data-kb="gentle"
+         id="s7-img-workspace" loading="eager" alt="">
+
+    <img src="video-assets/chat-correlation.png"
+         class="ss-img ss-crossfade"
+         id="s7-img-corr" loading="eager" alt="">
+  </div>
+
+  <div class="vignette"></div>
+
+  <!-- Callout: Click any message (left panel, blue bubble center at viewport y=546) -->
+  <div class="callout" id="s7-c-click" style="left: 460px; top: 546px;">
+    <div class="callout-lbl">Click any message</div>
+    <div class="callout-stem" style="width: 165px; margin-left: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Callout: See its activity instantly (right panel, highlighted items center at viewport y=481) -->
+  <div class="callout" id="s7-c-act"
+       style="right: 14px; top: 481px; flex-direction: row-reverse;">
+    <div class="callout-lbl">See its activity instantly</div>
+    <div class="callout-stem" style="width: 210px; margin-right: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Callout: Other turns dim (right panel, dimmed zone at viewport y=830) -->
+  <div class="callout" id="s7-c-dim"
+       style="right: 14px; top: 830px; flex-direction: row-reverse;">
+    <div class="callout-lbl">Other turns dim for focus</div>
+    <div class="callout-stem" style="width: 210px; margin-right: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Bottom banner: bidirectional note (above input area at vp y=960) -->
+  <div class="callout-banner" id="s7-c-bidir"
+       style="bottom: 125px; left: 0; right: 0;">
+    <div class="callout-lbl">↔ &nbsp;Bidirectional — click either side to navigate</div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 8 · TITLE — INTELLIGENT FEEDBACK  (46–48s)
+     Purple accent instead of blue
+═══════════════════════════════════════════════════════════ -->
+<div class="scene title-scene" id="s8">
+  <div>
+    <div class="ft-label" id="s8-label">Feature 04</div>
+    <div class="ft-title" id="s8-title">Intelligent<br>Feedback.</div>
+    <div class="ft-subtitle" id="s8-sub">AI that debugs itself.</div>
+    <div class="ft-line purple" id="s8-line"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 9 · FEEDBACK DEMO  (48–60s)
+     chat-base.png → crossfade → feedback-modal.png
+     + animated analysis panel overlay
+═══════════════════════════════════════════════════════════ -->
+<div class="scene" id="s9">
+
+  <!-- Recorded feedback-demo clip — fills scene, plays at 1.42x to fit 12s window -->
+  <video id="s9-video" class="scene-video" muted playsinline
+         src="video-assets/feedback-clip.mp4"></video>
+
+  <div class="vignette"></div>
+
+  <!-- Callout: Auto-analyzes (right side, pointing at analysis panel) -->
+  <div class="callout" id="s9-c-analyze"
+       style="right: 14px; top: 678px; flex-direction: row-reverse;">
+    <div class="callout-lbl">Auto-analyzes your session</div>
+    <div class="callout-stem" style="width: 150px; margin-right: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Callout: GitHub issues (right side, pointing at findings) -->
+  <div class="callout" id="s9-c-issues"
+       style="right: 14px; top: 818px; flex-direction: row-reverse;">
+    <div class="callout-lbl">Matches known GitHub issues</div>
+    <div class="callout-stem" style="width: 150px; margin-right: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- Callout: One-click to file (left side, pointing at submit button area) -->
+  <div class="callout" id="s9-c-file" style="left: 14px; top: 946px;">
+    <div class="callout-lbl">One-click to file</div>
+    <div class="callout-stem" style="width: 150px; margin-left: 8px;"></div>
+    <div class="callout-dot"></div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 10 · CLOSING  (60–68s)
+     Feature grid → wordmark reveal
+═══════════════════════════════════════════════════════════ -->
+<div class="scene" id="s10">
+  <div id="s10-inner">
+
+    <div class="feat-grid" id="s10-grid">
+      <div class="feat-item" id="s10-i1">
+        <span class="feat-emoji">📨</span>
+        <span class="feat-name">Message Queue</span>
+      </div>
+      <div class="feat-item" id="s10-i2">
+        <span class="feat-emoji">⬜</span>
+        <span class="feat-name">Split View</span>
+      </div>
+      <div class="feat-item" id="s10-i3">
+        <span class="feat-emoji">🔗</span>
+        <span class="feat-name">Correlation</span>
+      </div>
+      <div class="feat-item" id="s10-i4">
+        <span class="feat-emoji">🔍</span>
+        <span class="feat-name">Feedback Analysis</span>
+      </div>
+    </div>
+
+    <div class="radial-glow"    id="s10-glow"></div>
+    <div class="closing-wordmark" id="s10-wm">Amplifier Chat</div>
+    <div class="closing-tagline"  id="s10-tl">Available now.</div>
+
+  </div>
+</div>
+
+
+</div><!-- /#viewport -->
+</div><!-- /#stage -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   VIEWPORT SCALING
+═══════════════════════════════════════════════════════════ */
+function scaleViewport() {
+  const vp = document.getElementById('viewport');
+  const s  = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+  const ml = (window.innerWidth  - 1920 * s) / 2;
+  const mt = (window.innerHeight - 1080 * s) / 2;
+  vp.style.transform  = `scale(${s})`;
+  vp.style.marginLeft = `${ml}px`;
+  vp.style.marginTop  = `${mt}px`;
+}
+window.addEventListener('resize', scaleViewport);
+scaleViewport();
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════ */
+const $   = id => document.getElementById(id);
+const cls = (id, ...cs) => { const el = typeof id === 'string' ? $(id) : id; if (el) el.classList.add(...cs); };
+const ucl = (id, ...cs) => { const el = typeof id === 'string' ? $(id) : id; if (el) el.classList.remove(...cs); };
+
+/* ═══════════════════════════════════════════════════════════
+   TIMELINE ENGINE
+═══════════════════════════════════════════════════════════ */
+const TOTAL_MS = 68000;
+let elapsed = 0;
+let lastTs  = null;
+let playing = true;
+let tlIdx   = 0;
+
+const TL = [];
+function at(t, fn) { TL.push([t, fn]); }
+
+/* ═══════════════════════════════════════════════════════════
+   TIMELINE EVENTS
+═══════════════════════════════════════════════════════════ */
+
+// ── Scene 1: Opening (0–4s) ─────────────────────────────────
+at(   0, () => cls('s1', 'active'));
+at( 300, () => cls('s1-amplifier', 'visible'));
+at( 900, () => cls('s1-chat',      'visible'));
+at(1700, () => cls('s1-tagline',   'visible'));
+at(3500, () => ucl('s1', 'active'));
+
+// ── Scene 2: Title — Type Ahead (4–6s) ─────────────────────
+at(4000, () => cls('s2', 'active'));
+at(4100, () => cls('s2-label', 'visible'));
+at(4320, () => cls('s2-title', 'visible'));
+at(4620, () => cls('s2-sub',   'visible'));
+at(4920, () => cls('s2-line',  'animate'));
+at(5800, () => ucl('s2', 'active'));
+
+// ── Scene 3: Message Queue Demo (6–18s) ────────────────────
+at(6000, () => {
+  cls('s3', 'active');
+  const vid = $('s3-video');
+  vid.currentTime = 0;
+  vid.playbackRate = 1.75;
+  vid.play();
+});
+
+// Callout: queue panel label
+at(10900, () => cls('s3-c-queue', 'visible'));
+
+// Callout: countdown
+at(11800, () => cls('s3-c-count', 'visible'));
+
+// Callout: input active
+at(12700, () => cls('s3-c-input', 'visible'));
+
+at(17600, () => {
+  ucl('s3', 'active');
+  $('s3-video').pause();
+});
+
+// ── Scene 4: Title — See Everything (18–20s) ───────────────
+at(18000, () => cls('s4', 'active'));
+at(18150, () => cls('s4-label', 'visible'));
+at(18370, () => cls('s4-title', 'visible'));
+at(18670, () => cls('s4-sub',   'visible'));
+at(18970, () => cls('s4-line',  'animate'));
+at(19800, () => ucl('s4', 'active'));
+
+// ── Scene 5: Split View Demo (20–32s) ──────────────────────
+at(20000, () => cls('s5', 'active'));
+
+// DRAMATIC MOMENT: chat-base crossfades to chat-workspace
+at(22000, () => {
+  const ws = $('s5-img-workspace');
+  ws.style.opacity = '1';          // triggers CSS transition: opacity 0.85s
+  ws.classList.add('kb-right-panel'); // KB pans toward activity panel
+});
+
+// Resizer glow pulses to draw attention
+at(23300, () => cls('s5-resizer', 'show'));
+
+// Callouts appear as we zoom toward the right panel
+at(24500, () => cls('s5-c-conv',   'visible'));
+at(25400, () => cls('s5-c-act',    'visible'));
+at(26300, () => cls('s5-c-tools',  'visible'));
+at(27200, () => cls('s5-c-resize', 'visible'));
+
+at(31500, () => ucl('s5', 'active'));
+
+// ── Scene 6: Title — Connected (32–34s) ────────────────────
+at(32000, () => cls('s6', 'active'));
+at(32150, () => cls('s6-label', 'visible'));
+at(32370, () => cls('s6-title', 'visible'));
+at(32670, () => cls('s6-sub',   'visible'));
+at(32970, () => cls('s6-line',  'animate'));
+at(33800, () => ucl('s6', 'active'));
+
+// ── Scene 7: Correlation Demo (34–46s) ─────────────────────
+at(34000, () => cls('s7', 'active'));
+
+// Crossfade to correlation screenshot — the moment selection activates
+at(35600, () => {
+  const corr = $('s7-img-corr');
+  corr.style.opacity = '1';
+  corr.classList.add('kb-correlation'); // KB zooms toward selected area
+});
+
+// Callouts reveal the three dimensions of correlation
+at(37500, () => cls('s7-c-click', 'visible'));
+at(38500, () => cls('s7-c-act',   'visible'));
+at(39800, () => cls('s7-c-dim',   'visible'));
+at(41200, () => cls('s7-c-bidir', 'visible'));
+
+at(45500, () => ucl('s7', 'active'));
+
+// ── Scene 8: Title — Intelligent Feedback (46–48s) ─────────
+at(46000, () => cls('s8', 'active'));
+at(46150, () => cls('s8-label', 'visible'));
+at(46370, () => cls('s8-title', 'visible'));
+at(46670, () => cls('s8-sub',   'visible'));
+at(46970, () => cls('s8-line',  'animate'));
+at(47800, () => ucl('s8', 'active'));
+
+// ── Scene 9: Feedback Demo (48–60s) ────────────────────────
+at(48000, () => {
+  cls('s9', 'active');
+  const vid = $('s9-video');
+  vid.currentTime = 0;
+  vid.playbackRate = 1.42;
+  vid.play();
+});
+
+// Callout sequence
+at(55200, () => cls('s9-c-analyze', 'visible'));
+at(56200, () => cls('s9-c-issues',  'visible'));
+at(57200, () => cls('s9-c-file',    'visible'));
+
+at(59500, () => {
+  ucl('s9', 'active');
+  $('s9-video').pause();
+});
+
+// ── Scene 10: Closing (60–68s) ──────────────────────────────
+at(60000, () => cls('s10', 'active'));
+at(60700, () => cls('s10-i1', 'show'));
+at(61200, () => cls('s10-i2', 'show'));
+at(61700, () => cls('s10-i3', 'show'));
+at(62200, () => cls('s10-i4', 'show'));
+at(63300, () => cls('s10-grid', 'fade-out'));
+at(63700, () => { cls('s10-glow', 'show'); cls('s10-wm', 'show'); });
+at(64400, () => cls('s10-tl', 'show'));
+
+// Sort timeline events by time
+TL.sort((a, b) => a[0] - b[0]);
+
+/* ═══════════════════════════════════════════════════════════
+   RAF LOOP
+═══════════════════════════════════════════════════════════ */
+function tick(ts) {
+  if (playing) {
+    if (lastTs !== null) elapsed += ts - lastTs;
+    lastTs = ts;
+  } else {
+    lastTs = null;
+  }
+  if (elapsed > TOTAL_MS) elapsed = TOTAL_MS;
+
+  // Fire queued timeline events
+  while (tlIdx < TL.length && TL[tlIdx][0] <= elapsed) {
+    try { TL[tlIdx][1](); } catch(e) { console.warn('TL error:', e); }
+    tlIdx++;
+  }
+
+  // Update progress bar (avoid triggering transition)
+  $('progress-fill').style.width =
+    (Math.min(elapsed / TOTAL_MS, 1) * 100).toFixed(3) + '%';
+
+  requestAnimationFrame(tick);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET — returns everything to initial state
+═══════════════════════════════════════════════════════════ */
+function resetAll() {
+  elapsed = 0;
+  lastTs  = null;
+  tlIdx   = 0;
+
+  // State classes to purge from every element
+  const stateClasses = [
+    'active', 'visible', 'animate', 'show', 'open',
+    'pulsing', 'clicked', 'selected-msg', 'dimmed-msg',
+    'highlighted', 'corr-highlight', 'dimmed',
+    'send-state', 'sending-out', 'done', 'fade-out',
+    // Ken Burns classes for crossfade images
+    'kb-right-panel', 'kb-correlation', 'kb-modal-center'
+  ];
+  document.querySelectorAll('*').forEach(el => {
+    stateClasses.forEach(c => el.classList.remove(c));
+  });
+
+  // Reset crossfade image opacity (re-enable transition afterward)
+  ['s5-img-workspace', 's7-img-corr'].forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    el.style.transition = 'none';   // skip transition during reset
+    el.style.opacity    = '0';
+    // Re-enable transition on next frame
+    requestAnimationFrame(() => { el.style.transition = ''; });
+  });
+
+  // Pause and rewind scene videos
+  ['s3-video', 's9-video'].forEach(id => {
+    const v = $(id);
+    if (v) { v.pause(); v.currentTime = 0; }
+  });
+
+  $('progress-fill').style.width = '0%';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   KEYBOARD CONTROLS
+═══════════════════════════════════════════════════════════ */
+let flashTimer = null;
+function flashIndicator(icon) {
+  const pf = $('pause-flash');
+  const pi = $('pause-icon');
+  pi.textContent = icon;
+  pf.classList.add('show');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => pf.classList.remove('show'), 680);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    playing = !playing;
+    flashIndicator(playing ? '▶' : '⏸');
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    resetAll();
+    playing = true;
+    flashIndicator('↺');
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   KICK OFF
+═══════════════════════════════════════════════════════════ */
+resetAll();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

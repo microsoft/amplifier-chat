@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Smart Feedback &mdash; How Amplifier Chat Finds What Matters and Lets You Choose What to Share</title>
+    <style>
+        :root {
+            --accent: #3B82F6;
+            --accent-dim: rgba(59, 130, 246, 0.15);
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --green: #30D158;
+            --green-dim: rgba(48, 209, 88, 0.15);
+            --green-glow: rgba(48, 209, 88, 0.3);
+            --red: #FF453A;
+            --red-dim: rgba(255, 69, 58, 0.15);
+            --yellow: #FFD60A;
+            --yellow-dim: rgba(255, 214, 10, 0.15);
+
+            --font-headline: clamp(36px, 8vw, 72px);
+            --font-medium-headline: clamp(24px, 5vw, 48px);
+            --font-subhead: clamp(16px, 3vw, 28px);
+            --font-body: clamp(14px, 2vw, 18px);
+            --font-small: clamp(12px, 1.8vw, 14px);
+            --font-big-number: clamp(60px, 18vw, 160px);
+            --font-medium-number: clamp(36px, 10vw, 80px);
+
+            --padding-slide: clamp(20px, 5vw, 80px);
+            --gap-grid: clamp(16px, 3vw, 40px);
+
+            --surface-1: rgba(255,255,255,0.06);
+            --surface-2: rgba(255,255,255,0.10);
+            --surface-3: rgba(255,255,255,0.15);
+            --border-subtle: rgba(255,255,255,0.12);
+            --border-visible: rgba(255,255,255,0.20);
+
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.7);
+            --text-tertiary: rgba(255,255,255,0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            overscroll-behavior: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .slide {
+            display: none;
+            width: 100vw;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: clamp(60px, 10vw, 120px) var(--padding-slide) clamp(80px, 12vw, 100px);
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .slide.active { display: flex; }
+
+        .center {
+            text-align: center;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Typography */
+        .section-label {
+            font-size: clamp(12px, 1.5vw, 14px);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: clamp(12px, 2vw, 20px);
+        }
+
+        .headline {
+            font-size: var(--font-headline);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: clamp(16px, 3vw, 32px);
+        }
+
+        .medium-headline {
+            font-size: var(--font-medium-headline);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin-bottom: clamp(16px, 3vw, 32px);
+        }
+
+        .subhead {
+            font-size: var(--font-subhead);
+            color: var(--text-secondary);
+            line-height: 1.4;
+            max-width: 700px;
+        }
+
+        .body-text {
+            font-size: var(--font-body);
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .small-text {
+            font-size: var(--font-small);
+            color: var(--text-tertiary);
+        }
+
+        .big-number {
+            font-size: var(--font-big-number);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--accent), #60A5FA);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .medium-number {
+            font-size: var(--font-medium-number);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            color: var(--accent);
+        }
+
+        /* Status badge */
+        .status-badge {
+            display: inline-block;
+            padding: clamp(4px, 0.8vw, 6px) clamp(10px, 2vw, 16px);
+            background: var(--green-dim);
+            border: 1px solid var(--green-glow);
+            border-radius: 100px;
+            font-size: var(--font-small);
+            font-weight: 600;
+            color: var(--green);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* Layout */
+        .thirds {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+            gap: var(--gap-grid);
+            width: 100%;
+        }
+
+        .halves {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+            gap: var(--gap-grid);
+            width: 100%;
+        }
+
+        .card {
+            background: var(--surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: clamp(12px, 2vw, 16px);
+            padding: clamp(16px, 4vw, 28px);
+        }
+
+        .card-elevated {
+            background: var(--surface-2);
+            border: 1px solid var(--border-visible);
+            border-radius: clamp(12px, 2vw, 16px);
+            padding: clamp(20px, 4vw, 32px);
+        }
+
+        .card h3 {
+            color: var(--text-primary);
+            font-size: clamp(16px, 2.5vw, 22px);
+            font-weight: 600;
+            margin-bottom: clamp(6px, 1vw, 10px);
+        }
+
+        .card p, .card li, .card-elevated p {
+            color: var(--text-secondary);
+            font-size: var(--font-body);
+            line-height: 1.5;
+        }
+
+        .card .icon {
+            font-size: clamp(28px, 5vw, 48px);
+            margin-bottom: clamp(8px, 1.5vw, 14px);
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: var(--surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: clamp(12px, 3vw, 20px) clamp(16px, 4vw, 28px);
+            font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: clamp(12px, 1.8vw, 15px);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+        }
+
+        .code-green { color: #30D158; }
+        .code-comment { color: rgba(255,255,255,0.4); }
+        .code-accent { color: var(--accent); }
+        .code-blue { color: #64D2FF; }
+        .code-yellow { color: #FFD60A; }
+        .code-red { color: #FF453A; }
+
+        /* Step flow */
+        .step-flow {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(12px, 2vw, 20px);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: clamp(12px, 2vw, 20px);
+        }
+
+        .step-num {
+            flex-shrink: 0;
+            width: clamp(32px, 5vw, 44px);
+            height: clamp(32px, 5vw, 44px);
+            background: var(--accent-dim);
+            border: 1px solid var(--accent-glow);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(14px, 2vw, 18px);
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .step-content h4 {
+            font-size: clamp(16px, 2.5vw, 20px);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            font-size: var(--font-body);
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .step-content code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: clamp(11px, 1.5vw, 13px);
+            background: var(--surface-1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent);
+        }
+
+        /* Velocity grid */
+        .velocity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+            gap: var(--gap-grid);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .velocity-stat { text-align: center; }
+
+        .velocity-number {
+            font-size: clamp(36px, 8vw, 64px);
+            font-weight: 800;
+            color: var(--accent);
+            line-height: 1.1;
+        }
+
+        .velocity-label {
+            font-size: var(--font-small);
+            color: var(--text-secondary);
+            margin-top: clamp(4px, 0.8vw, 8px);
+        }
+
+        /* Insight quote */
+        .insight-quote {
+            font-size: clamp(20px, 4vw, 36px);
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.35;
+            max-width: 750px;
+            border-left: 3px solid var(--accent);
+            padding-left: clamp(16px, 3vw, 28px);
+        }
+
+        /* Comparison table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            max-width: 700px;
+        }
+
+        .comparison-table th {
+            color: var(--accent);
+            font-size: var(--font-small);
+            font-weight: 600;
+            text-align: left;
+            padding: clamp(10px, 2vw, 16px);
+            border-bottom: 1px solid var(--border-visible);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .comparison-table td {
+            color: var(--text-secondary);
+            font-size: clamp(16px, 2.5vw, 22px);
+            padding: clamp(10px, 2vw, 16px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .comparison-table td:first-child {
+            color: var(--text-tertiary);
+            font-size: var(--font-body);
+            font-weight: 500;
+        }
+
+        .comparison-table .highlight {
+            color: #30D158;
+            font-weight: 700;
+        }
+
+        .comparison-table .dim {
+            color: var(--text-tertiary);
+        }
+
+        /* Mock UI components */
+        .mock-modal {
+            background: #1C1C1E;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: clamp(12px, 2vw, 16px);
+            padding: clamp(20px, 4vw, 32px);
+            width: 100%;
+            max-width: 560px;
+            text-align: left;
+        }
+
+        .mock-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: clamp(12px, 2vw, 20px);
+        }
+
+        .mock-modal-title {
+            font-size: clamp(16px, 2.5vw, 20px);
+            font-weight: 600;
+        }
+
+        .mock-close {
+            color: var(--text-tertiary);
+            font-size: clamp(18px, 3vw, 24px);
+            cursor: default;
+        }
+
+        .mock-categories {
+            display: flex;
+            gap: 8px;
+            margin-bottom: clamp(12px, 2vw, 20px);
+        }
+
+        .mock-cat {
+            padding: clamp(4px, 0.8vw, 6px) clamp(10px, 2vw, 14px);
+            border-radius: 100px;
+            font-size: var(--font-small);
+            font-weight: 500;
+            background: var(--surface-1);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        .mock-cat.active {
+            background: var(--red-dim);
+            border-color: rgba(255, 69, 58, 0.3);
+            color: var(--red);
+        }
+
+        .mock-input {
+            width: 100%;
+            background: var(--surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: clamp(8px, 1.5vw, 12px);
+            font-size: var(--font-body);
+            color: var(--text-primary);
+            margin-bottom: clamp(8px, 1.5vw, 12px);
+        }
+
+        .mock-label {
+            font-size: var(--font-small);
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .mock-analysis-box {
+            background: var(--surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: clamp(12px, 2vw, 16px);
+            margin-bottom: clamp(12px, 2vw, 16px);
+        }
+
+        .mock-log-entry {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: var(--font-small);
+            color: var(--text-secondary);
+            padding: 4px 0;
+        }
+
+        .mock-spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid var(--accent-dim);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .mock-check {
+            color: var(--green);
+            font-weight: 700;
+            font-size: 14px;
+            width: 12px;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .mock-finding-group {
+            margin-top: clamp(8px, 1.5vw, 12px);
+        }
+
+        .mock-finding-header {
+            font-size: var(--font-small);
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .mock-finding {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: clamp(6px, 1vw, 10px) 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .mock-finding:last-child { border-bottom: none; }
+
+        .mock-checkbox {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--accent);
+            border-radius: 4px;
+            flex-shrink: 0;
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: var(--accent);
+        }
+
+        .mock-checkbox.checked { background: var(--accent-dim); }
+        .mock-checkbox.unchecked {
+            border-color: var(--text-tertiary);
+            background: transparent;
+        }
+
+        .mock-finding-text {
+            font-size: var(--font-small);
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .mock-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 100px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 6px;
+        }
+
+        .mock-badge.open { background: var(--green-dim); color: var(--green); }
+        .mock-badge.closed { background: var(--surface-2); color: var(--text-tertiary); }
+
+        .mock-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: clamp(12px, 2vw, 16px);
+        }
+
+        .mock-btn {
+            padding: clamp(6px, 1vw, 10px) clamp(14px, 3vw, 20px);
+            border-radius: 8px;
+            font-size: var(--font-small);
+            font-weight: 600;
+            border: none;
+            cursor: default;
+        }
+
+        .mock-btn-cancel {
+            background: var(--surface-1);
+            color: var(--text-secondary);
+        }
+
+        .mock-btn-submit {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* Arrow connector */
+        .arrow-connector {
+            font-size: clamp(24px, 5vw, 48px);
+            color: var(--text-tertiary);
+            text-align: center;
+            padding: clamp(8px, 2vw, 16px) 0;
+        }
+
+        /* Flow diagram */
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: clamp(8px, 1.5vw, 14px);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .flow-node {
+            background: var(--surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: clamp(10px, 2vw, 16px) clamp(20px, 4vw, 32px);
+            font-size: var(--font-body);
+            color: var(--text-secondary);
+            text-align: center;
+            width: 100%;
+        }
+
+        .flow-node.active-node {
+            border-color: var(--accent-glow);
+            background: var(--accent-dim);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .flow-node.green-node {
+            border-color: var(--green-glow);
+            background: var(--green-dim);
+            color: var(--green);
+            font-weight: 600;
+        }
+
+        .flow-arrow {
+            font-size: clamp(16px, 2.5vw, 24px);
+            color: var(--text-tertiary);
+        }
+
+        /* Done list */
+        .done-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .done-list li {
+            font-size: var(--font-body);
+            color: var(--text-secondary);
+            padding: clamp(6px, 1vw, 10px) 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            gap: clamp(8px, 1.5vw, 12px);
+        }
+
+        .done-list li:last-child { border-bottom: none; }
+
+        .done-check {
+            color: #30D158;
+            font-weight: 700;
+            font-size: clamp(16px, 2.5vw, 20px);
+            flex-shrink: 0;
+        }
+
+        /* Navigation */
+        .nav {
+            position: fixed;
+            bottom: clamp(16px, 3vw, 28px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 100;
+        }
+
+        .nav-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .nav-dot.active {
+            background: var(--accent);
+            transform: scale(1.3);
+        }
+
+        .slide-counter {
+            position: fixed;
+            bottom: clamp(16px, 3vw, 28px);
+            right: clamp(16px, 3vw, 28px);
+            font-size: clamp(11px, 1.5vw, 13px);
+            color: rgba(255,255,255,0.3);
+            font-variant-numeric: tabular-nums;
+            z-index: 100;
+        }
+
+        .more-stories {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: clamp(11px, 1.5vw, 12px);
+            color: rgba(255,255,255,0.3);
+            text-decoration: none;
+            z-index: 100;
+            display: none;
+        }
+        .more-stories:hover { color: rgba(255,255,255,0.5); }
+
+        /* Spacer */
+        .spacer { height: clamp(16px, 3vw, 32px); }
+        .spacer-lg { height: clamp(24px, 5vw, 48px); }
+
+        /* Landscape mobile */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .slide {
+                padding: 16px var(--padding-slide) 60px;
+            }
+            .slide.center {
+                justify-content: flex-start;
+                padding-top: 24px;
+            }
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            .slide, .slide * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Slide 1: Title -->
+    <div class="slide active center">
+        <div class="section-label">Amplifier Chat</div>
+        <h1 class="headline">Smart Feedback</h1>
+        <p class="subhead">How Amplifier Chat finds only what matters on your system &mdash; and lets you choose exactly what to share</p>
+        <div class="spacer-lg"></div>
+        <div class="status-badge">Shipping &mdash; March 2026</div>
+        <div class="spacer"></div>
+        <div class="small-text">Automated system analysis with full user control</div>
+    </div>
+
+    <!-- Slide 2: The Problem -->
+    <div class="slide">
+        <div class="section-label">The Problem</div>
+        <h2 class="headline">Bug reports are either too much or too little</h2>
+        <div class="spacer"></div>
+        <div class="thirds">
+            <div class="card">
+                <div class="icon">&bull;&bull;&bull;</div>
+                <h3>Too Vague</h3>
+                <p>"It crashed." No logs. No error messages. No reproduction steps. Developers spend more time asking for details than fixing the bug.</p>
+            </div>
+            <div class="card">
+                <div class="icon">&gt;_</div>
+                <h3>Too Much</h3>
+                <p>Full terminal dumps. Entire log files. Screenshots of every window. The signal is buried in 200 lines of noise that developers have to sift through.</p>
+            </div>
+            <div class="card">
+                <div class="icon">?!</div>
+                <h3>Privacy Anxiety</h3>
+                <p>"What if my API keys are in the logs?" Users don't know what's in their session data. So they share nothing &mdash; or share everything and worry.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3: The Insight -->
+    <div class="slide center">
+        <div class="section-label">The Insight</div>
+        <div class="spacer"></div>
+        <div class="insight-quote">
+            The AI already knows what went wrong.<br>
+            It has the session transcript. It can read the server logs. It can search GitHub.<br><br>
+            Why make the user do that work?
+        </div>
+    </div>
+
+    <!-- Slide 4: The Approach -->
+    <div class="slide center">
+        <div class="section-label">The Approach</div>
+        <h2 class="medium-headline">Recipe-driven analysis<br>with human-in-the-loop consent</h2>
+        <div class="spacer"></div>
+        <div class="flow-diagram">
+            <div class="flow-node">User clicks feedback button</div>
+            <div class="flow-arrow">&darr;</div>
+            <div class="flow-node active-node">Recipe analyzes session logs, server logs, GitHub issues</div>
+            <div class="flow-arrow">&darr;</div>
+            <div class="flow-node green-node">Findings shown with checkboxes &mdash; user chooses what to include</div>
+            <div class="flow-arrow">&darr;</div>
+            <div class="flow-node">Only checked items go into the GitHub issue</div>
+        </div>
+        <div class="spacer-lg"></div>
+        <p class="body-text" style="max-width: 600px; text-align: center;">Nothing leaves the user's machine without their explicit review and approval.</p>
+    </div>
+
+    <!-- Slide 5: Step 1 - One Button -->
+    <div class="slide">
+        <div class="section-label">Step 1</div>
+        <h2 class="medium-headline">One button. Zero effort.</h2>
+        <div class="spacer"></div>
+        <div class="halves" style="align-items: start;">
+            <div>
+                <p class="body-text" style="margin-bottom: clamp(12px, 2vw, 20px);">A feedback button lives in the header of every chat session. When something goes wrong, the user clicks it. That's their only job.</p>
+                <p class="body-text" style="margin-bottom: clamp(12px, 2vw, 20px);">Behind the scenes, a modal opens with a simple form: title, description, category (Bug / Feature / General).</p>
+                <p class="body-text">The moment the modal opens, analysis begins automatically. The user fills in their description while the system works in the background.</p>
+            </div>
+            <div class="mock-modal" style="transform: scale(0.95);">
+                <div class="mock-modal-header">
+                    <span class="mock-modal-title">Send Feedback</span>
+                    <span class="mock-close">&times;</span>
+                </div>
+                <div class="mock-categories">
+                    <span class="mock-cat active">Bug</span>
+                    <span class="mock-cat">Feature</span>
+                    <span class="mock-cat">General</span>
+                </div>
+                <span class="mock-label">Title *</span>
+                <div class="mock-input" style="color: var(--text-primary);">Provider timeout on long prompts</div>
+                <span class="mock-label">Details</span>
+                <div class="mock-input" style="min-height: 48px; color: var(--text-tertiary);">Tell us more (optional)...</div>
+                <span class="mock-label">Analysis</span>
+                <div class="mock-analysis-box">
+                    <div class="mock-log-entry"><span class="mock-check">&check;</span> Starting analysis...</div>
+                    <div class="mock-log-entry"><span class="mock-check">&check;</span> Reading session logs...</div>
+                    <div class="mock-log-entry"><span class="mock-spinner"></span> Searching GitHub issues...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 6: Step 2 - The Recipe -->
+    <div class="slide">
+        <div class="section-label">Step 2</div>
+        <h2 class="medium-headline">The recipe reads three sources</h2>
+        <div class="spacer"></div>
+        <div class="step-flow">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <h4>Session transcript</h4>
+                    <p>Reads <code>transcript.jsonl</code> &mdash; looks only for infrastructure failures: <code>tool:error</code>, <code>provider:error</code>, unhandled exceptions. Ignores conversation content entirely.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <h4>Server logs</h4>
+                    <p>Reads <code>serve.log</code> for HTTP 5xx responses, SSE subscriber drops, connection errors, and tracebacks correlated with the session ID.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <h4>GitHub issue search</h4>
+                    <p>For each error pattern found, runs <code>gh issue list</code> to find existing related issues. Rates each match as high, medium, or low confidence.</p>
+                </div>
+            </div>
+        </div>
+        <div class="spacer-lg"></div>
+        <div class="card-elevated" style="max-width: 700px;">
+            <p style="color: var(--accent); font-weight: 600; margin-bottom: 8px;">What it ignores</p>
+            <p>User messages. Assistant responses. What you asked about. The content of successful tool calls. Anything that isn't a platform-level failure. The prompt is explicitly scoped to infrastructure only.</p>
+        </div>
+    </div>
+
+    <!-- Slide 7: The Recipe YAML -->
+    <div class="slide">
+        <div class="section-label">Under the Hood</div>
+        <h2 class="medium-headline">A declarative recipe defines the pipeline</h2>
+        <div class="spacer"></div>
+        <div class="code-block" style="max-width: 800px;"><span class="code-accent">name:</span> <span class="code-green">"feedback-analysis"</span>
+<span class="code-accent">steps:</span>
+  - <span class="code-accent">id:</span> <span class="code-green">"github-search"</span>
+    <span class="code-accent">agent:</span> <span class="code-blue">foundation:explorer</span>
+    <span class="code-accent">prompt:</span> <span class="code-comment">|</span>
+      <span class="code-comment">Extract error signatures from transcript...</span>
+      <span class="code-comment">Search GitHub for each pattern...</span>
+      <span class="code-comment">Rate confidence: high / medium / low</span>
+    <span class="code-accent">output:</span> <span class="code-yellow">github_findings</span>
+
+  - <span class="code-accent">id:</span> <span class="code-green">"log-analysis"</span>
+    <span class="code-accent">agent:</span> <span class="code-blue">foundation:explorer</span>
+    <span class="code-accent">prompt:</span> <span class="code-comment">|</span>
+      <span class="code-comment">Find ALL errors in transcript + server logs...</span>
+      <span class="code-comment">Merge with {{github_findings}} from step 1...</span>
+      <span class="code-comment">Return unified JSON array</span>
+    <span class="code-accent">output:</span> <span class="code-yellow">all_findings</span></div>
+        <div class="spacer"></div>
+        <p class="body-text" style="max-width: 700px;">Two steps. Step 1 searches GitHub for known issues. Step 2 reads all logs and merges everything into a single findings array. The output feeds directly into the UI.</p>
+    </div>
+
+    <!-- Slide 8: Step 3 - Findings Displayed -->
+    <div class="slide">
+        <div class="section-label">Step 3</div>
+        <h2 class="medium-headline">Every finding gets a checkbox</h2>
+        <div class="spacer"></div>
+        <div class="halves" style="align-items: start;">
+            <div>
+                <p class="body-text" style="margin-bottom: clamp(12px, 2vw, 20px);">Findings are grouped into three categories: Related Issues, Session Errors, and Server Logs. Each one is shown with enough context to understand &mdash; but no more.</p>
+                <p class="body-text" style="margin-bottom: clamp(12px, 2vw, 20px);">Every finding starts checked. The user unchecks anything they don't want in the report. Expandable details let them inspect stack traces and log context before deciding.</p>
+                <p class="body-text">Low-confidence GitHub matches are automatically filtered out. Only high and medium confidence issues make the cut.</p>
+            </div>
+            <div class="mock-modal" style="transform: scale(0.95);">
+                <div style="font-size: var(--font-small); color: var(--text-secondary); margin-bottom: 12px;">3 findings &mdash; uncheck to exclude</div>
+                <div class="mock-finding-group">
+                    <div class="mock-finding-header">Related Issues</div>
+                    <div class="mock-finding">
+                        <div class="mock-checkbox checked">&check;</div>
+                        <div class="mock-finding-text">#142 &mdash; Provider timeout on streaming responses <span class="mock-badge open">open</span></div>
+                    </div>
+                </div>
+                <div class="mock-finding-group">
+                    <div class="mock-finding-header">Session Errors</div>
+                    <div class="mock-finding">
+                        <div class="mock-checkbox checked">&check;</div>
+                        <div class="mock-finding-text">provider:error &mdash; ReadTimeout after 120s on turn 4</div>
+                    </div>
+                    <div class="mock-finding">
+                        <div class="mock-checkbox unchecked"></div>
+                        <div class="mock-finding-text" style="color: var(--text-tertiary); text-decoration: line-through;">tool:error &mdash; bash timeout (unrelated)</div>
+                    </div>
+                </div>
+                <div class="mock-actions">
+                    <span class="mock-btn mock-btn-cancel">Cancel</span>
+                    <span class="mock-btn mock-btn-submit">Submit</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 9: What Developers Receive -->
+    <div class="slide">
+        <div class="section-label">Step 4</div>
+        <h2 class="medium-headline">Developers get exactly what they need</h2>
+        <div class="spacer"></div>
+        <div class="code-block" style="max-width: 800px;"><span class="code-comment">## Bug Report: Provider timeout on long prompts</span>
+
+<span class="code-accent">**Category:**</span> Bug
+<span class="code-accent">**Description:**</span> Streaming response hangs after ~2 minutes
+
+<span class="code-comment">### Related Issues</span>
+<span class="code-blue">#142</span> &mdash; Provider timeout on streaming responses <span class="code-green">[open]</span>
+  <span class="code-comment">Match confidence: high &mdash; same ReadTimeout, same component</span>
+
+<span class="code-comment">### Session Errors</span>
+<span class="code-red">provider:error</span> at turn 4
+  Type: <span class="code-yellow">ReadTimeout</span>
+  Message: "Timed out after 120.0s"
+  Traceback:
+    <span class="code-comment">provider_anthropic/client.py:89 in _stream_response</span>
+    <span class="code-comment">httpx/_client.py:1574 in send</span>
+
+<span class="code-accent">**User Agent:**</span> <span class="code-comment">Mozilla/5.0 ... Chrome/135</span></div>
+        <div class="spacer"></div>
+        <p class="body-text" style="max-width: 700px;">The issue opens on GitHub pre-filled with structured data. Error type, traceback frames, related issues, and user context. No conversation content. No API keys. Just the infrastructure failure.</p>
+    </div>
+
+    <!-- Slide 10: The Privacy Guarantee -->
+    <div class="slide center">
+        <div class="section-label">Privacy by Design</div>
+        <h2 class="headline">Three layers of protection</h2>
+        <div class="spacer"></div>
+        <div class="thirds" style="max-width: 900px;">
+            <div class="card">
+                <h3 style="color: var(--accent);">Scoped prompt</h3>
+                <p>The analysis prompt is explicitly instructed to look ONLY for infrastructure failures. It ignores user messages, assistant responses, and conversation content.</p>
+            </div>
+            <div class="card">
+                <h3 style="color: var(--green);">Checkbox consent</h3>
+                <p>Every finding is presented individually with expandable details. Users review each one and uncheck anything they don't want shared. Nothing is auto-sent.</p>
+            </div>
+            <div class="card">
+                <h3 style="color: var(--yellow);">Local execution</h3>
+                <p>The entire analysis runs locally on the user's machine. The hidden analysis session uses the same local Amplifier daemon. No data leaves until the user clicks Submit.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 11: Before vs After -->
+    <div class="slide center">
+        <div class="section-label">The Difference</div>
+        <h2 class="medium-headline">Before and after</h2>
+        <div class="spacer"></div>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Before</th>
+                    <th>After</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>User effort</td>
+                    <td class="dim">Copy logs, screenshot, describe</td>
+                    <td class="highlight">Click button, review checkboxes</td>
+                </tr>
+                <tr>
+                    <td>Signal quality</td>
+                    <td class="dim">Varies &mdash; usually too vague or noisy</td>
+                    <td class="highlight">Structured errors + tracebacks + related issues</td>
+                </tr>
+                <tr>
+                    <td>Privacy control</td>
+                    <td class="dim">Hope nothing sensitive is in the dump</td>
+                    <td class="highlight">Review every item, uncheck to exclude</td>
+                </tr>
+                <tr>
+                    <td>Duplicate detection</td>
+                    <td class="dim">Manual search or guess</td>
+                    <td class="highlight">Automatic, confidence-rated</td>
+                </tr>
+                <tr>
+                    <td>Back-and-forth</td>
+                    <td class="dim">3&ndash;5 messages asking for logs, tracebacks</td>
+                    <td class="highlight">First report is actionable &mdash; zero follow-ups</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Slide 12: Architecture Overview -->
+    <div class="slide">
+        <div class="section-label">Architecture</div>
+        <h2 class="medium-headline">How the pieces connect</h2>
+        <div class="spacer"></div>
+        <div class="code-block" style="max-width: 800px; font-size: clamp(11px, 1.5vw, 14px);"><span class="code-accent">feedback-widget.js</span>            <span class="code-comment"># Frontend &mdash; modal UI, SSE listener</span>
+        &darr;  POST /chat/api/feedback/analyze
+<span class="code-accent">feedback.py</span>                    <span class="code-comment"># Backend &mdash; creates hidden session</span>
+        &darr;  Creates analysis session (hidden: true)
+        &darr;  Builds scoped analysis prompt
+        &darr;  Kicks off background execution
+<span class="code-accent">amplifierd daemon</span>              <span class="code-comment"># Runs analysis via LLM + tools</span>
+        &darr;  Reads transcript.jsonl
+        &darr;  Reads serve.log
+        &darr;  Runs gh issue list
+        &darr;  Returns JSON array of findings
+<span class="code-accent">feedback-widget.js</span>            <span class="code-comment"># Receives via SSE stream</span>
+        &darr;  Parses findings, filters low-confidence
+        &darr;  Renders checkboxes per finding
+        &darr;  User reviews, unchecks, submits
+<span class="code-green">GitHub</span>                         <span class="code-comment"># Pre-filled issue with checked items only</span></div>
+        <div class="spacer"></div>
+        <p class="body-text" style="max-width: 700px;">The analysis session is marked <code style="color: var(--accent); background: var(--surface-1); padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 0.9em;">hidden: true</code> so it never appears in the user's session history. It runs in the background while they type their description.</p>
+    </div>
+
+    <!-- Slide 13: Key Design Decisions -->
+    <div class="slide">
+        <div class="section-label">Design Decisions</div>
+        <h2 class="medium-headline">Why it works this way</h2>
+        <div class="spacer"></div>
+        <div class="step-flow">
+            <div class="step">
+                <div class="step-num" style="background: var(--accent-dim); border-color: var(--accent-glow); color: var(--accent);">?</div>
+                <div class="step-content">
+                    <h4>Why a hidden session instead of a direct API call?</h4>
+                    <p>The analysis needs to call tools (read_file, bash, grep) and reason about errors. That's exactly what an Amplifier session does. A hidden session reuses the full agent loop &mdash; no special infrastructure needed.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num" style="background: var(--accent-dim); border-color: var(--accent-glow); color: var(--accent);">?</div>
+                <div class="step-content">
+                    <h4>Why filter low-confidence GitHub matches?</h4>
+                    <p>Keyword overlap creates false positives. "Timeout" matches dozens of issues. Only high and medium matches are actionable &mdash; low confidence just creates noise.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num" style="background: var(--accent-dim); border-color: var(--accent-glow); color: var(--accent);">?</div>
+                <div class="step-content">
+                    <h4>Why checkboxes instead of a summary?</h4>
+                    <p>Summaries hide detail. Checkboxes give the user granular control. They can exclude an unrelated bash timeout while keeping the provider error. The user is the final arbiter.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num" style="background: var(--accent-dim); border-color: var(--accent-glow); color: var(--accent);">?</div>
+                <div class="step-content">
+                    <h4>Why open GitHub instead of sending directly?</h4>
+                    <p>Opening GitHub lets the user review the issue one more time before creating it. They can edit the title, add context, or cancel. No surprises, no auto-filing.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 14: Impact -->
+    <div class="slide center">
+        <div class="section-label">Impact</div>
+        <h2 class="medium-headline">What this changes</h2>
+        <div class="spacer"></div>
+        <div class="velocity-grid">
+            <div class="velocity-stat">
+                <div class="velocity-number">0</div>
+                <div class="velocity-label">Follow-up messages<br>asking for logs or details</div>
+            </div>
+            <div class="velocity-stat">
+                <div class="velocity-number">0</div>
+                <div class="velocity-label">Lines of logs<br>the user reads</div>
+            </div>
+            <div class="velocity-stat">
+                <div class="velocity-number">100%</div>
+                <div class="velocity-label">User control<br>over shared data</div>
+            </div>
+        </div>
+        <div class="spacer-lg"></div>
+        <div class="insight-quote" style="font-size: clamp(18px, 3.5vw, 28px);">
+            Users send better reports because the system does the investigation.<br>
+            Developers fix faster because the reports contain structured evidence.
+        </div>
+    </div>
+
+    <!-- Slide 15: Summary -->
+    <div class="slide">
+        <div class="section-label">Summary</div>
+        <h2 class="medium-headline">The feedback loop, closed</h2>
+        <div class="spacer"></div>
+        <ul class="done-list" style="max-width: 700px;">
+            <li><span class="done-check">&check;</span> User clicks one button &mdash; analysis runs in the background</li>
+            <li><span class="done-check">&check;</span> Recipe reads transcript, server logs, and GitHub &mdash; not conversation content</li>
+            <li><span class="done-check">&check;</span> Findings displayed with checkboxes &mdash; user controls every item</li>
+            <li><span class="done-check">&check;</span> Low-confidence matches filtered automatically &mdash; less noise</li>
+            <li><span class="done-check">&check;</span> GitHub issue pre-filled with structured data &mdash; more signal</li>
+            <li><span class="done-check">&check;</span> Everything runs locally &mdash; nothing leaves without explicit consent</li>
+        </ul>
+        <div class="spacer-lg"></div>
+        <div class="card-elevated" style="max-width: 700px;">
+            <p style="color: var(--text-primary); font-weight: 600; margin-bottom: 8px;">The principle</p>
+            <p>The AI finds the needles in the haystack. The user decides which needles to share. The developer gets exactly what they need to fix the problem.</p>
+        </div>
+    </div>
+
+    <!-- Slide 16: CTA -->
+    <div class="slide center">
+        <div class="section-label">Amplifier Chat</div>
+        <h2 class="headline">Feedback that helps &mdash; without oversharing</h2>
+        <div class="spacer-lg"></div>
+        <p class="subhead">Built into every session. Zero configuration. Full user control.</p>
+        <div class="spacer-lg"></div>
+        <div class="small-text">Amplifier Chat &middot; Feedback Analysis &middot; March 2026</div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav" id="nav"></div>
+    <div class="slide-counter" id="counter"></div>
+    <a href="index.html" class="more-stories">More Amplifier Stories</a>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        let currentSlide = 0;
+
+        function showSlide(n) {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (n + slides.length) % slides.length;
+            slides[currentSlide].classList.add('active');
+            updateNav();
+        }
+
+        function updateNav() {
+            const nav = document.getElementById('nav');
+            const counter = document.getElementById('counter');
+            nav.innerHTML = '';
+            slides.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'nav-dot' + (i === currentSlide ? ' active' : '');
+                dot.onclick = (e) => { e.stopPropagation(); showSlide(i); };
+                nav.appendChild(dot);
+            });
+            counter.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); showSlide(currentSlide + 1); }
+            if (e.key === 'ArrowLeft') { e.preventDefault(); showSlide(currentSlide - 1); }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.nav') || e.target.closest('a')) return;
+            if (e.clientX > window.innerWidth / 2) showSlide(currentSlide + 1);
+            else showSlide(currentSlide - 1);
+        });
+
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const SWIPE_THRESHOLD = 50;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > SWIPE_THRESHOLD) {
+                if (diff > 0) showSlide(currentSlide + 1);
+                else showSlide(currentSlide - 1);
+            }
+        }, { passive: true });
+
+        updateNav();
+    </script>
+</body>
+</html>

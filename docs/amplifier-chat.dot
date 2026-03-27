@@ -1,0 +1,240 @@
+digraph amplifier_chat {
+    label="amplifier-chat — Browser Chat UI Plugin for amplifierd"
+    labelloc=t
+    rankdir=TB
+    compound=true
+    nodesep=0.5
+    ranksep=0.8
+    fontname="Helvetica"
+    fontsize=14
+
+    node [fontname="Helvetica" fontsize=10 style="rounded,filled"]
+    edge [fontname="Helvetica" fontsize=9 color="#555555"]
+
+    // ── TIER 0: Entry Points ──────────────────────────────────────────────────────
+    subgraph cluster_startup {
+        label="TIER 0 — Startup / Entry Points"
+        style=filled fillcolor="#F1F8E9" color="#558B2F" fontcolor="#33691E" fontsize=12
+
+        cli_entry [
+            shape=box fillcolor="#AED581"
+            label="amplifier-chat CLI\n(cli.py)\nProduction launcher: starts uvicorn,\nopens browser tab after 1.5 s"
+        ]
+        plugin_entry [
+            shape=box fillcolor="#AED581"
+            label="Plugin Entry Point\n(create_router)\nDaemon discovers plugin via\nPython entry_points(); wires live state"
+        ]
+        dev_server [
+            shape=box fillcolor="#AED581"
+            label="Dev Server (__main__.py)\nMock daemon for frontend iteration;\nno real AI or backend required"
+        ]
+    }
+
+    // ── TIER 1: amplifierd Daemon (external) ──────────────────────────────────────
+    subgraph cluster_daemon {
+        label="TIER 1 — amplifierd Daemon  (external AI kernel — owns all LLM logic)"
+        style=filled fillcolor="#FFF8E1" color="#E65100" fontcolor="#BF360C" fontsize=12
+
+        session_manager [
+            shape=parallelogram fillcolor="#FFCC80"
+            label="session_manager\nCreate / fork / cancel / delete sessions;\ntracks parent→child lineage tree"
+        ]
+        event_bus [
+            shape=parallelogram fillcolor="#FFCC80"
+            label="event_bus\nPushes SSE events to every open\nbrowser connection per session_id"
+        ]
+        execute_endpoint [
+            shape=parallelogram fillcolor="#FFE0B2"
+            label="POST /sessions/{id}/execute\nAccepts user message;\nlaunches AI execution loop in daemon"
+        ]
+        daemon_sse [
+            shape=ellipse fillcolor="#FFD54F"
+            label="GET /events  (SSE endpoint)\nDaemon's native streaming endpoint;\nbrowser connects here — NOT the plugin"
+        ]
+    }
+
+    // ── TIER 2: Chat Plugin Backend ───────────────────────────────────────────────
+    subgraph cluster_backend {
+        label="TIER 2 — Chat Plugin Backend  (FastAPI — UI logic only, zero AI)"
+        style=filled fillcolor="#E3F2FD" color="#1565C0" fontcolor="#0D47A1" fontsize=12
+
+        route_assembly [
+            shape=box fillcolor="#90CAF9"
+            label="Route Assembly\n(create_router)\nSingle entry point the daemon calls;\nwires all sub-modules via dependency injection"
+        ]
+        session_history [
+            shape=box fillcolor="#90CAF9"
+            label="Session History\n(session_history.py)\nScans ~/.amplifier/projects/ disk tree;\ntwo-phase stat+parallel ThreadPool read;\ndelta /revisions sync — daemon has no listing API"
+        ]
+        pin_storage [
+            shape=box fillcolor="#90CAF9"
+            label="Pin Storage\n(pin_storage.py)\nPersists pinned session IDs;\natomic rename-on-write JSON;\nPlugin-owned — daemon has no pin concept"
+        ]
+        command_processor [
+            shape=box fillcolor="#90CAF9"
+            label="Command Processor\n(commands.py)\nParses /command args; 13 slash handlers\n(/fork /mode /tools /agents …);\nintrospects live session_manager state"
+        ]
+        fork_routes [
+            shape=box fillcolor="#90CAF9"
+            label="Fork Routes\n(routes.py)\nFork session at a given turn;\ncopies transcript up to that point;\nbranch conversations to explore alternates"
+        ]
+        shell_exec [
+            shape=box fillcolor="#90CAF9"
+            label="Shell Execution\n(shell.py)\nRuns !command as async subprocess;\nstreams stdout+stderr as SSE in tool_call\nformat — identical shape to AI tool output"
+        ]
+        voice_module [
+            shape=box fillcolor="#B3E5FC"
+            label="Voice  (optional: --extra voice)\n(voice.py)\nSTT: pywhispercpp on-device (no cloud);\nTTS: edge-tts Microsoft Neural (no API key);\nmanages Whisper model downloads"
+        ]
+        feedback [
+            shape=box fillcolor="#90CAF9"
+            label="Feedback Analysis\n(feedback.py)\nLoopback POST /sessions creates hidden AI\nsession in background — detects infra failures\n(LLM errors, tool crashes, SSE drops)"
+        ]
+    }
+
+    // ── TIER 3: SSE Streaming Layer ───────────────────────────────────────────────
+    subgraph cluster_sse {
+        label="TIER 3 — SSE Streaming Layer"
+        style=filled fillcolor="#F3E5F5" color="#6A1B9A" fontcolor="#4A148C" fontsize=12
+
+        sse_stream [
+            shape=ellipse fillcolor="#CE93D8"
+            label="EventSource  (one per browser tab)\nPersistent SSE stream carrying events\nfor ALL sessions on that connection"
+        ]
+        event_vocab [
+            shape=note fillcolor="#E1BEE7"
+            label="Event Types\ncontent_delta · thinking_delta\ntool_call · tool_result\nsession_fork · orchestrator:complete\napproval_request · execution_cancelled\n\nsession_fork carries parent_tool_call_id\n→ used to nest child output in parent card"
+        ]
+    }
+
+    // ── TIER 4: Frontend SPA ──────────────────────────────────────────────────────
+    subgraph cluster_frontend {
+        label="TIER 4 — Frontend SPA  (Preact 10 + HTM, 10 598-line single-file, zero build step)"
+        style=filled fillcolor="#E0F7FA" color="#00695C" fontcolor="#004D40" fontsize=12
+
+        chat_app [
+            shape=box fillcolor="#80DEEA"
+            label="ChatApp  (root)\nHolds all app state: session lineage,\nchildToToolRef, messageQueue, pendingEvents;\norchestrates all subsystems"
+        ]
+        sse_router [
+            shape=box fillcolor="#80DEEA"
+            label="SSE Router  (inline in ChatApp)\nDemuxes single stream across sessions;\nroutes child events via childToToolRef;\nbuffers background-session events for replay"
+        ]
+        message_renderer [
+            shape=box fillcolor="#80DEEA"
+            label="Message Renderer\n(MessageList / ChronoItem)\nRenders messages, thinking blocks,\ntool calls in order;\nstreams via direct DOM mutation — no re-render"
+        ]
+        subsession_renderer [
+            shape=box fillcolor="#80DEEA"
+            label="Sub-Session Renderer\n(SubSessionView / ToolCallCard)\nRenders child agent sessions inline\ninside parent tool call card;\nrecursive nesting — agents spawning agents"
+        ]
+        message_queue [
+            shape=box fillcolor="#80DEEA"
+            label="Message Queue  (QueuePanel)\nType-ahead while AI runs — messages\nenqueue instead of blocking;\nauto-drains 3 s after orchestrator:complete"
+        ]
+        input_area [
+            shape=box fillcolor="#80DEEA"
+            label="InputArea\nTextarea + send / stop / voice buttons;\n! prefix → shell command;\n/ prefix → slash command palette"
+        ]
+        approval_modal [
+            shape=box fillcolor="#80DEEA"
+            label="Approval Modal\nHuman-in-the-loop approval gate;\ntriggered by approval_request SSE event;\nuser must confirm before AI continues"
+        ]
+        session_sidebar [
+            shape=box fillcolor="#80DEEA"
+            label="Session Sidebar  (SessionCard list)\nStatus pills · pin buttons · queue badges;\nnavigation + at-a-glance session health;\nsyncs via delta revision polling"
+        ]
+    }
+
+    // ── TIER 5: Disk Storage ──────────────────────────────────────────────────────
+    subgraph cluster_storage {
+        label="TIER 5 — Disk Storage  (no database — all state is files)"
+        style=filled fillcolor="#FBE9E7" color="#BF360C" fontcolor="#870000" fontsize=12
+
+        session_data [
+            shape=cylinder fillcolor="#FFAB91"
+            label="Session Data\n~/.amplifier/projects/{slug}/sessions/{id}/\ntranscript.jsonl (append-only event log)\n+ metadata.json (name, model, parent_id, hidden)\nWritten by daemon; read by plugin"
+        ]
+        pin_state [
+            shape=cylinder fillcolor="#FFAB91"
+            label="Pin State\n~/.amplifier-chat/pinned-sessions.json\nPlugin-owned; atomic rename-on-write"
+        ]
+        voice_settings [
+            shape=cylinder fillcolor="#FFAB91"
+            label="Voice Settings\n~/.amplifier-chat/voice-settings.json\nActive STT model + TTS voice selection"
+        ]
+        whisper_models [
+            shape=cylinder fillcolor="#FFAB91"
+            label="Whisper Models\n~/.local/share/whisper-cpp/models/\nDownloaded on-demand from HuggingFace;\ncached locally for on-device STT"
+        ]
+    }
+
+    // ── LEGEND ────────────────────────────────────────────────────────────────────
+    subgraph cluster_legend {
+        label="Legend"
+        style=filled fillcolor="#FAFAFA" color="#9E9E9E" fontsize=11
+        node [width=1.9 height=0.5]
+
+        leg_component  [label="Internal Component"      shape=box           fillcolor="#90CAF9"]
+        leg_external   [label="External System / API"   shape=parallelogram fillcolor="#FFCC80"]
+        leg_stream     [label="Data Stream / Protocol"  shape=ellipse        fillcolor="#CE93D8"]
+        leg_store      [label="Persistent Storage"      shape=cylinder       fillcolor="#FFAB91"]
+        leg_annotation [label="Vocabulary / Annotation" shape=note           fillcolor="#E1BEE7"]
+
+        leg_component -> leg_external   [style=invis]
+        leg_external  -> leg_stream     [style=invis]
+        leg_stream    -> leg_store      [style=invis]
+        leg_store     -> leg_annotation [style=invis]
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════
+    // EDGES — directional, labeled to explain each relationship
+    // ═════════════════════════════════════════════════════════════════════════════
+
+    // ── Startup wiring ────────────────────────────────────────────────────────────
+    cli_entry    -> session_manager [label="starts uvicorn;\nserves plugin at /chat/" lhead=cluster_daemon style=dashed color="#558B2F"]
+    plugin_entry -> route_assembly  [label="injects daemon\nstate object" color="#558B2F"]
+    dev_server   -> route_assembly  [label="injects mock\ndaemon state" style=dashed color="#558B2F"]
+
+    // ── Plugin Backend ↔ Daemon ───────────────────────────────────────────────────
+    route_assembly    -> session_manager  [label="state.session_manager\n(DI at startup)" color="#1565C0"]
+    route_assembly    -> event_bus        [label="state.event_bus\n(DI at startup)" color="#1565C0"]
+    fork_routes       -> session_manager  [label="fork_session(id, turn_n)\ncopy transcript up to turn" color="#1565C0"]
+    command_processor -> session_manager  [label="introspect live sessions,\ntools, agents" color="#1565C0"]
+    feedback          -> execute_endpoint [label="loopback POST /sessions\n(creates hidden bg session)" style=dashed color="#E91E63"]
+
+    // ── Daemon → SSE stream ───────────────────────────────────────────────────────
+    event_bus   -> daemon_sse  [label="push events\nper session_id" color="#E65100"]
+    daemon_sse  -> sse_stream  [label="browser opens\npersistent EventSource" color="#6A1B9A"]
+    event_vocab -> sse_stream  [label="event types\ncarried by stream" style=dashed dir=none color="#9C27B0"]
+
+    // ── Shell exec bypasses AI — same SSE wire ────────────────────────────────────
+    shell_exec -> sse_stream [label="stdout+stderr\nas tool_call-shaped SSE" style=dashed color="#6A1B9A"]
+
+    // ── Frontend → Backend APIs ───────────────────────────────────────────────────
+    session_sidebar  -> session_history   [label="GET /api/sessions/history\nPOST /api/sessions/revisions (delta)" color="#00695C"]
+    chat_app         -> pin_storage       [label="pin / unpin\nsession requests" color="#00695C"]
+    chat_app         -> fork_routes       [label="POST /api/sessions/{id}/fork\nbranch at turn N" color="#00695C"]
+    chat_app         -> feedback          [label="POST /api/sessions/{id}/feedback\nanalyze system performance" color="#00695C"]
+    input_area       -> execute_endpoint  [label="POST /sessions/{id}/execute\nsend message → trigger AI" color="#00695C"]
+    input_area       -> shell_exec        [label="! prefix →\nrun shell command" color="#00695C"]
+    input_area       -> command_processor [label="/ prefix →\ndispatch slash command" color="#00695C"]
+    input_area       -> voice_module      [label="voice button\n→ record audio" color="#00695C"]
+    voice_module     -> input_area        [label="transcribed text\n→ fill textarea" style=dashed color="#00695C"]
+    approval_modal   -> execute_endpoint  [label="POST approve/deny;\nresumes AI execution" color="#00695C"]
+
+    // ── Frontend internal data flow ───────────────────────────────────────────────
+    chat_app      -> sse_router           [label="owns EventSource\nconnection lifecycle" color="#00838F"]
+    sse_router    -> message_renderer     [label="content_delta\ntool_call events" color="#00838F"]
+    sse_router    -> subsession_renderer  [label="session_fork:\nroute child via childToToolRef" color="#00838F"]
+    sse_router    -> message_queue        [label="orchestrator:complete\n→ start 3 s drain timer" color="#00838F"]
+    sse_router    -> approval_modal       [label="approval_request\nevent" color="#00838F"]
+    message_queue -> input_area           [label="drain queue:\nauto-send next message" style=dashed color="#00838F"]
+
+    // ── Storage reads / writes ────────────────────────────────────────────────────
+    session_manager -> session_data   [label="write transcript.jsonl\n+ metadata.json" ltail=cluster_daemon color="#BF360C"]
+    session_history -> session_data   [label="stat() sweep;\nparallel ThreadPool reads\nfor page window only" color="#BF360C"]
+    pin_storage     -> pin_state      [label="atomic rename-on-write" color="#BF360C"]
+    voice_module    -> voice_settings [label="read/write active\nSTT model + TTS voice" color="#BF360C"]
+    voice_module    -> whisper_models [label="download on-demand\nfrom HuggingFace" style=dashed color="#BF360C"]
+}

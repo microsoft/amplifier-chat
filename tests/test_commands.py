@@ -19,9 +19,7 @@ def processor_with_mock_session():
         ("debug", "Debug mode", "built-in"),
         ("focus", "Focus mode", "built-in"),
     ]
-    mock_mode_discovery.find.side_effect = lambda name: (
-        name in ("debug", "focus")
-    )
+    mock_mode_discovery.find.side_effect = lambda name: name in ("debug", "focus")
 
     # Build session_state dict with mode_discovery
     mock_session_state = {
@@ -94,6 +92,47 @@ def test_command_endpoint(client):
     assert resp.json()["type"] == "help"
 
 
+def test_command_endpoint_runs_help_inline(client, monkeypatch):
+    import chat_plugin.routes as routes
+
+    async def unexpected_to_thread(*args, **kwargs):
+        raise AssertionError("non-blocking commands should not use asyncio.to_thread")
+
+    monkeypatch.setattr(routes.asyncio, "to_thread", unexpected_to_thread)
+
+    resp = client.post("/chat/command", json={"command": "/help"})
+
+    assert resp.status_code == 200
+    assert resp.json()["type"] == "help"
+
+
+def test_command_endpoint_offloads_fork_execution(client, monkeypatch):
+    import chat_plugin.routes as routes
+
+    seen: dict[str, object] = {}
+
+    async def fake_to_thread(func, *args, **kwargs):
+        seen["func_name"] = getattr(func, "__name__", None)
+        seen["args"] = args
+        seen["kwargs"] = kwargs
+        return {"type": "forked", "session_id": "forked-session"}
+
+    monkeypatch.setattr(routes.asyncio, "to_thread", fake_to_thread)
+
+    resp = client.post(
+        "/chat/command",
+        json={"command": "/fork 3", "session_id": "valid-session-123"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == {"type": "forked", "session_id": "forked-session"}
+    assert seen == {
+        "func_name": "handle_command",
+        "args": ("fork", ["3"]),
+        "kwargs": {"session_id": "valid-session-123"},
+    }
+
+
 def test_status_command_no_session(processor):
     result = processor.handle_command("status", [], session_id=None)
     assert result["type"] == "error"
@@ -156,7 +195,9 @@ def test_modes_command(processor_with_mock_session):
 
 
 def test_mode_activate(processor_with_mock_session):
-    result = processor_with_mock_session.handle_command("mode", ["debug"], session_id="abc")
+    result = processor_with_mock_session.handle_command(
+        "mode", ["debug"], session_id="abc"
+    )
     # B1: type is now "mode" (not "mode_changed")
     assert result["type"] in ("mode", "error")
 
@@ -173,14 +214,18 @@ def test_mode_with_trailing_prompt(processor_with_mock_session):
 
 def test_mode_deactivate(processor_with_mock_session):
     """/mode off deactivates current mode."""
-    result = processor_with_mock_session.handle_command("mode", ["off"], session_id="abc")
+    result = processor_with_mock_session.handle_command(
+        "mode", ["off"], session_id="abc"
+    )
     # B1: type is "mode" and active_mode at top level
     assert result["type"] == "mode"
     assert result["active_mode"] is None
 
 
 def test_rename_command(processor_with_mock_session):
-    result = processor_with_mock_session.handle_command("rename", ["My", "Session"], session_id="abc")
+    result = processor_with_mock_session.handle_command(
+        "rename", ["My", "Session"], session_id="abc"
+    )
     assert result["type"] == "renamed"
     # B1: flattened — name at top level
     assert result["name"] == "My Session"
@@ -196,7 +241,10 @@ def test_fork_command_with_turn_no_projects_dir(processor_with_mock_session):
     """Fork with turn but no projects_dir returns a helpful error."""
     result = processor_with_mock_session.handle_command("fork", ["3"], session_id="abc")
     assert result["type"] == "error"
-    assert "not found" in result["error"].lower() or "fork button" in result["error"].lower()
+    assert (
+        "not found" in result["error"].lower()
+        or "fork button" in result["error"].lower()
+    )
 
 
 def test_fork_command_with_turn(tmp_path, processor_with_mock_session):
@@ -217,6 +265,7 @@ def test_fork_command_with_turn(tmp_path, processor_with_mock_session):
 
 
 # ── B4: /bundle coming soon ───────────────────────────────────────────────────
+
 
 def test_bundle_command_coming_soon(processor):
     """B4: /bundle returns an info stub with a coming-soon message."""

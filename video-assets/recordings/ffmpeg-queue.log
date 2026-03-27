@@ -1,0 +1,22 @@
+ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers
+  built with Apple clang version 17.0.0 (clang-1700.6.3.2)
+  configuration: --prefix=/opt/homebrew/Cellar/ffmpeg/8.0.1_2 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gpl --enable-libsvtav1 --enable-libopus --enable-libx264 --enable-libmp3lame --enable-libdav1d --enable-libvpx --enable-libx265 --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      60.  8.100 / 60.  8.100
+  libavcodec     62. 11.100 / 62. 11.100
+  libavformat    62.  3.100 / 62.  3.100
+  libavdevice    62.  1.100 / 62.  1.100
+  libavfilter    11.  4.100 / 11.  4.100
+  libswscale      9.  1.100 /  9.  1.100
+  libswresample   6.  1.100 /  6.  1.100
+objc[61762]: class `NSKVONotifying_AVCaptureScreenInput' not linked into application
+objc[61762]: class `NSKVONotifying_AVCaptureScreenInput' not linked into application
+objc[61762]: class `NSKVONotifying_AVCaptureScreenInput' not linked into application
+[AVFoundation indev @ 0xb0ac1c140] Configuration of video device failed, falling back to default.
+[avfoundation @ 0xb0b018000] Selected pixel format (yuv420p) is not supported by the input device.
+[avfoundation @ 0xb0b018000] Supported pixel formats:
+[avfoundation @ 0xb0b018000]   uyvy422
+[avfoundation @ 0xb0b018000]   yuyv422
+[avfoundation @ 0xb0b018000]   nv12
+[avfoundation @ 0xb0b018000]   0rgb
+[avfoundation @ 0xb0b018000]   bgr0
+[avfoundation @ 0xb0b018000] Overriding selected pixel format to use uyvy422 instead.

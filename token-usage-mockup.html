@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token Usage Display — Mockups</title>
+<style>
+  :root {
+    --bg-primary:   #0d0d0d;
+    --bg-secondary: #161616;
+    --bg-tertiary:  #1e1e1e;
+    --bg-card:      #1a1a1a;
+    --border:       rgba(255,255,255,0.08);
+    --text-primary:   #e8e8e8;
+    --text-secondary: #999;
+    --text-muted:     #6b6b6b;
+    --accent-blue:  #3b82f6;
+    --accent-green: #22c55e;
+    --accent-amber: #f59e0b;
+    --accent-red:   #ef4444;
+  }
+
+  body[data-theme="light"] {
+    --bg-primary:   #f4f6fb;
+    --bg-secondary: #ffffff;
+    --bg-tertiary:  #eef2f7;
+    --bg-card:      #ffffff;
+    --border:       rgba(15,23,42,0.12);
+    --text-primary:   #0f172a;
+    --text-secondary: #334155;
+    --text-muted:     #64748b;
+    --accent-blue:  #2563eb;
+    --accent-green: #16a34a;
+    --accent-amber: #d97706;
+    --accent-red:   #dc2626;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 32px;
+    line-height: 1.5;
+    min-height: 100vh;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  /* ── Page chrome ── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .page-header p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .theme-toggle {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .theme-toggle button {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .theme-toggle button.active {
+    background: var(--accent-blue);
+    color: white;
+    border-color: transparent;
+  }
+
+  /* ── Variant sections ── */
+  .variants {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+    max-width: 1200px;
+  }
+
+  .variant {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .variant-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .variant-label .badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .badge-current { background: rgba(255,255,255,0.07); color: var(--text-muted); }
+  .badge-a       { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+  .badge-b       { background: rgba(34,197,94,0.12); color: #86efac; }
+
+  .variant-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    min-height: 44px;
+  }
+
+  /* ── Chat frame ── */
+  .chat-frame {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .chat-header {
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); }
+  .chat-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── Message bubbles — exact from app ── */
+  .text-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    line-height: 1.5;
+    word-break: break-word;
+    max-width: 85%;
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+  .user-message {
+    align-self: flex-end;
+    background: var(--accent-blue);
+    color: white;
+    border: none;
+    font-size: 14px;
+    max-width: 70%;
+  }
+  .assistant-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 85%;
+  }
+
+  /* prose inside bubble */
+  .text-block p { margin: 0; }
+  .text-block p + p { margin-top: 8px; }
+  .text-block code {
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 12px;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  /* ── CURRENT: standalone token pill row ── */
+  .token-usage-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+  }
+  .tok-sep { color: var(--border); }
+
+
+  /* ── OPTION A: Art Director — message footer, hover reveal ── */
+  .msg-footer-a {
+    padding: 5px 14px 6px;
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    font-variant-numeric: tabular-nums;
+    cursor: default;
+    transition: opacity 0.15s ease;
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .msg-footer-a .summary-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .msg-footer-a .detail-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.15s ease, opacity 0.15s ease;
+    font-size: 10px;
+  }
+  .msg-footer-a .model-name { font-weight: 500; }
+  .msg-footer-a .fsep { color: var(--border); }
+
+  /* Hover state — on the whole assistant-wrap */
+  .assistant-wrap:hover .msg-footer-a {
+    opacity: 0.8;
+  }
+  .assistant-wrap:hover .msg-footer-a .detail-line {
+    max-height: 20px;
+    opacity: 1;
+  }
+
+  /* ── OPTION B: Synthesized — footer, model+duration+total, click expand ── */
+  .msg-footer-b {
+    padding: 5px 14px 6px;
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .msg-footer-b:hover { opacity: 0.8; }
+  .msg-footer-b .summary-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .msg-footer-b .detail-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.2s ease, opacity 0.2s ease;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .msg-footer-b.expanded { opacity: 0.75; }
+  .msg-footer-b.expanded .detail-line {
+    max-height: 20px;
+    opacity: 0.85;
+  }
+  .msg-footer-b .model-name { font-weight: 500; }
+  .msg-footer-b .fsep { color: var(--border); }
+
+  /* cache percentage accent */
+  .cache-pct { color: var(--accent-green); opacity: 0.7; }
+
+  /* ── Annotations ── */
+  .annotation {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .ann {
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 6px 10px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    border-left: 2px solid var(--border);
+    line-height: 1.4;
+  }
+  .ann strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+  .ann.pro { border-left-color: var(--accent-green); }
+  .ann.con { border-left-color: var(--accent-red); }
+
+  /* ── States demo row ── */
+  .states-row {
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .state-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+    opacity: 0.6;
+    margin-bottom: 2px;
+  }
+
+  /* ── Full-width comparison at bottom ── */
+  .comparison {
+    margin-top: 40px;
+    max-width: 1200px;
+  }
+  .comparison-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .comp-col { display: flex; flex-direction: column; gap: 4px; }
+  .comp-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .comp-row {
+    font-size: 10px;
+    color: var(--text-secondary);
+    padding: 5px 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .comp-row .key { color: var(--text-muted); }
+  .check { color: var(--accent-green); }
+  .cross { color: var(--accent-red); }
+  .neutral { color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Token Usage Display — Design Mockups</h1>
+    <p>Hover/click the message areas below to see interactive states · Worktree: feat/token-usage-display</p>
+  </div>
+  <div class="theme-toggle">
+    <button class="active" onclick="setTheme('dark', this)">Dark</button>
+    <button onclick="setTheme('light', this)">Light</button>
+  </div>
+</div>
+
+<div class="variants">
+
+  <!-- ─────────────────────────────────────────── CURRENT ─── -->
+  <div class="variant">
+    <div class="variant-label">
+      Current State
+      <span class="badge badge-current">AS-IS</span>
+    </div>
+    <div class="variant-desc">Standalone chrono item row. Same structural weight as a message. Shows ↑ in · ↓ out · cached.</div>
+
+    <div class="chat-frame">
+      <div class="chat-header"><div class="dot"></div> amplifier-chat</div>
+      <div class="chat-body">
+
+        <div class="text-block user-message">How does the context window work?</div>
+
+        <div class="text-block">
+          <p>The context window is the total amount of text the model can "see" at once — including your conversation history, system prompts, and any injected context.</p>
+          <p>When it fills up, older messages get trimmed or summarized to make room.</p>
+        </div>
+
+        <!-- Current: standalone row, same gap as between messages -->
+        <div class="token-usage-pill">
+          <span>↑ 12.4K in</span>
+          <span class="tok-sep">·</span>
+          <span>↓ 847 out</span>
+          <span class="tok-sep">·</span>
+          <span>9.7K cached</span>
+        </div>
+
+        <div class="text-block user-message">What happens to tool calls?</div>
+
+        <div class="text-block">
+          <p>Tool call inputs and outputs count against your context window just like regular messages. A tool that returns a large JSON payload can consume thousands of tokens.</p>
+        </div>
+
+        <div class="token-usage-pill">
+          <span>↑ 15.1K in</span>
+          <span class="tok-sep">·</span>
+          <span>↓ 412 out</span>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="annotation">
+      <div class="ann con"><strong>Problem:</strong> Token pills are timeline peers of messages — they push content down and add ~20px per turn.</div>
+      <div class="ann con"><strong>Missing:</strong> No model name, no duration, no total, no cache %.</div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── OPTION A ─── -->
+  <div class="variant">
+    <div class="variant-label">
+      Option A — Art Director
+      <span class="badge badge-a">HOVER</span>
+    </div>
+    <div class="variant-desc">Token info moves inside the message bubble as a footer. Hover the message to reveal full breakdown. Always shows: model · duration.</div>
+
+    <div class="chat-frame">
+      <div class="chat-header"><div class="dot"></div> amplifier-chat</div>
+      <div class="chat-body">
+
+        <div class="text-block user-message">How does the context window work?</div>
+
+        <div class="assistant-wrap">
+          <div class="text-block" style="border-radius: 8px 8px 0 0; border-bottom: none;">
+            <p>The context window is the total amount of text the model can "see" at once — including your conversation history, system prompts, and any injected context.</p>
+            <p>When it fills up, older messages get trimmed or summarized to make room.</p>
+          </div>
+          <div class="msg-footer-a" style="background: var(--bg-card); border: 1px solid var(--border); border-top: 1px solid var(--border); border-radius: 0 0 8px 8px;">
+            <div class="summary-line">
+              <span class="model-name">claude-opus-4-5</span>
+              <span class="fsep">·</span>
+              <span>3.2s</span>
+            </div>
+            <div class="detail-line">
+              <span>↑ 12.4K in</span>
+              <span class="fsep">·</span>
+              <span><span class="cache-pct">78% cached</span></span>
+              <span class="fsep">·</span>
+              <span>↓ 847 out</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-block user-message">What happens to tool calls?</div>
+
+        <div class="assistant-wrap">
+          <div class="text-block" style="border-radius: 8px 8px 0 0; border-bottom: none;">
+            <p>Tool call inputs and outputs count against your context window just like regular messages. A tool that returns a large JSON payload can consume thousands of tokens.</p>
+          </div>
+          <div class="msg-footer-a" style="background: var(--bg-card); border: 1px solid var(--border); border-top: 1px solid var(--border); border-radius: 0 0 8px 8px;">
+            <div class="summary-line">
+              <span class="model-name">claude-opus-4-5</span>
+              <span class="fsep">·</span>
+              <span>1.8s</span>
+            </div>
+            <div class="detail-line">
+              <span>↑ 15.1K in</span>
+              <span class="fsep">·</span>
+              <span>↓ 412 out</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="annotation">
+      <div class="ann pro"><strong>Pro:</strong> Zero vertical space added. Metadata belongs to the message, visually grouped.</div>
+      <div class="ann pro"><strong>Pro:</strong> Hover is frictionless — no click needed, details appear naturally.</div>
+      <div class="ann con"><strong>Con:</strong> Larger structural change — tokens must be attached to their message bubble, not a separate chrono item.</div>
+      <div class="ann con"><strong>Con:</strong> Hover doesn't work on touch.</div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── OPTION B ─── -->
+  <div class="variant">
+    <div class="variant-label">
+      Option B — Synthesized
+      <span class="badge badge-b">CLICK</span>
+    </div>
+    <div class="variant-desc">Token info in message footer. Always shows: model · duration · total. Click to expand in/out/cache breakdown.</div>
+
+    <div class="chat-frame">
+      <div class="chat-header"><div class="dot"></div> amplifier-chat</div>
+      <div class="chat-body">
+
+        <div class="text-block user-message">How does the context window work?</div>
+
+        <div class="assistant-wrap">
+          <div class="text-block" style="border-radius: 8px 8px 0 0; border-bottom: none;">
+            <p>The context window is the total amount of text the model can "see" at once — including your conversation history, system prompts, and any injected context.</p>
+            <p>When it fills up, older messages get trimmed or summarized to make room.</p>
+          </div>
+          <div class="msg-footer-b" id="fb1" onclick="toggleExpand('fb1')" style="background: var(--bg-card); border: 1px solid var(--border); border-top: 1px solid var(--border); border-radius: 0 0 8px 8px;">
+            <div class="summary-line">
+              <span class="model-name">claude-opus-4-5</span>
+              <span class="fsep">·</span>
+              <span>3.2s</span>
+              <span class="fsep">·</span>
+              <span>13.3K</span>
+            </div>
+            <div class="detail-line">
+              <span>↑ 12.4K in <span class="cache-pct">(78% cached)</span></span>
+              <span class="fsep">·</span>
+              <span>↓ 847 out</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-block user-message">What happens to tool calls?</div>
+
+        <div class="assistant-wrap">
+          <div class="text-block" style="border-radius: 8px 8px 0 0; border-bottom: none;">
+            <p>Tool call inputs and outputs count against your context window just like regular messages. A tool that returns a large JSON payload can consume thousands of tokens.</p>
+          </div>
+          <div class="msg-footer-b" id="fb2" onclick="toggleExpand('fb2')" style="background: var(--bg-card); border: 1px solid var(--border); border-top: 1px solid var(--border); border-radius: 0 0 8px 8px;">
+            <div class="summary-line">
+              <span class="model-name">claude-opus-4-5</span>
+              <span class="fsep">·</span>
+              <span>1.8s</span>
+              <span class="fsep">·</span>
+              <span>15.5K</span>
+            </div>
+            <div class="detail-line">
+              <span>↑ 15.1K in</span>
+              <span class="fsep">·</span>
+              <span>↓ 412 out</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="annotation">
+      <div class="ann pro"><strong>Pro:</strong> Total tokens always visible — one-number cost awareness at a glance.</div>
+      <div class="ann pro"><strong>Pro:</strong> Click works on all devices including touch. Explicit, not accidental.</div>
+      <div class="ann pro"><strong>Pro:</strong> Same structural change as A, but slightly more data density in the whisper line.</div>
+      <div class="ann con"><strong>Con:</strong> Three data points on the summary line (vs A's two) is slightly busier.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ─────────────────────────────────────────── OPTION B WITH TOOLS+THINKING ─── -->
+<div class="comparison" style="margin-top: 40px;">
+  <div class="comparison-header">Option B extended — with tool calls &amp; thinking</div>
+  <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6;">
+    The summary line can also surface tool call count and whether the model thought. These are already tracked as chrono items per turn — no extra plumbing needed.<br>
+    Click any footer to expand the breakdown.
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; max-width: 1200px;">
+
+    <!-- No tools, no thinking -->
+    <div>
+      <div class="comp-title" style="margin-bottom: 8px; font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Simple response — no tools, no thinking</div>
+      <div class="chat-frame">
+        <div class="chat-body">
+          <div class="text-block user-message">What's 2 + 2?</div>
+          <div class="assistant-wrap">
+            <div class="text-block" style="border-radius: 8px 8px 0 0; border-bottom: none;">
+              <p>4.</p>
+            </div>
+            <div class="msg-footer-b" id="fc1" onclick="toggleExpand('fc1')" style="background: var(--bg-card); border: 1px solid var(--border); border-top: 1px solid var(--border); border-radius: 0 0 8px 8px;">
+              <div class="summary-line">
+                <span class="model-name">claude-opus-4-5</span>
+                <span class="fsep">·</span>
+                <span>0.4s</span>
+                <span class="fsep">·</span>
+                <span>1.2K</span>
+              </div>
+              <div class="detail-line">
+                <span>↑ 847 in</span>
+                <span class="fsep">·</span>
+                <span>↓ 12 out</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ann" style="margin-top: 8px; font-size: 10px; background: var(--bg-secondary); border-radius: 6px; border-left: 2px solid var(--border); padding: 6px 10px; color: var(--text-muted); line-height: 1.4;">
+        No extra items — footer stays minimal when there's nothing extra to report.
+      </div>
+    </div>
+
+    <!-- With tool calls -->
+    <div>
+      <div class="comp-title" style="margin-bottom: 8px; font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Response with tool calls</div>
+      <div class="chat-frame">
+        <div class="chat-body">
+          <div class="text-block user-message">What files changed in the last commit?</div>
+          <div class="assistant-wrap">
+            <div class="text-block" style="border-radius: 8px 8px 0 0; border-bottom: none;">
+              <p>The last commit modified <code>routes.py</code>, <code>index.html</code>, and <code>session_history.py</code> — all part of the SSE reliability fix.</p>
+            </div>
+            <div class="msg-footer-b" id="fc2" onclick="toggleExpand('fc2')" style="background: var(--bg-card); border: 1px solid var(--border); border-top: 1px solid var(--border); border-radius: 0 0 8px 8px;">
+              <div class="summary-line">
+                <span class="model-name">claude-opus-4-5</span>
+                <span class="fsep">·</span>
+                <span>2.1s</span>
+                <span class="fsep">·</span>
+                <span>8.4K</span>
+                <span class="fsep">·</span>
+                <span style="color: var(--text-muted);">3 tools</span>
+              </div>
+              <div class="detail-line">
+                <span>↑ 7.9K in <span class="cache-pct">(62% cached)</span></span>
+                <span class="fsep">·</span>
+                <span>↓ 521 out</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ann" style="margin-top: 8px; font-size: 10px; background: var(--bg-secondary); border-radius: 6px; border-left: 2px solid var(--border); padding: 6px 10px; color: var(--text-muted); line-height: 1.4;">
+        "3 tools" appears in the whisper line — same muted style, no icon. You can still see the individual tool call bubbles above in the chat.
+      </div>
+    </div>
+
+    <!-- With thinking + tool calls -->
+    <div>
+      <div class="comp-title" style="margin-bottom: 8px; font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Response with thinking + tool calls</div>
+      <div class="chat-frame">
+        <div class="chat-body">
+          <div class="text-block user-message">Refactor the session manager to be fully async</div>
+          <div class="assistant-wrap">
+            <div class="text-block" style="border-radius: 8px 8px 0 0; border-bottom: none;">
+              <p>I've refactored <code>SessionManager</code> to use <code>asyncio.Lock</code> throughout. The main change is replacing the sync <code>threading.Lock</code> in <code>_sessions</code> with an async-safe equivalent, and converting <code>get_or_create()</code> to <code>async def</code>.</p>
+            </div>
+            <div class="msg-footer-b" id="fc3" onclick="toggleExpand('fc3')" style="background: var(--bg-card); border: 1px solid var(--border); border-top: 1px solid var(--border); border-radius: 0 0 8px 8px;">
+              <div class="summary-line">
+                <span class="model-name">claude-opus-4-5</span>
+                <span class="fsep">·</span>
+                <span>8.7s</span>
+                <span class="fsep">·</span>
+                <span>32.1K</span>
+                <span class="fsep">·</span>
+                <span style="color: var(--text-muted);">thinking</span>
+                <span class="fsep">·</span>
+                <span style="color: var(--text-muted);">7 tools</span>
+              </div>
+              <div class="detail-line">
+                <span>↑ 28.4K in <span class="cache-pct">(81% cached)</span></span>
+                <span class="fsep">·</span>
+                <span>↓ 3.7K out</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ann" style="margin-top: 8px; font-size: 10px; background: var(--bg-secondary); border-radius: 6px; border-left: 2px solid var(--border); padding: 6px 10px; color: var(--text-muted); line-height: 1.4;">
+        "thinking · 7 tools" — both appear as muted whisper text. Long duration (8.7s) and high token count tell the full story at a glance.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────── COMPARISON TABLE ─── -->
+<div class="comparison">
+  <div class="comparison-header">Side-by-side comparison</div>
+  <div class="comparison-grid">
+
+    <div class="comp-col">
+      <div class="comp-title">Current</div>
+      <div class="comp-row"><span class="key">Placement</span><span>Standalone row</span></div>
+      <div class="comp-row"><span class="key">Vertical space</span><span class="cross">+18px / turn</span></div>
+      <div class="comp-row"><span class="key">Model name</span><span class="cross">No</span></div>
+      <div class="comp-row"><span class="key">Duration</span><span class="cross">No</span></div>
+      <div class="comp-row"><span class="key">Total tokens</span><span class="cross">No</span></div>
+      <div class="comp-row"><span class="key">Cache %</span><span class="cross">Raw count only</span></div>
+      <div class="comp-row"><span class="key">Touch-friendly</span><span class="check">Yes (read-only)</span></div>
+      <div class="comp-row"><span class="key">Impl. complexity</span><span class="neutral">Low</span></div>
+    </div>
+
+    <div class="comp-col">
+      <div class="comp-title">Option A — Art Director (hover)</div>
+      <div class="comp-row"><span class="key">Placement</span><span>Message footer</span></div>
+      <div class="comp-row"><span class="key">Vertical space</span><span class="check">+0px</span></div>
+      <div class="comp-row"><span class="key">Model name</span><span class="check">Always</span></div>
+      <div class="comp-row"><span class="key">Duration</span><span class="check">Always</span></div>
+      <div class="comp-row"><span class="key">Total tokens</span><span class="cross">No (hover only)</span></div>
+      <div class="comp-row"><span class="key">Cache %</span><span class="check">On hover</span></div>
+      <div class="comp-row"><span class="key">Touch-friendly</span><span class="cross">No hover on touch</span></div>
+      <div class="comp-row"><span class="key">Impl. complexity</span><span class="neutral">Medium</span></div>
+    </div>
+
+    <div class="comp-col">
+      <div class="comp-title">Option B — Synthesized (click)</div>
+      <div class="comp-row"><span class="key">Placement</span><span>Message footer</span></div>
+      <div class="comp-row"><span class="key">Vertical space</span><span class="check">+0px</span></div>
+      <div class="comp-row"><span class="key">Model name</span><span class="check">Always</span></div>
+      <div class="comp-row"><span class="key">Duration</span><span class="check">Always</span></div>
+      <div class="comp-row"><span class="key">Total tokens</span><span class="check">Always</span></div>
+      <div class="comp-row"><span class="key">Cache %</span><span class="check">On click</span></div>
+      <div class="comp-row"><span class="key">Touch-friendly</span><span class="check">Yes</span></div>
+      <div class="comp-row"><span class="key">Impl. complexity</span><span class="neutral">Medium</span></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function setTheme(theme, btn) {
+    document.body.setAttribute('data-theme', theme === 'light' ? 'light' : '');
+    document.querySelectorAll('.theme-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function toggleExpand(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle('expanded');
+  }
+
+  // Pre-expand the second message in Option B so it's visible on load
+  document.addEventListener('DOMContentLoaded', () => {
+    // nothing pre-expanded — user discovers via interaction
+  });
+</script>
+</body>
+</html>

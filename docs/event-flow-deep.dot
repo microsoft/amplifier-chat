@@ -1,0 +1,252 @@
+// =============================================================================
+// Amplifier Session Event Flow — Deep Comprehensive Review
+// Generated: 2026-03-26  Revised: rev-3 (post third diagram-reviewer pass)
+// Covers: amplifier-core → amplifierd → amplifier-chat rendering
+// RED hexagon = unresolved bug | dashed green = fixed | dashed gray = gap
+// =============================================================================
+digraph amplifier_event_flow {
+    graph [
+        label="Amplifier Session Event Flow\namplifier-core → amplifierd → amplifier-chat\nRED = routing bug | GREEN dashed = fixed | GRAY dashed = gap"
+        labelloc=t fontsize=16 fontname="Helvetica" rankdir=TB
+        compound=true splines=polyline nodesep=0.6 ranksep=1.0 bgcolor="#f8f9fa"
+    ]
+    node [fontname="Helvetica" fontsize=11 style=filled]
+    edge [fontname="Helvetica" fontsize=9]
+
+    // ---- Legend ---------------------------------------------------------------
+    subgraph cluster_legend {
+        label="Legend" style=dashed color="#aaaaaa" bgcolor="#ffffff" fontsize=10
+        leg_kernel  [label="kernel/daemon component"   shape=box     fillcolor="#dbeafe" color="#3b82f6"]
+        leg_ui      [label="UI component"              shape=box     fillcolor="#dcfce7" color="#16a34a"]
+        leg_event   [label="event/message type"        shape=note    fillcolor="#fef9c3" color="#ca8a04"]
+        leg_bug     [label="BUG: unresolved issue"     shape=hexagon fillcolor="#fee2e2" color="#dc2626" penwidth=2]
+        leg_fix     [label="FIXED: resolved bug"       shape=box     fillcolor="#f0fdf4" color="#16a34a" style="filled,dashed"]
+        leg_gap     [label="GAP: not yet implemented"  shape=box     fillcolor="#f3f4f6" color="#9ca3af" style="filled,dashed"]
+        leg_dec     [label="branching decision"        shape=diamond fillcolor="#e0f2fe" color="#0284c7"]
+        leg_e1      [label="─── primary data flow"    shape=plaintext fillcolor="none" style=""]
+        leg_e2      [label="- - annotation/secondary"  shape=plaintext fillcolor="none" style=""]
+        leg_e3      [label="━━━ critical network path" shape=plaintext fillcolor="none" style=""]
+        leg_kernel -> leg_ui  [style=invis]
+        leg_event  -> leg_bug [style=invis]
+        leg_fix    -> leg_gap [style=invis]
+        leg_gap    -> leg_dec [style=invis]
+        leg_dec    -> leg_e1  [style=invis]
+        leg_e1     -> leg_e2  [style=invis]
+        leg_e2     -> leg_e3  [style=invis]
+        leg_delegate [label="amplifierd synthetic /\ndelegate event" shape=note fillcolor="#fce7f3" color="#be185d"]
+        leg_risk_gap [label="elevated-risk GAP\n(schema drift risk)" shape=box fillcolor="#fff7ed" color="#ea580c" style="filled,dashed" penwidth=2]
+        leg_trigger  [label="lifecycle entry point\n/ trigger" shape=box fillcolor="#fef3c7" color="#d97706"]
+        leg_e3      -> leg_delegate [style=invis]
+        leg_delegate -> leg_risk_gap [style=invis]
+        leg_risk_gap -> leg_trigger  [style=invis]
+    }
+
+    // ---- TIER 1: amplifier-core (in-process inside amplifierd) ----------------
+    subgraph cluster_core {
+        label="amplifier-core  (in-process inside amplifierd)"
+        style=filled fillcolor="#dbeafe" color="#3b82f6" penwidth=2
+
+        session [label="AmplifierSession\n+ Coordinator" shape=box fillcolor="#bfdbfe" color="#2563eb"]
+
+        subgraph cluster_events {
+            label="ALL_EVENTS catalog  (amplifier_core/events.py:7-63)\n30+ events — all registered by _wire_events()"
+            style=filled fillcolor="#e0f2fe" color="#0284c7"
+            ev_session  [label="session:start/end/fork/resume"              shape=note fillcolor="#fef9c3" color="#ca8a04"]
+            ev_content  [label="content_block:start/delta/end"              shape=note fillcolor="#fef9c3" color="#ca8a04"]
+            ev_tool     [label="tool:pre / tool:post / tool:error"          shape=note fillcolor="#fef9c3" color="#ca8a04"]
+            ev_llm      [label="llm:request / llm:response"                shape=note fillcolor="#fef9c3" color="#ca8a04"]
+            ev_orch     [label="orchestrator:complete\nexecution:start/end" shape=note fillcolor="#fef9c3" color="#ca8a04"]
+            ev_others   [label="+ 9 more: prompt, thinking, provider,\ncontext, approval, cancel, artifact,\nuser, plan  — all wired by _wire_events()" shape=note fillcolor="#fef9c3" color="#ca8a04"]
+        }
+
+        ev_delegate [label="delegate:agent_spawned\ndelegate:agent_resumed\ndelegate:agent_completed\ndelegate:error\n(amplifierd-only, session_handle.py:135-141)" shape=note fillcolor="#fce7f3" color="#be185d"]
+
+        // 5 explicit hooks; one representative covers remaining 9 catalog events
+        session -> ev_session  [label="hooks.emit()" style=dashed color="#2563eb"]
+        session -> ev_content  [style=dashed color="#2563eb"]
+        session -> ev_tool     [style=dashed color="#2563eb"]
+        session -> ev_llm      [style=dashed color="#2563eb"]
+        session -> ev_orch     [style=dashed color="#2563eb"]
+        session -> ev_others   [label="...remaining\nALL_EVENTS" style=dashed color="#2563eb"]
+        session -> ev_delegate [label="spawn.py creates\nchild session" style=dashed color="#be185d"]
+    }
+
+    // ---- TIER 2: amplifierd  (FastAPI/uvicorn 127.0.0.1:8410) ----------------
+    subgraph cluster_daemon {
+        label="amplifierd  (src/amplifierd/)  — FastAPI/uvicorn 127.0.0.1:8410"
+        style=filled fillcolor="#f0fdf4" color="#16a34a" penwidth=2
+
+        session_mgr  [label="SessionManager\n(session_manager.py:24-490)\n_sessions: dict[str, SessionHandle]" shape=box fillcolor="#bbf7d0" color="#15803d"]
+        spawn_cap    [label="spawn capability\n(spawn.py:160-395)\nchild AmplifierSession + parent_id\nEventBus.register_child(parent, child)" shape=box fillcolor="#bbf7d0" color="#15803d"]
+        wire_events  [label="_wire_events()\n(session_handle.py:115-163)\nregisters hook for every event in ALL_EVENTS\n+ 4 delegate:* events" shape=box fillcolor="#a7f3d0" color="#059669"]
+        on_event     [label="_on_event() callback\n(session_handle.py:146-155)\ndata passed through UNMODIFIED\nevent_bus.publish(session_id, name, data, corr_id)" shape=box fillcolor="#a7f3d0" color="#059669"]
+        eventbus     [label="EventBus\n(event_bus.py:105-136)\nasyncio.Queue per subscriber (cap=10,000)\nget_descendants() — BFS tree traversal\nparent subscriber auto-receives child events" shape=box fillcolor="#6ee7b7" color="#047857" penwidth=2]
+        transport    [label="TransportEvent envelope\n(transport_event.py:8-50)\n{event, data, session_id, timestamp,\ncorrelation_id, sequence}" shape=box fillcolor="#d1fae5" color="#047857"]
+        ev_display   [label="display_message\n(display.py:44-48)" shape=note fillcolor="#fce7f3" color="#be185d"]
+        ev_exec_err  [label="execution_error\n(sessions.py:330-338)" shape=note fillcolor="#fce7f3" color="#be185d"]
+        persist      [label="TranscriptSaveHook + MetadataSaveHook\n(persistence.py:135-266)\ntranscript.jsonl + metadata.json\n(parallel path — not in SSE stream)" shape=box fillcolor="#e0f2fe" color="#0284c7" style="filled,dashed"]
+        sse_endpoint [label="GET /events\n(routes/events.py:61-88)\nStreamingResponse  text/event-stream\nkeepalive every 15s\nid:{seq} event:{name} data:{json}" shape=box fillcolor="#4ade80" color="#15803d" penwidth=2]
+        gap_filter   [label="GAP-02: filter_patterns scaffolded but NOT consulted\n(event_bus.py:37-39)\n?filter= and ?preset= have no effect" shape=box fillcolor="#f3f4f6" color="#9ca3af" style="filled,dashed"]
+        gap_done     [label="GAP-03: 'done' event not implemented\n(design doc events.md:594-622)\nno clean end-of-stream signal" shape=box fillcolor="#f3f4f6" color="#9ca3af" style="filled,dashed"]
+
+        spawn_cap   -> session_mgr  [label="register_child(parent,child)\n→ EventBus tree"]
+        session_mgr -> wire_events  [label="SessionHandle.__init__\ncreates AmplifierSession in-process"]
+        wire_events -> on_event     [label="hook fires on\nevery kernel event"]
+        on_event    -> eventbus     [label="publish(session_id, name, data)"]
+        ev_display  -> eventbus     [label="synthetic" style=dashed]
+        ev_exec_err -> eventbus     [label="synthetic" style=dashed]
+        eventbus    -> transport    [label="wraps in\nTransportEvent"]
+        transport   -> sse_endpoint [label="SSE frame text"]
+        wire_events -> persist      [label="tool:post &\norchestrator:complete" style=dashed]
+        sse_endpoint -> gap_filter  [label="gap" style=dashed color="#9ca3af"]
+        sse_endpoint -> gap_done    [label="gap" style=dashed color="#9ca3af"]
+    }
+
+    // ---- TIER 3: amplifier-chat  (Preact SPA at GET /chat/) -------------------
+    subgraph cluster_ui {
+        label="amplifier-chat  (src/chat_plugin/index.html — 10,598-line Preact SPA)"
+        style=filled fillcolor="#dcfce7" color="#16a34a" penwidth=2
+
+        sse_client  [label="Global SSE EventSource\n(index.html:8023-8131)\ncreateSSEManager(null, {})\nGET /events  (NO session filter)\nONE connection for ALL sessions" shape=box fillcolor="#bbf7d0" color="#15803d" penwidth=2]
+        normalize   [label="normalizeKernelPayload()\n(index.html:2914-2998)\ncontent_block:delta → content_delta\ntool:pre → tool_call\ndelegate:agent_spawned → session_fork\norchestrator:complete → prompt_complete\nllm:response → token_usage" shape=box fillcolor="#a7f3d0" color="#059669"]
+        gap_fields  [label="GAP-01: field name mismatch  (RISK: schema drift)\n(index.html:2944,2947)\nKernel: sub_session_id / parent_session_id\nUI expects: child_id / parent_id\nnormalizeKernelPayload patches this — silent breakage on schema change" shape=box fillcolor="#fff7ed" color="#ea580c" style="filled,dashed" penwidth=2]
+        sse_router  [label="Global SSE onMessage router\n(index.html:8029-8095)\n① Walk sessionParentByIdRef → root ancestor\n② Fallback: direct match in sessionsRef\n③ Inject child_session_id on child events" shape=diamond fillcolor="#a7f3d0" color="#059669" penwidth=2]
+        bug_leak5   [label="BUG-03: Leak Path 5\n(index.html:8070-8078)\nsyncSessionHistory creates 'history-{childId}'\nBEFORE session_fork fires.\n② fallback succeeds for child's own key\n→ child events routed to WRONG session" shape=hexagon fillcolor="#fee2e2" color="#dc2626" penwidth=2]
+        active_check [label="active session check\n(index.html:7246-7260)\nif ownerKey !== activeKeyRef\n→ queue in pendingEventsRef" shape=diamond fillcolor="#a7f3d0" color="#059669"]
+        bug_replay  [label="BUG-07: execution_error & token_usage\nNOT in replayableEvents\n(index.html:7246-7253)\nBackground errors invisible on switch\n→ session stuck in 'running' state" shape=hexagon fillcolor="#fee2e2" color="#dc2626" penwidth=2]
+        dispatcher  [label="handleWsMessage(msg, ownerKey)\n(index.html:7115)\nswitch(msg.type) dispatch:\ntext, thinking, tool_call, token_usage,\ncancel, approval, session_fork, errors" shape=box fillcolor="#6ee7b7" color="#047857" penwidth=2]
+        fix_a       [label="FIXED-A: pre-fork child event buffer\n(index.html:7263-7268, 7763-7770)\npendingChildEventsRef queues child events\narriving before session_fork.\nFlushed after createSubSession()" shape=box fillcolor="#f0fdf4" color="#16a34a" style="filled,dashed"]
+        subsession_router [label="resolveSubSessionKey()\n(index.html:7000-7008)\n① parent_tool_call_id → toolMapRef\n② child_session_id → childToToolRef\n③ FIFO scan fallback (see BUG-02)" shape=diamond fillcolor="#a7f3d0" color="#059669"]
+        bug_fifo    [label="BUG-02: FIFO fallback\n(index.html:7739-7753)\nWith PARALLEL delegates: ③ scans for\nFIRST unmatched tool call.\n→ sub-session B appears in tool call A" shape=hexagon fillcolor="#fee2e2" color="#dc2626" penwidth=2]
+        bug_tokens  [label="BUG-01: token_usage not routed\nto sub-session\n(index.html:7623-7635)\nSub-agent llm:response accumulates into\nPARENT's turnTokensRef\n→ inflated parent token usage pill" shape=hexagon fillcolor="#fee2e2" color="#dc2626" penwidth=2]
+        page_load   [label="page load / syncSessionHistory()\n(index.html:9100-9133)\nrebuilds sessionParentByIdRef\nfrom ACTIVE session transcript only" shape=box fillcolor="#fef3c7" color="#d97706"]
+        bug_reload  [label="BUG-04: Post-reload lineage loss\n(index.html:9127-9133)\nsessionParentByIdRef NOT rebuilt\nfor background sessions on page load\n→ delegate events dropped or misrouted" shape=hexagon fillcolor="#fee2e2" color="#dc2626" penwidth=2]
+        fix_b       [label="FIXED-B: display_message routing\n(index.html:7780-7795)\nnow calls resolveSubSessionKey()" shape=box fillcolor="#f0fdf4" color="#16a34a" style="filled,dashed"]
+        fix_c       [label="FIXED-C: execution_error routing\n(index.html:7900-7908)\nnow calls resolveSubSessionKey()" shape=box fillcolor="#f0fdf4" color="#16a34a" style="filled,dashed"]
+        fix_fork    [label="FIXED: fork routing\n(commit 2099a68)\nMessages after fork no longer\nrouted to wrong session" shape=box fillcolor="#f0fdf4" color="#16a34a" style="filled,dashed"]
+        bug_delegates_cancelled [label="BUG-05: execution_cancelled resets\nactiveDelegatesRef=0 unconditionally\n(index.html:7873)\nDelegate count wrong mid-parallel" shape=hexagon fillcolor="#fee2e2" color="#dc2626" penwidth=2]
+        bug_delegates_complete  [label="BUG-06: prompt_complete resets\nactiveDelegatesRef=0 unconditionally\n(index.html:7830)\nSame pattern as BUG-05" shape=hexagon fillcolor="#fee2e2" color="#dc2626" penwidth=2]
+
+        subgraph cluster_state {
+            label="State  (Preact hooks in ChatApp())"
+            style=filled fillcolor="#f0fdf4" color="#15803d"
+            state_sessions  [label="sessions\nMap<wsKey, SessionState>\n(index.html:6433)" shape=box fillcolor="#bbf7d0" color="#15803d"]
+            state_chrono    [label="chronoItems\nArray<ChronoItem> — active session only\n(index.html:6438)" shape=box fillcolor="#bbf7d0" color="#15803d"]
+            state_subsessions [label="subSessionsRef\nMap<parentToolCallId, SubSessionState>\n(index.html:6575)" shape=box fillcolor="#bbf7d0" color="#15803d"]
+            state_lineage   [label="sessionParentByIdRef\nObject<childId, parentId>\n(index.html:6537)" shape=box fillcolor="#bbf7d0" color="#15803d"]
+            state_childtool [label="childToToolRef\nObject<childId, parentToolCallId>\n(index.html:6534)" shape=box fillcolor="#bbf7d0" color="#15803d"]
+            state_toolmap   [label="toolMapRef\nObject<toolCallId, itemId>\n(index.html:6533)" shape=box fillcolor="#bbf7d0" color="#15803d"]
+            state_pending   [label="pendingEventsRef\nMap<sessionKey, msg[]>\nbackground session queue\n(index.html:6547)" shape=box fillcolor="#bbf7d0" color="#15803d"]
+        }
+
+        subgraph cluster_render {
+            label="Rendering  (Preact component tree)"
+            style=filled fillcolor="#dcfce7" color="#16a34a"
+            r_chatapp    [label="ChatApp()\n(index.html:6427)"                                       shape=box fillcolor="#4ade80" color="#15803d"]
+            r_msglist    [label="MessageList\n(index.html:4725)"                                     shape=box fillcolor="#86efac" color="#16a34a"]
+            r_chrono     [label="ChronoItem\n(index.html:4658)"                                     shape=box fillcolor="#86efac" color="#16a34a"]
+            r_text       [label="text block\ndangerouslySetInnerHTML\n(markdown rendered)"           shape=box fillcolor="#bbf7d0" color="#16a34a"]
+            r_thinking   [label="ThinkingBlock\n(index.html:4037)"                                  shape=box fillcolor="#bbf7d0" color="#16a34a"]
+            r_toolcall   [label="ToolCallCard\n(index.html:4338-4405)\n+ SubSessionView if subSessionId" shape=box fillcolor="#bbf7d0" color="#16a34a"]
+            r_subsession [label="SubSessionView\n(index.html:4407)\nRECURSIVE — MAX_NESTING=4\n5th level → 'Open session' link" shape=box fillcolor="#bbf7d0" color="#16a34a"]
+            r_nested     [label="NestedToolCallView\n(index.html:4480-4531)" shape=box fillcolor="#bbf7d0" color="#16a34a"]
+            r_tokens     [label="TokenUsagePill\n(index.html:4533)"          shape=box fillcolor="#bbf7d0" color="#16a34a"]
+            r_chatapp -> r_msglist
+            r_msglist -> r_chrono
+            r_chrono  -> r_text      [label="type='text'"]
+            r_chrono  -> r_thinking  [label="type='thinking'"]
+            r_chrono  -> r_toolcall  [label="type='tool_call'"]
+            r_chrono  -> r_tokens    [label="type='token_usage'"]
+            r_toolcall -> r_subsession [label="subSessionId present"]
+            r_subsession -> r_nested
+            r_subsession -> r_subsession [label="recursive (max 4)" style=dashed]
+        }
+
+        subgraph cluster_views {
+            label="UI Views  (conditional render, no client-side router)"
+            style=filled fillcolor="#d1fae5" color="#059669"
+            view_chat      [label="Chat view\nviewMode='chat'"                       shape=box fillcolor="#a7f3d0" color="#059669"]
+            view_workspace [label="Workspace view\nviewMode='workspace'"             shape=box fillcolor="#a7f3d0" color="#059669"]
+            view_sessions  [label="Sessions sidebar\nlive, history, pinned"          shape=box fillcolor="#a7f3d0" color="#059669"]
+            view_activity  [label="Activity panel"                                   shape=box fillcolor="#a7f3d0" color="#059669"]
+        }
+
+        // UI routing flow
+        sse_client   -> normalize          [label="JSON.parse(e.data)"]
+        normalize    -> gap_fields         [label="field mapping" style=dashed color="#ea580c"]
+        normalize    -> sse_router         [label="normalized msg\n+ envelope.session_id"]
+        sse_router   -> state_sessions     [label="② sessionsRef lookup" style=dashed]
+        sse_router   -> state_lineage      [label="① chain walk to root"]
+        sse_router   -> bug_leak5          [label="BUG-03 trigger" style=dashed color="#dc2626"]
+        sse_router   -> active_check       [label="ownerKey resolved"]
+        active_check -> state_pending      [label="background →\nqueue" style=dashed]
+        state_pending -> dispatcher        [label="on session switch\nflush queue" style=dashed color="#15803d"]
+        active_check -> bug_replay         [label="BUG-07" style=dashed color="#dc2626"]
+        active_check -> dispatcher         [label="active session\nevent"]
+        dispatcher   -> state_chrono       [label="text/thinking/tool_call\nappended to chronoItems"]
+        dispatcher   -> subsession_router  [label="child_session_id or\nparent_tool_call_id"]
+        dispatcher   -> fix_a              [label="pre-fork buffer" style=dashed color="#16a34a"]
+        dispatcher   -> fix_b              [label="display_message" style=dashed color="#16a34a"]
+        dispatcher   -> fix_c              [label="execution_error" style=dashed color="#16a34a"]
+        dispatcher   -> fix_fork           [label="session_fork" style=dashed color="#16a34a"]
+        dispatcher   -> bug_tokens         [label="BUG-01" style=dashed color="#dc2626"]
+        dispatcher   -> bug_delegates_cancelled [label="BUG-05" style=dashed color="#dc2626"]
+        dispatcher   -> bug_delegates_complete  [label="BUG-06" style=dashed color="#dc2626"]
+        subsession_router -> state_toolmap    [label="① toolMapRef" style=dashed]
+        subsession_router -> state_childtool  [label="② childToToolRef" style=dashed]
+        subsession_router -> bug_fifo         [label="BUG-02 FIFO" style=dashed color="#dc2626"]
+        subsession_router -> state_subsessions [label="createSubSession() /\naddSubSessionContent()"]
+        state_subsessions -> r_toolcall       [label="subSessionId\nattached to item"]
+        state_chrono      -> r_msglist        [label="drives render"]
+        page_load         -> bug_reload       [label="active only" style=dashed color="#dc2626"]
+        bug_reload        -> state_lineage    [label="lineage missing" style=dashed color="#dc2626"]
+        r_chatapp -> view_chat
+        r_chatapp -> view_workspace
+        r_chatapp -> view_sessions
+        r_chatapp -> view_activity
+    }
+
+    // ---- Cross-tier edges -----------------------------------------------------
+    // ALL_EVENTS → amplifierd hook system
+    ev_session  -> wire_events [lhead=cluster_daemon label="in-process hook\nregistration" color="#2563eb" penwidth=2]
+    ev_content  -> wire_events [lhead=cluster_daemon color="#2563eb"]
+    ev_tool     -> wire_events [lhead=cluster_daemon color="#2563eb"]
+    ev_llm      -> wire_events [lhead=cluster_daemon color="#2563eb"]
+    ev_orch     -> wire_events [lhead=cluster_daemon color="#2563eb"]
+    ev_others   -> wire_events [lhead=cluster_daemon label="...all other\nALL_EVENTS →" color="#2563eb" style=dashed]
+    ev_delegate -> wire_events [lhead=cluster_daemon color="#be185d"]
+
+    // amplifierd SSE → amplifier-chat  (critical path)
+    sse_endpoint -> sse_client [
+        label="SSE frames\nid:{seq} event:{name}\ndata:{session_id, data,\ntimestamp, correlation_id}\ntext/event-stream  127.0.0.1:8410/events"
+        color="#15803d" penwidth=3 fontsize=10
+    ]
+
+    // ---- Bug & Gap Summary ----------------------------------------------------
+    subgraph cluster_bug_summary {
+        label="Bug & Gap Summary" style=filled fillcolor="#fef2f2" color="#dc2626" penwidth=2 fontsize=10
+        bs1 [label="BUG-01  token_usage not routed to sub-session  (index.html:7623-7635)"              shape=box fillcolor="#fee2e2" color="#dc2626"]
+        bs2 [label="BUG-02  FIFO fallback with parallel delegates  (index.html:7739-7753)"              shape=box fillcolor="#fee2e2" color="#dc2626"]
+        bs3 [label="BUG-03  Leak Path 5: child in sessionsRef before session_fork  (index.html:8070-8078)" shape=box fillcolor="#fee2e2" color="#dc2626"]
+        bs4 [label="BUG-04  Post-reload lineage loss  (index.html:9127-9133)"                           shape=box fillcolor="#fee2e2" color="#dc2626"]
+        bs5 [label="BUG-05  execution_cancelled resets activeDelegatesRef unconditionally  (index.html:7873)" shape=box fillcolor="#fee2e2" color="#dc2626"]
+        bs6 [label="BUG-06  prompt_complete resets activeDelegatesRef unconditionally  (index.html:7830)" shape=box fillcolor="#fee2e2" color="#dc2626"]
+        bs7 [label="BUG-07  execution_error & token_usage not in replayableEvents  (index.html:7246-7253)" shape=box fillcolor="#fee2e2" color="#dc2626"]
+        gs1 [label="GAP-01  Field mismatch sub_session_id vs child_id  (index.html:2944,2947)"          shape=box fillcolor="#f3f4f6" color="#9ca3af"]
+        gs2 [label="GAP-02  filter_patterns not implemented in EventBus  (event_bus.py:37-39)"           shape=box fillcolor="#f3f4f6" color="#9ca3af"]
+        gs3 [label="GAP-03  'done' event not emitted at stream end  (events.md:594-622)"                 shape=box fillcolor="#f3f4f6" color="#9ca3af"]
+        bs1 -> bs2 -> bs3 -> bs4 -> bs5 -> bs6 -> bs7 -> gs1 -> gs2 -> gs3 [style=invis]
+    }
+
+    // Cross-reference: summary → live flow nodes (constraint=false — no layout effect)
+    bs1 -> bug_tokens            [style=dashed color="#dc2626" constraint=false]
+    bs2 -> bug_fifo              [style=dashed color="#dc2626" constraint=false]
+    bs3 -> bug_leak5             [style=dashed color="#dc2626" constraint=false]
+    bs4 -> bug_reload            [style=dashed color="#dc2626" constraint=false]
+    bs5 -> bug_delegates_cancelled [style=dashed color="#dc2626" constraint=false]
+    bs6 -> bug_delegates_complete  [style=dashed color="#dc2626" constraint=false]
+    bs7 -> bug_replay            [style=dashed color="#dc2626" constraint=false]
+    gs1 -> gap_fields            [style=dashed color="#9ca3af" constraint=false]
+    gs2 -> gap_filter            [style=dashed color="#9ca3af" constraint=false]
+    gs3 -> gap_done              [style=dashed color="#9ca3af" constraint=false]
+}

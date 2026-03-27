@@ -1,0 +1,340 @@
+/**
+ * Team Knowledge Base — Design vs Implementation Gap Analysis
+ *
+ * Source: ~/Downloads/2026-03-11-team-knowledge-base-design.md
+ * Repo:   /Users/samule/repo/amplifier-chat
+ *
+ * Node colors:
+ *   GREEN  (#c8e6c9)  — Implemented / exists in repo
+ *   RED    (#ffcdd2)  — Designed but NOT implemented (GAP)
+ *   YELLOW (#fff9c4)  — Partially implemented (foundation exists, feature missing)
+ *   GREY   (#f5f5f5)  — Future phase (Phase B / Phase C, not Phase A)
+ *
+ * Render with:
+ *   dot -Tsvg docs/team-knowledge-gap-analysis.dot -o docs/team-knowledge-gap-analysis.svg
+ *   dot -Tpng docs/team-knowledge-gap-analysis.dot -o docs/team-knowledge-gap-analysis.png
+ */
+
+digraph team_knowledge_gap {
+  graph [
+    rankdir=TB
+    fontname="Helvetica"
+    fontsize=13
+    label="Team Knowledge Base — Design vs Implementation Gap Analysis\nRed = GAP (designed, not built)  |  Green = Implemented  |  Yellow = Partial  |  Grey = Future phase"
+    labelloc=t
+    pad=0.6
+    splines=ortho
+    nodesep=0.7
+    ranksep=1.1
+  ]
+  node [fontname="Helvetica" fontsize=11 shape=box style=filled]
+  edge [fontname="Helvetica" fontsize=10]
+
+  // ─── LEGEND ──────────────────────────────────────────────────────────────
+  subgraph cluster_legend {
+    label="Legend"
+    style=filled fillcolor="#fafafa"
+    fontsize=11
+    rank=min
+
+    leg_implemented [label="✅ Implemented\n(exists in repo)"        fillcolor="#c8e6c9"]
+    leg_gap         [label="❌ GAP\n(designed, not built)"           fillcolor="#ffcdd2"]
+    leg_partial     [label="⚠️  Partial\n(foundation exists only)"   fillcolor="#fff9c4"]
+    leg_future      [label="🔜 Future Phase\n(Phase B or C scope)"   fillcolor="#f5f5f5"]
+
+    leg_implemented -> leg_gap     [style=invis]
+    leg_gap         -> leg_partial [style=invis]
+    leg_partial     -> leg_future  [style=invis]
+  }
+
+  // ─── EXISTING FOUNDATION (amplifier-chat repo) ───────────────────────────
+  subgraph cluster_existing {
+    label="✅ Existing Foundation in amplifier-chat (IMPLEMENTED)"
+    style=filled fillcolor="#e8f5e9"
+
+    amplifierd_impl [
+      label="✅ amplifierd\n(port 8410)\nKernel daemon\nThis repo IS the chat plugin"
+      fillcolor="#a5d6a7"
+    ]
+    plugin_system [
+      label="✅ Plugin Entry-Point System\namplifierd.plugins\nchat_plugin.main:create_router\nAPP registers via pyproject.toml"
+      fillcolor="#a5d6a7"
+    ]
+    session_management [
+      label="✅ Session Management\nSession fork / lineage / parent chain\nsessionParentByIdRef tracking\nFork creates child → parent linkage"
+      fillcolor="#a5d6a7"
+    ]
+    sse_impl [
+      label="✅ SSE Streaming\nGET /events per session\nEnvelope: {session_id, event_type, data}\nAll event types transported"
+      fillcolor="#a5d6a7"
+    ]
+    fastapi_backend [
+      label="✅ FastAPI Backend\n28 endpoints\nroutes.py, commands.py\nsession_history.py (disk scanner)"
+      fillcolor="#a5d6a7"
+    ]
+    search_partial [
+      label="⚠️ Search — PARTIAL\nGET /search exists\nSubstring metadata matching ONLY\nNo vector / semantic search\nNo ranked results\nNo knowledge base scope"
+      fillcolor="#fff9c4"
+    ]
+
+    amplifierd_impl -> plugin_system [label="loads via\nentry_points"]
+  }
+
+  // ─── PHASE A: SMART REPO ─────────────────────────────────────────────────
+  subgraph cluster_phase_a {
+    label="❌ Phase A — Smart Repo  (ALL GAPS — 0% implemented)"
+    style=filled fillcolor="#ffebee"
+
+    // Storage layer
+    subgraph cluster_repo {
+      label="❌ Team Knowledge Repo  (git-hosted, shared)"
+      style=filled fillcolor="#ffcdd2"
+
+      manifest [
+        label="❌ GAP: manifest.yaml\nLayer 0 table of contents\n~100 lines total\nEvery person, capability, convention\nName + one-liner + last-updated\nEntry point for ALL agent queries"
+        fillcolor="#ef9a9a"
+      ]
+      people_dir [
+        label="❌ GAP: /people/<handle>/\n  profile.yaml (20-30 lines)\n    repos, ownership, skills, team\n    last-run timestamp (incremental)\n  activity.md\n    Generated from session-sync\n    Recent work summaries"
+        fillcolor="#ef9a9a"
+      ]
+      capabilities_dir [
+        label="❌ GAP: /capabilities/<name>.yaml\nPer-capability descriptions\n10-30 lines each\nFields: name, description, repo,\n  path, owner, type, usage,\n  dependencies\nTypes: bundle | plugin | tool |\n  convention | pattern | plugin-system"
+        fillcolor="#ef9a9a"
+      ]
+      conventions_dir [
+        label="❌ GAP: /conventions/<name>.md\nHuman-curated ONLY (not generated)\nTeam-approved patterns\nTesting standards, deployment,\n  file layout, conventions\nVersioned like any doc"
+        fillcolor="#ef9a9a"
+      ]
+      dotfiles_dir [
+        label="❌ GAP: /dotfiles/<handle>/\nVisualization data\nFormat aligned with\nBrian's visualization tooling"
+        fillcolor="#ef9a9a"
+      ]
+      vector_index [
+        label="❌ GAP: /index/vectors.bin\n         /index/vectors.meta.json\nLocal vector DB (committed to repo)\nWorks offline, no server\nIncremental: diffs by file hash\nVector DB choice OPEN:\n  DuckDB vss | sqlite-vec | FAISS"
+        fillcolor="#ef9a9a"
+      ]
+
+      manifest -> people_dir [style=invis]
+      manifest -> capabilities_dir [style=invis]
+      manifest -> conventions_dir [style=invis]
+    }
+
+    // Generation tools
+    subgraph cluster_gen_tools {
+      label="❌ Generation Tools  (/tools/)"
+      style=filled fillcolor="#ffcdd2"
+
+      gen_person [
+        label="❌ GAP: generate-person.py\nCrawls dev repos (git log --since=)\nScans: pyproject.toml,\n  bundle YAML, AppManifest,\n  recipe YAML\nWrites: /people/, /dotfiles/,\n  /capabilities/\nIncremental: timestamp per repo\nNo-change runs exit in seconds"
+        fillcolor="#ef9a9a"
+      ]
+      index_caps [
+        label="❌ GAP: index-capabilities.py\nScans for bundles/plugins/tools\nWrites /capabilities/ entries\nCalled by generate-person or manually"
+        fillcolor="#ef9a9a"
+      ]
+      rebuild_index [
+        label="❌ GAP: rebuild-index.py\nRegenerates vector index\nfrom ALL YAML/MD files\nIncremental by file hash\nFull rebuild fallback\nOutputs vectors.bin + vectors.meta.json"
+        fillcolor="#ef9a9a"
+      ]
+
+      gen_person -> index_caps [label="calls"]
+      gen_person -> rebuild_index [label="calls after\nwrite"]
+      index_caps -> rebuild_index [label="or manual\ntrigger"]
+    }
+
+    // team_knowledge bundle
+    subgraph cluster_bundle {
+      label="❌ amplifier-bundle-team-knowledge  (NEW PACKAGE)"
+      style=filled fillcolor="#ffcdd2"
+
+      tk_bundle [
+        label="❌ GAP: team_knowledge bundle\nAmplifier bundle package\nShips the query tool\nComposable into distro/amplifierd\n  or personal bundles"
+        fillcolor="#ef9a9a"
+      ]
+      tk_tool [
+        label="❌ GAP: team_knowledge TOOL\n4 operations (ALL MISSING):\n──────────────────────────────\n❌ search(query: str)\n   → semantic vector query\n   → 3-5 ranked capability files\n   → NOT substring matching\n❌ lookup(name: str)\n   → full YAML of capability file\n   → direct file read\n❌ list(category: str)\n   → manifest entries by category\n   → names + one-liners only\n❌ publish(name, content)\n   → write capability YAML\n   → rebuild-index\n   → git commit"
+        fillcolor="#ef9a9a"
+      ]
+      post_push_hook [
+        label="❌ GAP: Post-push git hook\nFires on git push\nRuns generate-person\nCommits results to shared repo"
+        fillcolor="#ef9a9a"
+      ]
+
+      tk_bundle -> tk_tool [label="ships"]
+    }
+
+    // Layered discovery model
+    layered_model [
+      label="❌ GAP: Layered Discovery Model\nAgents NEVER bulk-load the repo\n─────────────────────────────\nLayer 0: manifest.yaml (~100 lines)\n  Always read first (table of contents)\nLayer 1: /capabilities/ (10-30 lines ea)\n  Only 3-4 relevant to current task\nLayer 2: /conventions/, /dotfiles/\n  Only when agent decides relevant\n─────────────────────────────\nToken cost target: ~200 lines/query"
+      fillcolor="#ef9a9a"
+    ]
+  }
+
+  // ─── PHASE B: SESSION-SYNC INTEGRATION ───────────────────────────────────
+  subgraph cluster_phase_b {
+    label="🔜 Phase B — Session-Sync Integration  (Future scope)"
+    style=filled fillcolor="#f5f5f5"
+
+    sync_activity [
+      label="🔜 sync-activity.py\nCalls session-sync metrics API\nUses 'since' timestamp (incremental)\nWrites /people/<handle>/activity.md\nFlags new capabilities for scanner"
+      fillcolor="#eeeeee"
+    ]
+    session_sync_ext [
+      label="🔜 session-sync extension\nExtend to index repo contents\nalongside session transcripts\nRicher cross-session queries"
+      fillcolor="#eeeeee"
+    ]
+
+    sync_activity -> session_sync_ext [label="integrates with"]
+  }
+
+  // ─── PHASE C: AMBIENT PLUGIN ─────────────────────────────────────────────
+  subgraph cluster_phase_c {
+    label="🔜 Phase C — Ambient Plugin  (Future scope, plugin architecture EXISTS)"
+    style=filled fillcolor="#f5f5f5"
+
+    session_start_hook [
+      label="🔜 Session-start hook\nTrigger: Session Phase C\nReads manifest.yaml\nInjects thin context:\n  'Your team has N capabilities,\n   M people, K conventions.\n   Use team_knowledge to query.'"
+      fillcolor="#eeeeee"
+    ]
+    distro_plugin [
+      label="🔜 Distro plugin (port 8400)\nAppManifest plugin system\nServes query interface over HTTP\nMust plug in, not replace\n836 tests must still pass"
+      fillcolor="#eeeeee"
+    ]
+    amplifierd_plugin [
+      label="⚠️ amplifierd HTTP plugin\n(port 8410 — this repo)\nPlugin architecture EXISTS ✅\nteam_knowledge endpoint NOT added ❌"
+      fillcolor="#fff9c4"
+    ]
+  }
+
+  // ─── DATA FLOWS (DESIGNED) — All Gap Paths ───────────────────────────────
+
+  // Read path (agent querying)
+  subgraph cluster_read_path {
+    label="❌ Designed Read Path (Agent Querying) — NOT IMPLEMENTED"
+    style=filled fillcolor="#fff3e0"
+
+    agent_session [
+      label="Agent Session\n(receives a task)"
+      fillcolor="#fff9c4" shape=ellipse
+    ]
+    read_manifest [
+      label="❌ Read manifest.yaml\n(Layer 0, ~100 lines)\nIdentify 2-3 relevant\ncapability names"
+      fillcolor="#ef9a9a"
+    ]
+    call_search [
+      label="❌ call team_knowledge(\n  operation='search',\n  query='...')\nQueries local vector index"
+      fillcolor="#ef9a9a"
+    ]
+    read_caps [
+      label="❌ Read /capabilities/<name>.yaml\n(Layer 1, 10-30 lines each)\n3-4 files max per query"
+      fillcolor="#ef9a9a"
+    ]
+    read_convs [
+      label="❌ Read /conventions/<name>.md\n(Layer 2, only if relevant)"
+      fillcolor="#ef9a9a"
+    ]
+
+    agent_session -> read_manifest [label="start of task"]
+    agent_session -> call_search [label="or via tool"]
+    read_manifest -> read_caps [label="discovers relevant\ncapability names"]
+    call_search -> read_caps [label="returns 3-5\nranked files"]
+    read_caps -> read_convs [label="optional deeper\ndrill"]
+  }
+
+  // Write path
+  subgraph cluster_write_path {
+    label="❌ Designed Write Path (Publishing) — NOT IMPLEMENTED"
+    style=filled fillcolor="#fce4ec"
+
+    human_publish [
+      label="Human says:\n'make sure folks know\nabout this pattern'"
+      fillcolor="#fff9c4" shape=ellipse
+    ]
+    call_publish [
+      label="❌ call team_knowledge(\n  operation='publish',\n  name='...',\n  content={...})"
+      fillcolor="#ef9a9a"
+    ]
+    write_cap_yaml [
+      label="❌ Write /capabilities/<name>.yaml\n(capability file)"
+      fillcolor="#ef9a9a"
+    ]
+    run_rebuild [
+      label="❌ run rebuild-index\n(update vector index)"
+      fillcolor="#ef9a9a"
+    ]
+    git_commit [
+      label="❌ git commit\n(publish to shared repo)\nOther agents see it\non next query"
+      fillcolor="#ef9a9a"
+    ]
+
+    human_publish -> call_publish
+    call_publish -> write_cap_yaml
+    write_cap_yaml -> run_rebuild
+    run_rebuild -> git_commit
+  }
+
+  // Auto-generation path
+  subgraph cluster_gen_path {
+    label="❌ Designed Auto-Generation Path — NOT IMPLEMENTED"
+    style=filled fillcolor="#e8eaf6"
+
+    dev_push [
+      label="Developer pushes code\nto their repos"
+      fillcolor="#fff9c4" shape=ellipse
+    ]
+    post_hook_fire [
+      label="❌ Post-push hook fires\nRuns generate-person"
+      fillcolor="#ef9a9a"
+    ]
+    scan_repos [
+      label="❌ Scan repos incrementally\n(git log --since last-timestamp)\npyproject.toml, bundle YAML,\nAppManifest, recipe YAML"
+      fillcolor="#ef9a9a"
+    ]
+    update_files [
+      label="❌ Write updated:\n/people/<handle>/profile.yaml\n/capabilities/<name>.yaml\n/dotfiles/<handle>/"
+      fillcolor="#ef9a9a"
+    ]
+    rebuild_commit [
+      label="❌ rebuild-index\nthen git commit\nto shared repo"
+      fillcolor="#ef9a9a"
+    ]
+
+    dev_push -> post_hook_fire
+    post_hook_fire -> scan_repos
+    scan_repos -> update_files
+    update_files -> rebuild_commit
+  }
+
+  // ─── CONNECTION: existing infra ↔ gap components ─────────────────────────
+  amplifierd_impl -> amplifierd_plugin [label="Phase C would\nadd endpoint here" style=dashed color="#555555"]
+  plugin_system -> tk_bundle [label="GAP: bundle\nnot created yet" color="#cf222e" style=dashed]
+  session_management -> session_start_hook [label="Phase C hook\nwould fire here" style=dashed color="#555555"]
+  sse_impl -> session_start_hook [label="session lifecycle\nhook point exists" style=dashed color="#555555"]
+  fastapi_backend -> amplifierd_plugin [label="Phase C HTTP\nendpoint here" style=dashed color="#555555"]
+  search_partial -> tk_tool [label="GAP: only substring;\nneed vector search" color="#cf222e" penwidth=2]
+
+  // Phase A internal flows
+  gen_person -> people_dir [label="writes"]
+  gen_person -> dotfiles_dir [label="writes"]
+  index_caps -> capabilities_dir [label="writes"]
+  rebuild_index -> vector_index [label="generates"]
+  manifest -> layered_model [label="Layer 0"]
+  capabilities_dir -> layered_model [label="Layer 1"]
+  conventions_dir -> layered_model [label="Layer 2"]
+  vector_index -> tk_tool [label="search() backend"]
+  tk_bundle -> layered_model [label="enforces via\ntoken discipline"]
+  post_push_hook -> gen_person [label="triggers"]
+
+  // Phase B flows
+  sync_activity -> people_dir [label="writes\nactivity.md" style=dashed]
+
+  // Phase C flows
+  session_start_hook -> manifest [label="reads\n(thin inject)" style=dashed]
+  session_start_hook -> agent_session [label="thin context\ninjected at start" style=dashed]
+
+  // Full read path
+  tk_tool -> call_search [label="implements\nsearch op" style=dashed]
+  tk_tool -> read_manifest [label="implements\nlist op" style=dashed]
+  tk_tool -> call_publish [label="implements\npublish op" style=dashed]
+}

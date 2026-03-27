@@ -1,0 +1,337 @@
+/**
+ * Sub-Session Message Routing Flow
+ *
+ * Shows how delegate sub-agent events travel through the frontend,
+ * where they leak into the parent thread today, and how the fixes address each path.
+ *
+ * Render with:
+ *   dot -Tsvg docs/subsession-message-routing.dot -o docs/subsession-message-routing.svg
+ *   dot -Tpng docs/subsession-message-routing.dot -o docs/subsession-message-routing.png
+ *
+ * Corrections applied (2026-03-25):
+ *  - branch_content line range corrected to ~7323-7700 (was 7326-7758)
+ *  - session_fork_handler line corrected to ~7715 (case statement, was 7727)
+ *  - execution_error setExecuting(false) is CONDITIONAL (ownerKey===activeKeyRef), not unconditional
+ *  - direct_match->owner_resolved edge now correctly red (leak path)
+ *  - race_timeline connected to where race manifests in resolve cluster
+ *  - Fix A interception shown as alternative branch, not post-mortem
+ *  - Fixes B/C noted as race-unsafe without Fix A
+ *  - display_message has two leak paths: active (immediate) + background (queued/replayed)
+ *  - execution_error NOT in replayableEvents — no background replay leak
+ *  - pendingEventsRef distinguished from Fix A buffer
+ *  - Leak Path 5 fully explained (needs child in sessionsRef; otherwise silent drop)
+ *  - token_usage side-effect note added
+ */
+
+digraph subsession_routing {
+  graph [
+    rankdir=TB
+    fontname="Helvetica"
+    fontsize=13
+    label="Sub-Session Message Routing — Leak Paths & Fixes\n(amplifier-chat index.html)"
+    labelloc=t
+    pad=0.5
+    splines=spline
+    nodesep=0.6
+    ranksep=0.9
+  ]
+  node [fontname="Helvetica" fontsize=11 shape=box style=filled]
+  edge [fontname="Helvetica" fontsize=10]
+
+  // ─── LEGEND ───────────────────────────────────────────────────────────────
+  subgraph cluster_legend {
+    label="Legend"
+    style=filled fillcolor="#f9f9f9"
+    fontsize=11
+
+    leg_happy  [label="Happy path"              shape=plaintext style="" fontcolor="#1a7f37"]
+    leg_leak   [label="Leak path (bug)"         shape=plaintext style="" fontcolor="#cf222e"]
+    leg_fix    [label="Fix applied here"        shape=plaintext style="" fontcolor="#0550ae"]
+    leg_buffer [label="Fix A — buffer flush"    shape=plaintext style="" fontcolor="#8250df"]
+    leg_gray   [label="Context / annotation"    shape=plaintext style="" fontcolor="#555555"]
+
+    leg_happy -> leg_leak   [style=invis]
+    leg_leak  -> leg_fix    [style=invis]
+    leg_fix   -> leg_buffer [style=invis]
+    leg_buffer -> leg_gray  [style=invis]
+  }
+
+  // ─── PHASE 0: KERNEL → BROWSER ────────────────────────────────────────────
+  subgraph cluster_kernel {
+    label="Kernel (server-side)"
+    style=filled fillcolor="#fff8dc"
+
+    parent_session [
+      label="Parent Session\n(running delegate tool)"
+      fillcolor="#fffbe6" shape=ellipse
+    ]
+    child_session [
+      label="Child Session\n(spawned sub-agent)"
+      fillcolor="#fffbe6" shape=ellipse
+    ]
+
+    parent_session -> child_session [label="spawns" style=dashed]
+  }
+
+  // ─── PHASE 1: SSE STREAM ──────────────────────────────────────────────────
+  sse_stream [
+    label="Single SSE EventSource\n(all sessions share one stream)\nenvelope = { session_id, event_type, data }\nNote: session_id is in the ENVELOPE, NOT in msg payload"
+    fillcolor="#e6f0ff"
+  ]
+
+  parent_session -> sse_stream [
+    label="delegate:agent_spawned\ntool_call, content_*, tool_result"
+    color="#555"
+  ]
+  child_session -> sse_stream [
+    label="content_*, thinking_*\ntool_call, display_message\nexecution_error, token_usage\n(may arrive BEFORE session_fork!)"
+    color="#555"
+    style=dashed
+  ]
+
+  // ─── PHASE 2: SSE ROUTER ──────────────────────────────────────────────────
+  subgraph cluster_sse_router {
+    label="SSE Router  (~line 7993)\nRoutes child events to parent ownerKey via sessionParentByIdRef chain"
+    style=filled fillcolor="#e8f5e9"
+
+    sse_router_check [
+      label="sessionParentByIdRef\nhas directParentId?"
+      shape=diamond fillcolor="#c8e6c9"
+    ]
+    fork_check [
+      label="Is session a fork?\n(!!s.forkedFromTurn)"
+      shape=diamond fillcolor="#c8e6c9"
+    ]
+    walk_chain [
+      label="Walk parent chain → root ancestor\nownerKey = root\n(correct for delegate sub-sessions)"
+      fillcolor="#a5d6a7"
+    ]
+    direct_match [
+      label="Direct match on sessionId\nownerKey = child's own key\n\nLEAK PATH 5:\nChild routes to itself instead of parent.\nRequires: child already in sessionsRef\nAND parent chain not yet registered.\nIf child NOT in sessionsRef → silent drop."
+      fillcolor="#ffcdd2"
+    ]
+    owner_resolved [
+      label="ownerKey resolved\n→ handleWsMessage(msg, ownerKey)"
+      fillcolor="#c8e6c9"
+    ]
+
+    sse_router_check -> fork_check   [label="YES" color="#1a7f37"]
+    sse_router_check -> direct_match [
+      label="NO\n(race: lineage not\nregistered yet)"
+      color="#cf222e"
+    ]
+    fork_check -> direct_match [
+      label="YES → user fork,\nskip chain\n(fix from 2099a68)"
+      color="#0550ae"
+    ]
+    fork_check -> walk_chain [label="NO → delegate\nsub-session" color="#1a7f37"]
+    walk_chain   -> owner_resolved [color="#1a7f37"]
+    direct_match -> owner_resolved [
+      label="Leak Path 5"
+      color="#cf222e"
+      penwidth=2
+    ]
+  }
+
+  sse_stream -> sse_router_check
+
+  // ─── PHASE 3: ACTIVE vs BACKGROUND split ──────────────────────────────────
+  active_check [
+    label="Is ownerKey the active session?\n(ownerKey === activeKeyRef.current)"
+    shape=diamond fillcolor="#ede7f6"
+  ]
+  background_queue [
+    label="Background / Inactive Session\n→ queue in pendingEventsRef (keyed by ownerKey)\n→ flushed on session switch\n\nNote: pendingEventsRef ≠ Fix A buffer\n  pendingEventsRef: keyed by ownerKey, flushed on switch\n  Fix A buffer: keyed by child_session_id, flushed on session_fork\n\nreplayableEvents includes:\n  content_*, thinking_*, tool_call, tool_result,\n  session_fork, display_message, execution_start/end\nNOT included (no replay): execution_error, token_usage"
+    fillcolor="#f3e5f5"
+  ]
+
+  owner_resolved  -> active_check
+  active_check -> background_queue [
+    label="NO (background)\nqueue for later"
+    color="#555"
+  ]
+
+  // ─── PHASE 4: handleWsMessage (active path) ───────────────────────────────
+  subgraph cluster_handle {
+    label="handleWsMessage(msg, ownerKey)  — active session dispatch"
+    style=filled fillcolor="#f3e5f5"
+
+    msg_type [
+      label="switch(msg.type)"
+      shape=diamond fillcolor="#e1bee7"
+    ]
+
+    // ── resolveSubSessionKey gate ──────────────────────────────────────────
+    subgraph cluster_resolve {
+      label="resolveSubSessionKey(msg)  (lines 6999–7008)\nGate: routes to ToolCallCard vs parent thread"
+      style=filled fillcolor="#fce4ec"
+
+      rsk_check1 [
+        label="msg.parent_tool_call_id\npresent AND in subSessionsRef?"
+        shape=diamond fillcolor="#f8bbd0"
+      ]
+      rsk_check2 [
+        label="msg.child_session_id\nin childToToolRef\nAND mapped value in subSessionsRef?"
+        shape=diamond fillcolor="#f8bbd0"
+      ]
+      rsk_buffer_branch [
+        label="[FIX A] Has child_session_id\nbut no mapping yet?\n(pre-fork race window)"
+        shape=diamond fillcolor="#d1c4e9"
+      ]
+      rsk_null [
+        label="return null\nNo sub-session key found\n(genuine parent-level event)"
+        fillcolor="#ffccbc"
+      ]
+      rsk_key [
+        label="return parentToolCallId\n(valid sub-session key)"
+        fillcolor="#a5d6a7"
+      ]
+
+      rsk_check1 -> rsk_key    [label="YES" color="#1a7f37"]
+      rsk_check1 -> rsk_check2 [label="NO" color="#555"]
+      rsk_check2 -> rsk_key    [label="YES" color="#1a7f37"]
+      rsk_check2 -> rsk_buffer_branch [label="NO" color="#555"]
+      rsk_buffer_branch -> pending_child_buf [
+        label="YES → buffer it\n[FIX A]"
+        color="#8250df"
+        penwidth=2
+      ]
+      rsk_buffer_branch -> rsk_null [
+        label="NO → genuine\nparent event"
+        color="#555"
+      ]
+    }
+
+    // ── Event type branches ────────────────────────────────────────────────
+    branch_content [
+      label="content_start/delta/end\nthinking_delta/final\ntool_call / tool_result\n(~lines 7323–7700)\n\nAll call resolveSubSessionKey ✓"
+      fillcolor="#e8f5e9"
+    ]
+    branch_display [
+      label="display_message  (~line 7762)\n⚠ NO resolveSubSessionKey call\n\nActive session: immediate setChronoItems leak\nBackground session: queued in pendingEventsRef,\n  replayed on switch → still leaks (IS in replayableEvents)"
+      fillcolor="#ffcdd2"
+    ]
+    branch_exec_err [
+      label="execution_error  (~line 7865)\n⚠ NO resolveSubSessionKey call\n⚠ activeDelegatesRef = 0  (unconditional)\n⚠ setExecuting(false)  (conditional:\n   only if ownerKey === activeKeyRef)\n\nBackground: NOT replayed (not in replayableEvents)"
+      fillcolor="#ffcdd2"
+    ]
+    branch_token [
+      label="token_usage  (~line 7614)\n⚠ No sub-session routing\n→ accumulates into parent\n   turnTokensRef totals\n→ inflates parent token pill\n   via prompt_complete"
+      fillcolor="#fff3e0"
+    ]
+    branch_other [
+      label="execution_start/end\nsession_fork\napproval_request\nprompt_complete\nexecution_cancelled\n…"
+      fillcolor="#f5f5f5"
+    ]
+
+    msg_type -> branch_content  [label="content/thinking\ntool_*"]
+    msg_type -> branch_display  [label="display_message" color="#cf222e"]
+    msg_type -> branch_exec_err [label="execution_error" color="#cf222e"]
+    msg_type -> branch_token    [label="token_usage"     color="#e65100"]
+    msg_type -> branch_other    [label="other"]
+
+    branch_content -> rsk_check1
+  }
+
+  active_check -> msg_type [label="YES (active)\ndispatch now" color="#1a7f37"]
+
+  // ─── RACE CONDITION ANNOTATION ────────────────────────────────────────────
+  race_timeline [
+    label="Race Condition — why rsk_check1 and rsk_check2 fail early\n\nEvent ordering (may interleave across SSE stream):\n  1. Parent: tool_call → toolMapRef[tool_call_id] = itemId\n  2. Child starts → emits content_start, thinking_delta … immediately\n  3. Parent: delegate:agent_spawned → session_fork event arrives\n     → createSubSession() → populates subSessionsRef + childToToolRef\n\nIf step 2 events arrive at browser BEFORE step 3 is processed:\n  subSessionsRef and childToToolRef are EMPTY\n  → both rsk_check1 and rsk_check2 fail\n  → rsk_buffer_branch checks for child_session_id to buffer [FIX A]\n  → without FIX A: falls through to setChronoItems"
+    shape=note fillcolor="#ffe0b2" fontsize=10
+  ]
+
+  race_timeline -> rsk_check2 [
+    label="race manifests here"
+    color="#555555"
+    style=dashed
+    fontcolor="#555555"
+    constraint=false
+  ]
+
+  // ─── PHASE 5: Fix A BUFFER ────────────────────────────────────────────────
+  pending_child_buf [
+    label="[FIX A] pendingChildEventsRef\nMap<childSessionId, msg[]>\n\nBuffer events keyed by child_session_id\nuntil session_fork establishes routing.\n\nDECLARE: with other refs (~line 6547)\nFLUSH: in session_fork handler after\n  createSubSession() at ~line 7752"
+    fillcolor="#d1c4e9"
+  ]
+
+  // ─── PHASE 6: session_fork handler ────────────────────────────────────────
+  session_fork_handler [
+    label="session_fork handler  (~line 7715)\n\n1. Resolve parentToolCallId:\n   a. Direct: msg.parent_tool_call_id → toolMapRef lookup\n   b. FIFO fallback: scan chronoItemsRef for first item where\n      type=tool_call AND toolName=delegate|task\n      AND toolStatus=pending|running AND !subSessionId\n   c. If neither succeeds → break (createSubSession NEVER called\n      → all child events permanently leak)\n\n2. createSubSession(parentToolCallId, childId, agent)\n   → populates subSessionsRef[parentToolCallId]\n   → populates childToToolRef[childId]\n   → populates sessionParentByIdRef[childId]\n\n3. [FIX A] Flush pendingChildEventsRef[childId]\n   → re-route each buffered event via addSubSessionContent()"
+    fillcolor="#fff9c4"
+  ]
+
+  branch_other -> session_fork_handler [label="session_fork"]
+
+  session_fork_handler -> pending_child_buf [
+    label="[FIX A] flush\nbuffered events"
+    color="#8250df"
+    style=dashed
+    fontcolor="#8250df"
+    penwidth=2
+  ]
+
+  // ─── PHASE 7: OUTPUTS ─────────────────────────────────────────────────────
+  add_sub [
+    label="addSubSessionContent()\n→ ToolCallCard\n✅ Correct behavior"
+    fillcolor="#a5d6a7"
+  ]
+  set_chrono [
+    label="setChronoItems()\n→ Top-level parent thread\n❌ LEAK — stray bubble\nvisible to user"
+    fillcolor="#ef9a9a"
+  ]
+  parent_state_reset [
+    label="activeDelegatesRef = 0  (unconditional)\nsetExecuting(false)  (conditional:\n  only when ownerKey === activeKeyRef)\n\n❌ Incorrectly resets parent\nexecution state for a sub-agent failure"
+    fillcolor="#ef9a9a"
+  ]
+
+  rsk_key  -> add_sub [color="#1a7f37" penwidth=2]
+  rsk_null -> set_chrono [color="#555" label="parent event\n(correct)"]
+
+  pending_child_buf -> add_sub [
+    label="after flush\n[FIX A]"
+    color="#8250df"
+    style=dashed
+    fontcolor="#8250df"
+    penwidth=2
+  ]
+
+  branch_display -> set_chrono [
+    color="#cf222e" penwidth=2
+    label="Leak Path 3\n(active: always leaks\nbackground: replayed\nthen leaks)"
+  ]
+  branch_exec_err -> set_chrono [
+    color="#cf222e" penwidth=2
+    label="Leak Path 4\n(active only;\nno background replay)"
+  ]
+  branch_exec_err -> parent_state_reset [color="#cf222e" penwidth=2]
+
+  // ─── FIXES B & C ──────────────────────────────────────────────────────────
+  subgraph cluster_fixes_bc {
+    label="Fixes B & C — always-leaking event types\nNote: these call resolveSubSessionKey, so they are\nstill race-unsafe without Fix A.\nWith Fix A: fully contained."
+    style=filled fillcolor="#e8eaf6"
+
+    fix_display [
+      label="FIX B — Route display_message\n\ncase 'display_message': {\n  const subKey = resolveSubSessionKey(msg);\n  if (subKey) {\n    addSubSessionContent(subKey, {\n      id: makeId(), type: 'text',\n      role: 'system',\n      content: `[${msg.level}] ${msg.message}`,\n      streaming: false\n    });\n    break;  // contained in ToolCallCard\n  }\n  setChronoItems(...); // parent-owned only\n}"
+      fillcolor="#c5cae9" fontsize=10
+    ]
+    fix_exec_err [
+      label="FIX C — Route execution_error + split state\n\ncase 'execution_error': {\n  const subKey = resolveSubSessionKey(msg);\n  if (subKey) {\n    addSubSessionContent(subKey, {...});\n    // DO NOT touch setExecuting or activeDelegatesRef\n    break;\n  }\n  // Parent error: update state as before\n  activeDelegatesRef.current = 0;\n  if (ownerKey === activeKeyRef.current) {\n    setExecuting(false);\n  }\n  setChronoItems(...);\n}"
+      fillcolor="#c5cae9" fontsize=10
+    ]
+
+    fix_display -> fix_exec_err [style=invis]
+  }
+
+  branch_display  -> fix_display [
+    label="FIX B"
+    color="#0550ae" style=dashed fontcolor="#0550ae"
+  ]
+  branch_exec_err -> fix_exec_err [
+    label="FIX C"
+    color="#0550ae" style=dashed fontcolor="#0550ae"
+  ]
+
+  fix_display  -> add_sub [label="sub-session path" color="#0550ae" style=dashed fontcolor="#0550ae"]
+  fix_exec_err -> add_sub [label="sub-session path" color="#0550ae" style=dashed fontcolor="#0550ae"]
+}

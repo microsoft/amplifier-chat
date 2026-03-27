@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>From Clipchamp to CLI — How Amplifier Turned 20 Minutes of Video Editing Into a 2-Minute Conversation</title>
+    <style>
+        :root {
+            --accent: #FF375F;
+            --accent-dim: rgba(255, 55, 95, 0.15);
+            --accent-glow: rgba(255, 55, 95, 0.3);
+
+            --font-headline: clamp(36px, 8vw, 72px);
+            --font-medium-headline: clamp(24px, 5vw, 48px);
+            --font-subhead: clamp(16px, 3vw, 28px);
+            --font-body: clamp(14px, 2vw, 18px);
+            --font-small: clamp(12px, 1.8vw, 14px);
+            --font-big-number: clamp(60px, 18vw, 160px);
+            --font-medium-number: clamp(36px, 10vw, 80px);
+
+            --padding-slide: clamp(20px, 5vw, 80px);
+            --gap-grid: clamp(16px, 3vw, 40px);
+
+            --surface-1: rgba(255,255,255,0.06);
+            --surface-2: rgba(255,255,255,0.10);
+            --surface-3: rgba(255,255,255,0.15);
+            --border-subtle: rgba(255,255,255,0.12);
+            --border-visible: rgba(255,255,255,0.20);
+
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.7);
+            --text-tertiary: rgba(255,255,255,0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            overscroll-behavior: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .slide {
+            display: none;
+            width: 100vw;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: clamp(60px, 10vw, 120px) var(--padding-slide) clamp(80px, 12vw, 100px);
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .slide.active { display: flex; }
+
+        .center {
+            text-align: center;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Typography */
+        .section-label {
+            font-size: clamp(12px, 1.5vw, 14px);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: clamp(12px, 2vw, 20px);
+        }
+
+        .headline {
+            font-size: var(--font-headline);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: clamp(16px, 3vw, 32px);
+        }
+
+        .medium-headline {
+            font-size: var(--font-medium-headline);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin-bottom: clamp(16px, 3vw, 32px);
+        }
+
+        .subhead {
+            font-size: var(--font-subhead);
+            color: var(--text-secondary);
+            line-height: 1.4;
+            max-width: 700px;
+        }
+
+        .body-text {
+            font-size: var(--font-body);
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .small-text {
+            font-size: var(--font-small);
+            color: var(--text-tertiary);
+        }
+
+        .big-number {
+            font-size: var(--font-big-number);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--accent), #FF6B8A);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .medium-number {
+            font-size: var(--font-medium-number);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            color: var(--accent);
+        }
+
+        /* Status badge */
+        .status-badge {
+            display: inline-block;
+            padding: clamp(4px, 0.8vw, 6px) clamp(10px, 2vw, 16px);
+            background: rgba(48, 209, 88, 0.15);
+            border: 1px solid rgba(48, 209, 88, 0.3);
+            border-radius: 100px;
+            font-size: var(--font-small);
+            font-weight: 600;
+            color: #30D158;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* Layout */
+        .thirds {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+            gap: var(--gap-grid);
+            width: 100%;
+        }
+
+        .halves {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+            gap: var(--gap-grid);
+            width: 100%;
+        }
+
+        .card {
+            background: var(--surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: clamp(12px, 2vw, 16px);
+            padding: clamp(16px, 4vw, 28px);
+        }
+
+        .card-elevated {
+            background: var(--surface-2);
+            border: 1px solid var(--border-visible);
+            border-radius: clamp(12px, 2vw, 16px);
+            padding: clamp(20px, 4vw, 32px);
+        }
+
+        .card h3 {
+            color: var(--text-primary);
+            font-size: clamp(16px, 2.5vw, 22px);
+            font-weight: 600;
+            margin-bottom: clamp(6px, 1vw, 10px);
+        }
+
+        .card p, .card li, .card-elevated p {
+            color: var(--text-secondary);
+            font-size: var(--font-body);
+            line-height: 1.5;
+        }
+
+        .card .icon {
+            font-size: clamp(28px, 5vw, 48px);
+            margin-bottom: clamp(8px, 1.5vw, 14px);
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: var(--surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: clamp(12px, 3vw, 20px) clamp(16px, 4vw, 28px);
+            font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: clamp(12px, 1.8vw, 15px);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+        }
+
+        .code-green { color: #30D158; }
+        .code-comment { color: rgba(255,255,255,0.4); }
+        .code-accent { color: var(--accent); }
+        .code-blue { color: #64D2FF; }
+        .code-yellow { color: #FFD60A; }
+
+        /* Chat bubble */
+        .chat-bubble {
+            background: var(--surface-2);
+            border: 1px solid var(--border-visible);
+            border-radius: clamp(16px, 3vw, 24px);
+            padding: clamp(16px, 4vw, 32px);
+            max-width: 700px;
+            width: 100%;
+            position: relative;
+        }
+
+        .chat-bubble::before {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: clamp(20px, 5vw, 40px);
+            width: 16px;
+            height: 16px;
+            background: var(--surface-2);
+            border-right: 1px solid var(--border-visible);
+            border-bottom: 1px solid var(--border-visible);
+            transform: rotate(45deg);
+        }
+
+        .chat-label {
+            font-size: var(--font-small);
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: clamp(6px, 1vw, 10px);
+        }
+
+        .chat-text {
+            font-size: clamp(18px, 3.5vw, 32px);
+            font-weight: 500;
+            color: var(--text-primary);
+            line-height: 1.3;
+            font-style: italic;
+        }
+
+        /* Comparison table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            max-width: 700px;
+        }
+
+        .comparison-table th {
+            color: var(--accent);
+            font-size: var(--font-small);
+            font-weight: 600;
+            text-align: left;
+            padding: clamp(10px, 2vw, 16px);
+            border-bottom: 1px solid var(--border-visible);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .comparison-table td {
+            color: var(--text-secondary);
+            font-size: clamp(16px, 2.5vw, 22px);
+            padding: clamp(10px, 2vw, 16px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .comparison-table td:first-child {
+            color: var(--text-tertiary);
+            font-size: var(--font-body);
+            font-weight: 500;
+        }
+
+        .comparison-table .highlight {
+            color: #30D158;
+            font-weight: 700;
+        }
+
+        /* Step flow */
+        .step-flow {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(12px, 2vw, 20px);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: clamp(12px, 2vw, 20px);
+        }
+
+        .step-num {
+            flex-shrink: 0;
+            width: clamp(32px, 5vw, 44px);
+            height: clamp(32px, 5vw, 44px);
+            background: var(--accent-dim);
+            border: 1px solid var(--accent-glow);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(14px, 2vw, 18px);
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .step-content h4 {
+            font-size: clamp(16px, 2.5vw, 20px);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            font-size: var(--font-body);
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .step-content code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: clamp(11px, 1.5vw, 13px);
+            background: var(--surface-1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent);
+        }
+
+        /* Velocity grid */
+        .velocity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+            gap: var(--gap-grid);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .velocity-stat { text-align: center; }
+
+        .velocity-number {
+            font-size: clamp(36px, 8vw, 64px);
+            font-weight: 800;
+            color: var(--accent);
+            line-height: 1.1;
+        }
+
+        .velocity-label {
+            font-size: var(--font-small);
+            color: var(--text-secondary);
+            margin-top: clamp(4px, 0.8vw, 8px);
+        }
+
+        /* Arrow connector */
+        .arrow-connector {
+            font-size: clamp(24px, 5vw, 48px);
+            color: var(--text-tertiary);
+            text-align: center;
+            padding: clamp(8px, 2vw, 16px) 0;
+        }
+
+        /* Insight quote */
+        .insight-quote {
+            font-size: clamp(20px, 4vw, 36px);
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.35;
+            max-width: 750px;
+            border-left: 3px solid var(--accent);
+            padding-left: clamp(16px, 3vw, 28px);
+        }
+
+        /* Navigation */
+        .nav {
+            position: fixed;
+            bottom: clamp(16px, 3vw, 28px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 100;
+        }
+
+        .nav-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .nav-dot.active {
+            background: var(--accent);
+            transform: scale(1.3);
+        }
+
+        .slide-counter {
+            position: fixed;
+            bottom: clamp(16px, 3vw, 28px);
+            right: clamp(16px, 3vw, 28px);
+            font-size: clamp(11px, 1.5vw, 13px);
+            color: rgba(255,255,255,0.3);
+            font-variant-numeric: tabular-nums;
+            z-index: 100;
+        }
+
+        .more-stories {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: clamp(11px, 1.5vw, 12px);
+            color: rgba(255,255,255,0.3);
+            text-decoration: none;
+            z-index: 100;
+            display: none;
+        }
+        .more-stories:hover { color: rgba(255,255,255,0.5); }
+
+        /* Spacer */
+        .spacer { height: clamp(16px, 3vw, 32px); }
+        .spacer-lg { height: clamp(24px, 5vw, 48px); }
+
+        /* Landscape mobile */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .slide {
+                padding: 16px var(--padding-slide) 60px;
+            }
+            .slide.center {
+                justify-content: flex-start;
+                padding-top: 24px;
+            }
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            .slide, .slide * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        /* Race visual for punchline slide */
+        .race-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+            gap: var(--gap-grid);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .race-lane {
+            background: var(--surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: clamp(12px, 2vw, 16px);
+            padding: clamp(20px, 4vw, 32px);
+        }
+
+        .race-lane-label {
+            font-size: var(--font-small);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: clamp(12px, 2vw, 20px);
+        }
+
+        .upload-bar-track {
+            width: 100%;
+            height: clamp(28px, 4vw, 36px);
+            background: var(--surface-2);
+            border-radius: 100px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: clamp(10px, 2vw, 16px);
+        }
+
+        .upload-bar-fill {
+            height: 100%;
+            width: 62%;
+            background: linear-gradient(90deg, rgba(255,55,95,0.4), rgba(255,55,95,0.25));
+            border-radius: 100px;
+            animation: upload-crawl 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes upload-crawl {
+            from { width: 55%; }
+            to { width: 68%; }
+        }
+
+        .upload-status {
+            font-size: var(--font-body);
+            color: var(--text-tertiary);
+            font-style: italic;
+        }
+
+        .done-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .done-list li {
+            font-size: var(--font-body);
+            color: var(--text-secondary);
+            padding: clamp(6px, 1vw, 10px) 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            gap: clamp(8px, 1.5vw, 12px);
+        }
+
+        .done-list li:last-child { border-bottom: none; }
+
+        .done-check {
+            color: #30D158;
+            font-weight: 700;
+            font-size: clamp(16px, 2.5vw, 20px);
+            flex-shrink: 0;
+        }
+
+        /* Visual timeline bar */
+        .timeline-bar {
+            width: 100%;
+            max-width: 700px;
+            height: clamp(40px, 6vw, 60px);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            position: relative;
+        }
+
+        .timeline-segment-active {
+            background: var(--accent-dim);
+            border: 1px solid var(--accent-glow);
+            flex-grow: 1;
+        }
+
+        .timeline-segment-idle {
+            background: rgba(255, 55, 95, 0.5);
+            min-width: 2%;
+        }
+
+        .timeline-label {
+            display: flex;
+            justify-content: space-between;
+            max-width: 700px;
+            width: 100%;
+            margin-top: clamp(6px, 1vw, 10px);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Slide 1: Title -->
+    <div class="slide active center">
+        <div class="section-label">Amplifier in Action</div>
+        <h1 class="headline">From Clipchamp to CLI</h1>
+        <p class="subhead">How Amplifier turned 15-20 minutes of manual video editing into a 2-minute conversation</p>
+        <div class="spacer-lg"></div>
+        <div class="status-badge">Workflow Demo &mdash; Active</div>
+        <div class="spacer"></div>
+        <div class="small-text">March 2026</div>
+    </div>
+
+    <!-- Slide 2: The Problem -->
+    <div class="slide">
+        <div class="section-label">The Problem</div>
+        <h2 class="headline">GUI editors are built for creative editing, not for "speed up the boring parts"</h2>
+        <div class="spacer"></div>
+        <div class="thirds">
+            <div class="card">
+                <div class="icon">🎬</div>
+                <h3>The Scenario</h3>
+                <p>A 2:59 screen recording of an Amplifier demo. Great content &mdash; but full of long idle sections where the AI was thinking.</p>
+            </div>
+            <div class="card">
+                <div class="icon">😤</div>
+                <h3>The Clipchamp Experience</h3>
+                <p>Step one: upload 99.5 MB to OneDrive &mdash; Clipchamp can't even work with local files. Then manually scrub through the timeline, set in/out points for each section, apply speed changes one by one, and wait for renders.</p>
+            </div>
+            <div class="card">
+                <div class="icon">⏱️</div>
+                <h3>The Time Sink</h3>
+                <p>A task that should be simple &mdash; "fast-forward the idle parts" &mdash; turned into an estimated 15-20 minutes of tedious GUI work.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3: The Setup -->
+    <div class="slide">
+        <div class="section-label">The Starting Point</div>
+        <h2 class="medium-headline">What we were working with</h2>
+        <div class="spacer"></div>
+        <div class="halves">
+            <div class="card-elevated">
+                <h3 style="color: var(--accent); margin-bottom: clamp(12px, 2vw, 16px);">The File</h3>
+                <div class="code-block"><span class="code-accent">amplifier-chat-new-features-20260313.mp4</span>
+<span class="code-comment"># Screen recording of amplifier-chat demo</span>
+
+Duration:  <span class="code-green">2:59</span> (178.7 seconds)
+File size: <span class="code-green">99.5 MB</span>
+Content:   New features walkthrough</div>
+            </div>
+            <div class="card-elevated">
+                <h3 style="color: var(--accent); margin-bottom: clamp(12px, 2vw, 16px);">The Problem Areas</h3>
+                <p class="body-text" style="margin-bottom: clamp(8px, 1.5vw, 12px);">Scattered throughout the video: long pauses where the AI was processing requests, generating responses, or executing tools.</p>
+                <p class="body-text">These idle sections made the demo feel sluggish and were painful to sit through &mdash; but the active content between them was valuable.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 4: The Ask -->
+    <div class="slide center">
+        <div class="section-label">The Ask</div>
+        <h2 class="medium-headline">One sentence. That's it.</h2>
+        <div class="spacer-lg"></div>
+        <div class="chat-bubble">
+            <div class="chat-label">Sam &rarr; Amplifier</div>
+            <div class="chat-text">"I want to have the long running parts fast forwarded"</div>
+        </div>
+        <div class="spacer-lg"></div>
+        <p class="subhead">No timeline scrubbing. No manual keyframes.<br>Just a description of the desired outcome.</p>
+    </div>
+
+    <!-- Slide 5: The Analysis -->
+    <div class="slide">
+        <div class="section-label">Step 1 &mdash; Detect</div>
+        <h2 class="medium-headline">Amplifier analyzed the video frame-by-frame</h2>
+        <div class="spacer"></div>
+        <div class="code-block"><span class="code-comment"># Amplifier's first move: use ffmpeg's freezedetect filter</span>
+<span class="code-comment"># to find sections with no visual change</span>
+
+<span class="code-green">ffmpeg</span> -i input.mp4 -vf <span class="code-accent">"freezedetect=n=-60dB:d=2"</span> \
+  -map 0:v:0 -f null -
+
+<span class="code-comment"># Result: 30 frozen/idle sections detected</span>
+<span class="code-comment"># across the 178.7-second video</span></div>
+        <div class="spacer"></div>
+        <p class="body-text">Instead of relying on human eyes to spot idle sections, Amplifier used frame-difference analysis to <em>programmatically detect</em> every moment where the screen wasn't changing. It found <strong>30 micro-freeze sections</strong> automatically.</p>
+    </div>
+
+    <!-- Slide 6: The Intelligence -->
+    <div class="slide">
+        <div class="section-label">Step 2 &mdash; Merge &amp; Filter</div>
+        <h2 class="medium-headline">Smart grouping turned noise into signal</h2>
+        <div class="spacer"></div>
+        <div class="halves">
+            <div class="card">
+                <div class="icon">🔍</div>
+                <h3>Raw Detection</h3>
+                <p><strong>30</strong> micro-freeze sections</p>
+                <p>Many were tiny gaps &mdash; less than 1.5 seconds apart from each other. Speeding up each individually would create jarring cuts.</p>
+            </div>
+            <div class="card">
+                <div class="icon">🧠</div>
+                <h3>Intelligent Merge</h3>
+                <p><strong>10</strong> meaningful idle sections</p>
+                <p>Amplifier merged sections less than 1.5s apart and only targeted sections lasting 4+ seconds. The result: clean, natural speed transitions.</p>
+            </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="timeline-bar">
+            <div class="timeline-segment-active" style="flex: 8;"></div>
+            <div class="timeline-segment-idle" style="flex: 5;"></div>
+            <div class="timeline-segment-active" style="flex: 4;"></div>
+            <div class="timeline-segment-idle" style="flex: 6;"></div>
+            <div class="timeline-segment-active" style="flex: 6;"></div>
+            <div class="timeline-segment-idle" style="flex: 4;"></div>
+            <div class="timeline-segment-active" style="flex: 3;"></div>
+            <div class="timeline-segment-idle" style="flex: 7;"></div>
+            <div class="timeline-segment-active" style="flex: 5;"></div>
+            <div class="timeline-segment-idle" style="flex: 3;"></div>
+            <div class="timeline-segment-active" style="flex: 7;"></div>
+            <div class="timeline-segment-idle" style="flex: 5;"></div>
+            <div class="timeline-segment-active" style="flex: 4;"></div>
+            <div class="timeline-segment-idle" style="flex: 4;"></div>
+            <div class="timeline-segment-active" style="flex: 6;"></div>
+            <div class="timeline-segment-idle" style="flex: 3;"></div>
+            <div class="timeline-segment-active" style="flex: 5;"></div>
+            <div class="timeline-segment-idle" style="flex: 6;"></div>
+            <div class="timeline-segment-active" style="flex: 4;"></div>
+            <div class="timeline-segment-idle" style="flex: 5;"></div>
+            <div class="timeline-segment-active" style="flex: 8;"></div>
+        </div>
+        <div class="timeline-label">
+            <span class="small-text">0:00</span>
+            <span class="small-text" style="color: var(--text-secondary);">
+                <span style="color: var(--accent);">&#9632;</span> idle &nbsp;&nbsp;
+                <span style="color: rgba(255,55,95,0.15);">&#9632;</span> active
+            </span>
+            <span class="small-text">2:59</span>
+        </div>
+    </div>
+
+    <!-- Slide 7: The Pipeline -->
+    <div class="slide">
+        <div class="section-label">Step 3 &mdash; Build</div>
+        <h2 class="medium-headline">A custom ffmpeg pipeline, built on the fly</h2>
+        <div class="spacer"></div>
+        <div class="step-flow">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <h4>Trim the dead start</h4>
+                    <p>Removed the first 3 seconds of empty recording before the demo began</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <h4>Segment the timeline</h4>
+                    <p>Split the video into <strong>21 segments</strong> &mdash; alternating between active content and idle sections</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <h4>Apply differential speed</h4>
+                    <p>Active content: <code>1x</code> (normal speed) &nbsp;|&nbsp; Idle sections: <code>16x</code> (fast-forward)</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                    <h4>Render in one pass</h4>
+                    <p>A single <code>filter_complex</code> command with all 21 segments &mdash; no intermediate files, no multi-step workflow</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 8: The Results -->
+    <div class="slide">
+        <div class="section-label">The Results</div>
+        <h2 class="medium-headline">Before &amp; After</h2>
+        <div class="spacer"></div>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Before</th>
+                    <th>After</th>
+                    <th>Change</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Duration</td>
+                    <td>2:59</td>
+                    <td>1:01</td>
+                    <td class="highlight">&darr; 66% shorter</td>
+                </tr>
+                <tr>
+                    <td>File size</td>
+                    <td>99.5 MB</td>
+                    <td>19.2 MB</td>
+                    <td class="highlight">&darr; ~81% smaller</td>
+                </tr>
+                <tr>
+                    <td>Idle sections</td>
+                    <td>10 sections at 1x</td>
+                    <td>10 sections at 16x</td>
+                    <td class="highlight">All fast-forwarded</td>
+                </tr>
+                <tr>
+                    <td>Active content</td>
+                    <td>Full speed</td>
+                    <td>Full speed</td>
+                    <td style="color: var(--text-secondary);">Untouched</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="spacer-lg"></div>
+        <p class="body-text">Every frame of active demo content preserved at normal speed. Only the idle "thinking" sections were accelerated.</p>
+    </div>
+
+    <!-- Slide 9: Big Impact Numbers -->
+    <div class="slide center">
+        <div class="section-label">Impact</div>
+        <div class="big-number">2:59 &rarr; 1:01</div>
+        <div class="spacer"></div>
+        <p class="subhead">A nearly 3-minute video condensed to a tight, watchable 1-minute demo &mdash; with zero content loss from the active sections</p>
+    </div>
+
+    <!-- Slide 10: Time Comparison -->
+    <div class="slide">
+        <div class="section-label">The Real Win</div>
+        <h2 class="medium-headline">It's not just the video that got shorter</h2>
+        <div class="spacer"></div>
+        <div class="halves">
+            <div class="card-elevated" style="border-color: rgba(255,55,95,0.3);">
+                <div class="small-text" style="color: var(--accent); margin-bottom: clamp(8px, 1.5vw, 12px);">THE CLIPCHAMP WAY</div>
+                <div class="medium-number" style="color: var(--text-secondary);">~15-20 min</div>
+                <div class="spacer"></div>
+                <ul style="list-style: none; padding: 0;">
+                    <li class="body-text" style="margin-bottom: 8px; color: var(--accent);">&#x2022; Upload 99.5 MB to OneDrive first</li>
+                    <li class="body-text" style="margin-bottom: 8px;">&#x2022; Wait for upload to finish</li>
+                    <li class="body-text" style="margin-bottom: 8px;">&#x2022; Open GUI editor</li>
+                    <li class="body-text" style="margin-bottom: 8px;">&#x2022; Manually scrub through timeline</li>
+                    <li class="body-text" style="margin-bottom: 8px;">&#x2022; Identify each idle section by eye</li>
+                    <li class="body-text" style="margin-bottom: 8px;">&#x2022; Set in/out points per section</li>
+                    <li class="body-text" style="margin-bottom: 8px;">&#x2022; Apply speed change to each</li>
+                    <li class="body-text">&#x2022; Wait for render</li>
+                </ul>
+            </div>
+            <div class="card-elevated" style="border-color: rgba(48, 209, 88, 0.3);">
+                <div class="small-text" style="color: #30D158; margin-bottom: clamp(8px, 1.5vw, 12px);">THE AMPLIFIER WAY</div>
+                <div class="medium-number" style="color: #30D158;">~2 min</div>
+                <div class="spacer"></div>
+                <ul style="list-style: none; padding: 0;">
+                    <li class="body-text" style="margin-bottom: 8px; color: #30D158;">&#x2022; Works with local files directly</li>
+                    <li class="body-text" style="margin-bottom: 8px;">&#x2022; Describe what you want</li>
+                    <li class="body-text" style="margin-bottom: 8px;">&#x2022; Amplifier detects idle sections</li>
+                    <li class="body-text" style="margin-bottom: 8px;">&#x2022; Amplifier builds the pipeline</li>
+                    <li class="body-text">&#x2022; Done</li>
+                </ul>
+            </div>
+        </div>
+        <div class="spacer"></div>
+        <p class="small-text" style="color: var(--text-tertiary);">Time estimates are approximate. "15-20 min" is the user's estimate of equivalent manual work in Clipchamp. "~2 min" is the approximate wall-clock time of the Amplifier conversation.</p>
+    </div>
+
+    <!-- Slide 11: The Punchline -->
+    <div class="slide center">
+        <div class="section-label">Meanwhile&hellip;</div>
+        <h2 class="medium-headline">Amplifier finished before the upload did</h2>
+        <div class="spacer"></div>
+        <div class="race-container">
+            <div class="race-lane" style="border-color: rgba(255,55,95,0.25);">
+                <div class="race-lane-label" style="color: var(--accent);">Clipchamp</div>
+                <div class="upload-bar-track">
+                    <div class="upload-bar-fill"></div>
+                </div>
+                <div class="upload-status">Uploading to OneDrive&hellip; 62%</div>
+                <div class="spacer"></div>
+                <div class="body-text" style="color: var(--text-tertiary); font-style: italic;">Hasn't started editing yet.</div>
+            </div>
+            <div class="race-lane" style="border-color: rgba(48,209,88,0.3);">
+                <div class="race-lane-label" style="color: #30D158;">Amplifier</div>
+                <ul class="done-list">
+                    <li><span class="done-check">&#10003;</span> Analyzed 178.7s of video</li>
+                    <li><span class="done-check">&#10003;</span> Detected 30 frozen sections</li>
+                    <li><span class="done-check">&#10003;</span> Merged into 10 idle regions</li>
+                    <li><span class="done-check">&#10003;</span> Built 21-segment pipeline</li>
+                    <li><span class="done-check">&#10003;</span> Rendered final 1:01 output</li>
+                </ul>
+            </div>
+        </div>
+        <div class="spacer"></div>
+        <p class="body-text" style="max-width: 650px; text-align: center;">The 99.5 MB file was still uploading to the cloud when Amplifier &mdash; working locally, with no upload required &mdash; had already finished the entire job.</p>
+    </div>
+
+    <!-- Slide 12: The Insight -->
+    <div class="slide">
+        <div class="section-label">The Insight</div>
+        <h2 class="headline">The right tool for the job wasn't an editor</h2>
+        <div class="spacer-lg"></div>
+        <div class="insight-quote">
+            "Speed up the boring parts" is an algorithmic task, not a creative one. GUI editors are the wrong tool &mdash; especially when they can't even open your file without uploading it to the cloud first.
+        </div>
+        <div class="spacer-lg"></div>
+        <p class="body-text" style="max-width: 700px;">Amplifier worked locally &mdash; no upload, no round-trip. It understood the intent, detected idle frames via freezedetect, merged micro-freezes intelligently, and composed a 21-segment ffmpeg pipeline. The file never left the machine.</p>
+    </div>
+
+    <!-- Slide 13: Velocity -->
+    <div class="slide center">
+        <div class="section-label">By the Numbers</div>
+        <h2 class="medium-headline">What Amplifier did in one conversation</h2>
+        <div class="spacer-lg"></div>
+        <div class="velocity-grid">
+            <div class="velocity-stat">
+                <div class="velocity-number">30</div>
+                <div class="velocity-label">Frozen sections<br>detected</div>
+            </div>
+            <div class="velocity-stat">
+                <div class="velocity-number">10</div>
+                <div class="velocity-label">Meaningful idle<br>sections after merge</div>
+            </div>
+            <div class="velocity-stat">
+                <div class="velocity-number">21</div>
+                <div class="velocity-label">Filter segments<br>in the pipeline</div>
+            </div>
+            <div class="velocity-stat">
+                <div class="velocity-number">1</div>
+                <div class="velocity-label">Conversational<br>exchange</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 14: Sources -->
+    <div class="slide">
+        <div class="section-label">Sources</div>
+        <h2 class="medium-headline">Data &amp; Methodology</h2>
+        <div class="spacer"></div>
+        <div class="halves" style="align-items: start;">
+            <div class="small-text" style="line-height: 1.8;">
+                <p style="margin-bottom: 8px;"><strong style="color: var(--text-primary);">Data as of:</strong> March 13, 2026 &middot; <strong style="color: var(--text-primary);">Status:</strong> Active</p>
+                <p style="margin-bottom: 8px;"><strong style="color: var(--text-primary);">Source:</strong> First-person account from user who performed the workflow</p>
+                <p style="margin-bottom: 4px;"><strong style="color: var(--text-primary);">Verified data:</strong></p>
+                <ul style="padding-left: 16px; margin-bottom: 8px;">
+                    <li>Input: 99.5 MB, 178.7s &rarr; Output: 19.2 MB, ~61s</li>
+                    <li>freezedetect: 30 sections &rarr; 10 merged (&lt;1.5s gap, 4s+ min)</li>
+                    <li>Pipeline: 21-segment filter_complex, 16x on idle</li>
+                    <li>66% shorter = (178.7&minus;61)/178.7; ~81% smaller = (99.5&minus;19.2)/99.5</li>
+                </ul>
+                <p><strong style="color: var(--text-primary);">Contributor:</strong> Sam (request); Amplifier (analysis, pipeline, execution)</p>
+            </div>
+            <div class="small-text" style="line-height: 1.8;">
+                <p style="margin-bottom: 4px;"><strong style="color: var(--text-primary);">Estimates (not measured):</strong></p>
+                <ul style="padding-left: 16px; margin-bottom: 8px;">
+                    <li>"15-20 min" Clipchamp &mdash; user's effort estimate</li>
+                    <li>"~2 min" Amplifier &mdash; user's recall of wall-clock time</li>
+                    <li>"Still uploading" &mdash; user observed OneDrive upload incomplete when Amplifier finished; exact % not recorded</li>
+                </ul>
+                <p style="margin-bottom: 4px;"><strong style="color: var(--text-primary);">Clipchamp detail:</strong></p>
+                <ul style="padding-left: 16px;">
+                    <li>Requires OneDrive upload before editing; no local file support</li>
+                    <li>Amplifier operates locally via ffmpeg; no cloud dependency</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 15: CTA -->
+    <div class="slide center">
+        <div class="section-label">Try It Yourself</div>
+        <h2 class="headline">Got a video that needs trimming?</h2>
+        <div class="spacer"></div>
+        <p class="subhead">Just describe what you want. Amplifier handles the how.</p>
+        <div class="spacer-lg"></div>
+        <div class="chat-bubble" style="text-align: left;">
+            <div class="chat-label">You &rarr; Amplifier</div>
+            <div class="chat-text" style="font-size: clamp(16px, 3vw, 24px);">"Speed up the idle parts of my screen recording"</div>
+        </div>
+        <div class="spacer-lg"></div>
+        <div class="small-text">Works with any video format ffmpeg supports &middot; No plugins required &middot; No ffmpeg expertise needed</div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav" id="nav"></div>
+    <div class="slide-counter" id="counter"></div>
+    <a href="index.html" class="more-stories">More Amplifier Stories</a>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        let currentSlide = 0;
+
+        function showSlide(n) {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (n + slides.length) % slides.length;
+            slides[currentSlide].classList.add('active');
+            updateNav();
+        }
+
+        function updateNav() {
+            const nav = document.getElementById('nav');
+            const counter = document.getElementById('counter');
+            nav.innerHTML = '';
+            slides.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'nav-dot' + (i === currentSlide ? ' active' : '');
+                dot.onclick = (e) => { e.stopPropagation(); showSlide(i); };
+                nav.appendChild(dot);
+            });
+            counter.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); showSlide(currentSlide + 1); }
+            if (e.key === 'ArrowLeft') { e.preventDefault(); showSlide(currentSlide - 1); }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.nav') || e.target.closest('a')) return;
+            if (e.clientX > window.innerWidth / 2) showSlide(currentSlide + 1);
+            else showSlide(currentSlide - 1);
+        });
+
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const SWIPE_THRESHOLD = 50;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > SWIPE_THRESHOLD) {
+                if (diff > 0) showSlide(currentSlide + 1);
+                else showSlide(currentSlide - 1);
+            }
+        }, { passive: true });
+
+        updateNav();
+    </script>
+</body>
+</html>

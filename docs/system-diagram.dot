@@ -1,0 +1,263 @@
+/**
+ * amplifier-chat — System Architecture
+ *
+ * Every node answers: "What does this component DO and WHY does it exist?"
+ * ~20 nodes across 5 cluster bands. Render:
+ *
+ *   dot -Tsvg docs/system-diagram.dot -o docs/system-diagram.svg
+ *   dot -Tpng docs/system-diagram.dot -o docs/system-diagram.png
+ *
+ * Key asymmetry: user messages bypass the plugin entirely (direct to amplifierd),
+ * but all event responses flow back THROUGH the plugin's SSE Proxy.
+ */
+
+digraph amplifier_chat_system {
+  graph [
+    rankdir=TB
+    fontname="Helvetica"
+    fontsize=13
+    label="amplifier-chat  —  System Architecture\nPlugin that mounts into amplifierd: serves the UI, proxies events, owns NO AI execution"
+    labelloc=t
+    pad=0.8
+    nodesep=0.65
+    ranksep=1.1
+    splines=ortho
+    compound=true
+  ]
+  node [fontname="Helvetica" fontsize=10 shape=box style="filled,rounded"]
+  edge [fontname="Helvetica" fontsize=9 color="#555555"]
+
+  // ══════════════════════════════════════════════════════════════════
+  // CLUSTER 1 — BROWSER  (blue, top)
+  // ══════════════════════════════════════════════════════════════════
+  subgraph cluster_browser {
+    label="Browser  ·  Preact SPA (zero-build, single HTML file)"
+    style=filled
+    fillcolor="#dbeafe"
+    color="#2563eb"
+    penwidth=2
+    fontsize=11
+
+    chat_app [
+      label="ChatApp\nHolds all app state and one shared EventSource.\nOne SSE connection serves all sessions — routing is client-side."
+      fillcolor="#bfdbfe"
+    ]
+    sse_router [
+      label="SSE Router\nWalks session lineage map to route each incoming event\nto its owner. Untangles amplifierd's single mixed stream."
+      fillcolor="#93c5fd"
+    ]
+    message_list [
+      label="MessageList / ToolCallCard\nRenders conversation turns; nests sub-agent output inside\ntool-call cards so delegate work stays in-context."
+      fillcolor="#bfdbfe"
+    ]
+    input_area [
+      label="InputArea / CommandPalette\nSends messages DIRECTLY to amplifierd (plugin not involved).\nAutocompletes and dispatches slash commands."
+      fillcolor="#bfdbfe"
+    ]
+    approval_modal [
+      label="ApprovalModal\nBlocks session progress when amplifierd emits approval_request.\nRequired by amplifierd's human-in-loop recipe gates."
+      fillcolor="#bfdbfe"
+    ]
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // CLUSTER 2 — PLUGIN BACKEND  (green, middle)
+  // ══════════════════════════════════════════════════════════════════
+  subgraph cluster_plugin {
+    label="Plugin Backend  ·  FastAPI router mounted into amplifierd  (src/chat_plugin/)"
+    style=filled
+    fillcolor="#dcfce7"
+    color="#16a34a"
+    penwidth=2
+    fontsize=11
+
+    plugin_router [
+      label="Plugin Router  (create_router)\nComposition root: instantiates all services and wires sub-routers.\nRegistered into amplifierd's HTTP server via Python entry_points."
+      fillcolor="#86efac"
+    ]
+    sse_proxy [
+      label="SSE Proxy\nSubscribes to amplifierd's internal event_bus and\nforwards all events to the browser as text/event-stream."
+      fillcolor="#bbf7d0"
+    ]
+    cmd_processor [
+      label="CommandProcessor\nParses 13 slash commands (/fork, /status, /tools, /modes…)\nand translates them into session_manager API calls."
+      fillcolor="#bbf7d0"
+    ]
+    session_history [
+      label="SessionHistory\nParallel disk scanner (8 threads) builds the sidebar list\nfrom transcript files. No cache — any client can start sessions."
+      fillcolor="#bbf7d0"
+    ]
+    pin_storage [
+      label="PinStorage\nAtomic JSON persistence for user-pinned session IDs.\nPlugin-owned state; never touches amplifierd's session model."
+      fillcolor="#bbf7d0"
+    ]
+    fork_service [
+      label="ForkService\nCopies a transcript to a chosen turn, creates a new session.\nLets users branch a conversation to explore alternative paths."
+      fillcolor="#bbf7d0"
+    ]
+    feedback_analyzer [
+      label="FeedbackAnalyzer\nFires a hidden amplifierd session to run LLM analysis on\na transcript. Returns immediately; browser streams the result."
+      fillcolor="#bbf7d0"
+    ]
+    voice_service [
+      label="VoiceService\nLocal STT via whisper.cpp; TTS via edge-tts subprocess.\nOptional extra — no cloud, no API key. Exists for hands-free use."
+      fillcolor="#bbf7d0"
+    ]
+    shell_streamer [
+      label="ShellStreamer\nRuns !-prefixed shell commands as async subprocesses;\nstreams stdout/stderr via SSE. Inline terminal in the chat UI."
+      fillcolor="#bbf7d0"
+    ]
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // CLUSTER 3 — DEV STANDALONE MODE  (yellow, dashed, left)
+  // ══════════════════════════════════════════════════════════════════
+  subgraph cluster_dev {
+    label="Dev Standalone Mode"
+    style="filled,dashed"
+    fillcolor="#fef9c3"
+    color="#ca8a04"
+    penwidth=1.5
+    fontsize=10
+
+    dev_standalone [
+      label="Mock State Layer\nLets the plugin run without amplifierd for fast dev iteration.\nHistory and pins work; AI session execution does not."
+      fillcolor="#fde68a"
+      style="filled,rounded,dashed"
+    ]
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // CLUSTER 4 — amplifierd KERNEL  (orange, bottom-right)
+  // ══════════════════════════════════════════════════════════════════
+  subgraph cluster_amplifierd {
+    label="amplifierd Kernel  ·  External platform daemon  (owns all AI execution)"
+    style=filled
+    fillcolor="#ffedd5"
+    color="#ea580c"
+    penwidth=2.5
+    fontsize=11
+
+    amplifierd [
+      label="amplifierd\nPlatform daemon: owns all AI session execution and the SSE\nevent bus. This plugin mounts into it as a FastAPI router."
+      fillcolor="#fed7aa"
+      penwidth=2.5
+    ]
+    session_manager [
+      label="session_manager\nSession lifecycle: create, fork, cancel, delete, lineage tracking.\nCommandProcessor and ForkService call this directly."
+      fillcolor="#ffedd5"
+    ]
+    event_bus [
+      label="event_bus\nPub/sub hub: publishes SSE events per session_id and fans out\nto subscribers. SSE Proxy is the only browser bridge to this."
+      fillcolor="#ffedd5"
+      shape=diamond
+      style=filled
+    ]
+
+    amplifierd -> session_manager [label="exposes"]
+    amplifierd -> event_bus       [label="publishes to"]
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // CLUSTER 5 — DISK STORAGE  (pink, bottom-left)
+  // ══════════════════════════════════════════════════════════════════
+  subgraph cluster_storage {
+    label="Disk Storage"
+    style=filled
+    fillcolor="#fce7f3"
+    color="#db2777"
+    penwidth=2
+    fontsize=11
+
+    session_storage [
+      label="Session Storage\n~/.amplifier/…/sessions/{id}/\ntranscript.jsonl  (append-only event log)\nmetadata.json  (name, model, lineage)\nOwned by amplifierd; read by SessionHistory + ForkService."
+      fillcolor="#fbcfe8"
+      shape=cylinder
+    ]
+    plugin_storage [
+      label="Plugin Storage\n~/.amplifier-chat/\npinned-sessions.json  (PinStorage)\nwhisper model files  (VoiceService)\nPlugin-owned; amplifierd never reads it."
+      fillcolor="#fbcfe8"
+      shape=cylinder
+    ]
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // LEGEND
+  // ══════════════════════════════════════════════════════════════════
+  subgraph cluster_legend {
+    label="Legend"
+    style=filled
+    fillcolor="white"
+    color="#9ca3af"
+    fontsize=10
+
+    node [width=1.6 height=0.32 fontsize=9]
+
+    l_fe     [label="Frontend Component"            fillcolor="#bfdbfe"]
+    l_svc    [label="Backend Service"               fillcolor="#bbf7d0"]
+    l_kernel [label="amplifierd (kernel)"           fillcolor="#fed7aa"]
+    l_bus    [label="Event Bus"                     fillcolor="#ffedd5" shape=diamond style=filled]
+    l_store  [label="Disk Storage"                  fillcolor="#fbcfe8" shape=cylinder style=filled]
+    l_dev    [label="Dev-only Mock"                 fillcolor="#fde68a" style="filled,rounded,dashed"]
+    l_bypass [label="── bold red = bypasses plugin" shape=plaintext fillcolor=white style=filled fontcolor="#dc2626"]
+    l_sse    [label="── purple = SSE event flow"    shape=plaintext fillcolor=white style=filled fontcolor="#7c3aed"]
+
+    l_fe -> l_svc -> l_kernel -> l_bus -> l_store -> l_dev -> l_bypass -> l_sse [style=invis]
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // DATA FLOW EDGES
+  // ══════════════════════════════════════════════════════════════════
+
+  // — Plugin entry & composition ——————————————————————————————————
+  amplifierd     -> plugin_router [label="mounts plugin via entry_points"  color="#ea580c" fontcolor="#ea580c"]
+  dev_standalone -> plugin_router [label="dev-mode mock state"             color="#ca8a04" fontcolor="#ca8a04" style=dashed]
+
+  plugin_router -> sse_proxy         [style=dashed color="#16a34a"]
+  plugin_router -> cmd_processor     [style=dashed color="#16a34a"]
+  plugin_router -> session_history   [style=dashed color="#16a34a"]
+  plugin_router -> pin_storage       [style=dashed color="#16a34a"]
+  plugin_router -> fork_service      [style=dashed color="#16a34a"]
+  plugin_router -> feedback_analyzer [style=dashed color="#16a34a"]
+  plugin_router -> voice_service     [style=dashed color="#16a34a"]
+  plugin_router -> shell_streamer    [style=dashed color="#16a34a"]
+
+  // — ① KEY ASYMMETRY: user message bypasses plugin entirely ———————
+  input_area -> amplifierd [
+    label="① POST /sessions/{id}/execute\nBYPASSES PLUGIN — direct to amplifierd"
+    color="#dc2626" fontcolor="#dc2626"
+    penwidth=2.5 style=bold
+    constraint=false
+  ]
+
+  // — ② SSE response path: flows THROUGH the plugin's SSE Proxy ———
+  event_bus -> sse_proxy [
+    label="② subscribes to internal event_bus"
+    color="#7c3aed" fontcolor="#7c3aed"
+    penwidth=2
+    constraint=false
+  ]
+  sse_proxy -> chat_app [
+    label="text/event-stream\n(all sessions, one connection)"
+    color="#7c3aed" fontcolor="#7c3aed"
+    penwidth=2
+  ]
+  chat_app   -> sse_router    [label="dispatches events"]
+  sse_router -> message_list  [label="routes to correct\nthread / ToolCallCard"]
+  sse_router -> approval_modal [label="approval_request events" style=dashed color="#6b7280" fontcolor="#6b7280"]
+
+  // — ③ Slash command path ————————————————————————————————————————
+  input_area    -> cmd_processor   [label="③ /commands"  color="#065f46" fontcolor="#065f46"]
+  cmd_processor -> session_manager [label="API calls"    color="#065f46" fontcolor="#065f46"]
+
+  // — ④ Sidebar history ————————————————————————————————————————————
+  chat_app        -> session_history  [label="④ polls sidebar list"]
+  session_history -> session_storage  [label="parallel disk scan (8 threads)"]
+
+  // — Service → kernel / storage ——————————————————————————————————
+  fork_service      -> session_storage  [label="reads transcript to chosen turn" style=dashed]
+  fork_service      -> session_manager  [label="creates new session branch"      style=dashed]
+  feedback_analyzer -> amplifierd       [label="launches hidden LLM session"     style=dashed color="#6b7280" fontcolor="#6b7280" constraint=false]
+  pin_storage       -> plugin_storage   [label="reads/writes pins JSON"]
+  voice_service     -> plugin_storage   [label="loads whisper model files"       style=dashed]
+}

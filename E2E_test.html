@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amplifier Chat E2E Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    #test-controls { margin-bottom: 1em; padding-bottom: 1em; border-bottom: 1px solid #ccc; }
+    #chat-container { width: 100%; height: 600px; border: 1px solid #ccc; }
+    .log { font-family: monospace; font-size: 12px; white-space: pre-wrap; }
+    .log .pass { color: green; }
+    .log .fail { color: red; }
+    .log .info { color: blue; }
+  </style>
+  <style>
+    /* Copied from src/chat_plugin/static/index.html */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #161616;
+      --bg-tertiary: #1e1e1e;
+      --bg-card: #1a1a1a;
+      --border: rgba(255,255,255,0.08);
+      --text-primary: #e8e8e8;
+      --text-secondary: #999;
+      --text-muted: #6b6b6b;
+      --accent-blue: #3b82f6;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --status-connected: var(--accent-green);
+      --status-connecting: var(--accent-amber);
+      --status-disconnected: var(--accent-red);
+    }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      font-size: 14px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    /* ... (all other styles from index.html) ... */
+  </style>
+</head>
+<body>
+  <h1>Amplifier Chat E2E Test</h1>
+  <div id="test-controls">
+    <button id="run-all-tests">Run All Tests</button>
+  </div>
+  <div id="chat-container">
+    <div id="root"></div>
+  </div>
+  <div id="test-output"></div>
+
+  <script src="https://unpkg.com/preact@10.5.15/dist/preact.umd.js"></script>
+  <script src="https://unpkg.com/preact@10.5.15/hooks/dist/hooks.umd.js"></script>
+  <script src="https://unpkg.com/htm@3.1.0/dist/htm.umd.js"></script>
+
+  <script type="module">
+    // Embed the application's JavaScript here, after modifying it to be a module
+    // and to not self-invoke.
+    // The original script from index.html will be wrapped in a function that we can call.
+    // This is a simplified representation. The full script would be injected here.
+    async function mainApp(container) {
+      // The entire <script> content from index.html goes here.
+      // I will replace the final `preact.render(...)` with a return of the component.
+    }
+
+    // Test Runner
+    const output = document.getElementById('test-output');
+    const log = (message, type = 'info') => {
+      const p = document.createElement('p');
+      p.className = `log ${type}`;
+      p.textContent = `[${new Date().toISOString()}] ${message}`;
+      output.appendChild(p);
+    };
+
+    const assert = (condition, message) => {
+      if (condition) {
+        log(`PASS: ${message}`, 'pass');
+      } else {
+        log(`FAIL: ${message}`, 'fail');
+        throw new Error(message);
+      }
+    };
+
+    const delay = ms => new Promise(res => setTimeout(res, ms));
+
+    async function runTests() {
+      log('Starting tests...');
+
+      // Mock API
+      let sseHandler;
+      window.api = {
+        getSessions: async () => ({
+          sessions: [
+            { session_id: 'session-1', name: 'Session 1', cwd: '/test' },
+            { session_id: 'session-2', name: 'Session 2', cwd: '/test' },
+          ]
+        }),
+        getTranscript: async (sessionId) => ({ transcript: [] }),
+        stream: (payload, handler) => {
+          sseHandler = handler;
+          log(`Mock stream started for session: ${payload.session_id}`);
+        },
+        sendMessage: (payload) => {
+          if (sseHandler) {
+            sseHandler({ event: 'content_block:start', item_id: 'msg-1', content_type: 'text', role: 'assistant' });
+            sseHandler({ event: 'content_delta', item_id: 'msg-1', delta: 'Hello' });
+          }
+        }
+      };
+
+      const ChatApp = await mainApp(document.getElementById('root'));
+      preact.render(preact.h(ChatApp), document.getElementById('chat-container'));
+
+      await delay(500); // Wait for app to initialize
+
+      // Test 1: Rapid session switching
+      log('--- Test 1: Rapid session switching ---');
+      const session1Button = document.querySelector('[data-session-id="session-1"]');
+      const session2Button = document.querySelector('[data-session-id="session-2"]');
+      
+      session1Button.click();
+      await delay(100);
+      document.getElementById('message-input').value = 'test';
+      document.querySelector('.send-btn').click();
+      await delay(100);
+
+      session2Button.click();
+      await delay(50);
+      session1Button.click();
+      await delay(100);
+
+      if (sseHandler) {
+        sseHandler({ event: 'content_delta', item_id: 'msg-1', delta: ', world!' });
+        sseHandler({ event: 'content_block:end', item_id: 'msg-1' });
+      }
+
+      await delay(500);
+      const messageBubble = document.querySelector('.text-block');
+      assert(messageBubble && messageBubble.textContent.includes('Hello, world!'), 'Message bubble should contain the full message.');
+      assert(!messageBubble.textContent.includes('null'), 'Message bubble should not be blank or contain "null".');
+
+      // Test 2: Stuck stream
+      log('--- Test 2: Stuck stream ---');
+      session2Button.click();
+      await delay(100);
+      document.getElementById('message-input').value = 'stuck';
+      document.querySelector('.send-btn').click();
+      await delay(100); // Deltas arrive
+      
+      // Simulate watchdog timer firing (we can't fast-forward time easily, so we'll just check the state)
+      // In a real test, we would mock the timer
+      const streamingBubble = document.querySelector('.text-block[data-streaming="true"]');
+      assert(streamingBubble, 'A streaming bubble should be present.');
+      
+      // Manually call the end event to simulate the watchdog's effect
+      if (sseHandler) {
+        sseHandler({ event: 'prompt_complete' });
+      }
+      await delay(500);
+      const stuckBubble = document.querySelector('.text-block');
+      assert(stuckBubble && stuckBubble.textContent.includes('Hello'), 'Stuck message should be finalized.');
+      assert(!document.querySelector('.text-block[data-streaming="true"]'), 'No streaming indicators should be visible after watchdog.');
+
+      // Test 3: Visibility change
+      log('--- Test 3: Visibility change ---');
+      let refreshCalled = false;
+      window.api.getTranscript = async (sessionId) => {
+        if (sessionId === 'session-2') {
+          refreshCalled = true;
+        }
+        return { transcript: [] };
+      };
+      
+      document.dispatchEvent(new Event('visibilitychange'));
+      await delay(100);
+      assert(refreshCalled, 'refreshSessionFromDisk should be called on visibility change.');
+
+      log('All tests passed!', 'pass');
+    }
+
+    document.getElementById('run-all-tests').addEventListener('click', runTests);
+  </script>
+</body>
+</html>
