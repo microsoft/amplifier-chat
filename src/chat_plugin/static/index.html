@@ -2990,6 +2990,10 @@
       case 'approval_request':
         if (p.id == null && p.request_id != null) p.id = p.request_id;
         break;
+      default:
+        // D-GAP-01: warn on unmapped kernel event names so future schema changes are observable
+        if (eventName) console.warn('[normalizeKernelPayload] unmapped event:', eventName);
+        break;
     }
     // Preserve sub-session routing fields from kernel events
     if (payload.child_session_id && !p.child_session_id) p.child_session_id = payload.child_session_id;
@@ -7180,6 +7184,7 @@
         }
 
         if (msg.type === 'prompt_complete') {
+          if (msg.child_session_id) return;  // D-06: child terminal event, don't alter parent sidebar status
           const nowIso = new Date().toISOString();
           setSessions(prev => {
             const next = new Map(prev);
@@ -7199,6 +7204,7 @@
         }
 
         if (msg.type === 'execution_cancelled') {
+          if (msg.child_session_id) return;  // D-06: child terminal event, don't alter parent sidebar status
           setSessions(prev => {
             const next = new Map(prev);
             const s = next.get(ownerKey) || {};
@@ -7219,6 +7225,7 @@
         }
 
         if (msg.type === 'execution_error') {
+          if (msg.child_session_id) return;  // D-06: child terminal event, don't alter parent sidebar status
           setSessions(prev => {
             const next = new Map(prev);
             const s = next.get(ownerKey) || {};
@@ -7263,6 +7270,7 @@
           'tool_call', 'tool_result',
           'session_fork', 'display_message',
           'execution_start', 'execution_end',
+          'execution_error', 'approval_request',
         ]);
 
         if (replayableEvents.has(msg.type)) {
@@ -7634,6 +7642,9 @@
         }
 
         case 'token_usage': {
+          // D-01: child tokens belong to child session, not parent
+          const tokenSubKey = resolveSubSessionKey(msg);
+          if (tokenSubKey) break;
           // Accumulate across multiple LLM calls in the same turn (tool loops)
           const prev = turnTokensRef.current || {};
           turnTokensRef.current = {
@@ -7698,6 +7709,11 @@
         }
 
         case 'tool_result': {
+          // D-GAP-03: Sub-session completion is inferred here — there is no explicit
+          // "sub-session complete" event. The orchestrator:complete for a child session
+          // arrives as a prompt_complete on the parent SSE stream (now guarded by D-05).
+          // The actual sub-session UI finalization happens via this tool_result, which
+          // triggers endSubSession() and decrements activeDelegatesRef.
           // Check if this result completes a sub-session (parent delegate/task finishing)
           if (subSessionsRef.current.has(msg.tool_call_id)) {
             endSubSession(msg.tool_call_id, msg.success ? 'complete' : 'error');
@@ -7749,6 +7765,23 @@
           let parentToolCallId = msg.parent_tool_call_id || msg.tool_call_id || null;
           let parentItemId = parentToolCallId ? toolMapRef.current[parentToolCallId] : null;
 
+          // D-02: Try agent-name matching first (more precise than FIFO)
+          if (!parentItemId && msg.agent) {
+            const currentItems = chronoItemsRef.current;
+            for (let i = 0; i < currentItems.length; i++) {
+              const ci = currentItems[i];
+              if (ci.type === 'tool_call'
+                  && (ci.toolName === 'delegate' || ci.toolName === 'task')
+                  && (ci.toolStatus === 'pending' || ci.toolStatus === 'running')
+                  && !ci.subSessionId
+                  && ci.toolInput?.agent === msg.agent) {
+                parentToolCallId = ci.toolCallId;
+                parentItemId = ci.id;
+                break;
+              }
+            }
+          }
+
           if (!parentItemId) {
             // FIFO fallback: oldest pending delegate/task without a sub-session
             const currentItems = chronoItemsRef.current;
@@ -7758,6 +7791,7 @@
                   && (ci.toolName === 'delegate' || ci.toolName === 'task')
                   && (ci.toolStatus === 'pending' || ci.toolStatus === 'running')
                   && !ci.subSessionId) {
+                console.warn('[session_fork] FIFO fallback used — no agent-name match for:', msg.agent);
                 parentToolCallId = ci.toolCallId;
                 parentItemId = ci.id;
                 break;
@@ -7765,6 +7799,7 @@
             }
           }
 
+          if (!parentToolCallId || !parentItemId) console.warn('[session_fork] No matching parent tool call found, dropping:', msg);
           if (!parentToolCallId || !parentItemId) break;
 
           // Only count delegates we can actually track (after sub-session confirmed)
@@ -7823,6 +7858,11 @@
           break;
 
         case 'prompt_complete':
+          // D-05: child terminal event — decrement delegate count, skip parent side effects
+          if (msg.child_session_id) {
+            if (activeDelegatesRef.current > 0) activeDelegatesRef.current -= 1;
+            break;
+          }
           {
             const nowIso = new Date().toISOString();
             let nextTurn = null;
@@ -7877,6 +7917,11 @@
           break;
 
         case 'execution_cancelled':
+          // D-05: child terminal event — decrement delegate count, skip parent side effects
+          if (msg.child_session_id) {
+            if (activeDelegatesRef.current > 0) activeDelegatesRef.current -= 1;
+            break;
+          }
           setSessions(prev => {
             const next = new Map(prev);
             const s = next.get(ownerKey) || {};
@@ -7903,10 +7948,15 @@
           break;
 
         case 'execution_error': {
+          // D-05: child terminal event — decrement delegate count, skip parent side effects
+          if (msg.child_session_id) {
+            if (activeDelegatesRef.current > 0) activeDelegatesRef.current -= 1;
+            break;
+          }
           // "Already executing" means the server was still locked (e.g. naming hook).
           // Don't show an error — just retry the drain after a delay.
           if (msg.error && /already executing/i.test(msg.error)) {
-            setTimeout(() => tryDrainQueue(), 2000);
+            if (!msg._replay) setTimeout(() => tryDrainQueue(), 2000);
             break;
           }
 
@@ -8096,9 +8146,18 @@
           // so resolveSubSessionKey can correlate it to the right ToolCallCard.
           // Content events from sub-sessions carry parent_id but not child_session_id,
           // so without this the childToToolRef lookup always gets null as the key.
-          const effectiveMsg = (sessionParentByIdRef.current[eventSessionId] && !msg.child_session_id)
-            ? { ...msg, child_session_id: eventSessionId }
-            : msg;
+          //
+          // Only inject child_session_id when routing to a DIFFERENT (parent) session.
+          // User-initiated forks have a parent in sessionParentByIdRef but their events
+          // must route to their own session key -- injecting child_session_id would cause
+          // Fix A to buffer them forever (no session_fork event exists for user forks).
+          const ownerSession = sessionsRef.current.get(ownerKey);
+          const isOwnSession = ownerSession && ownerSession.sessionId === eventSessionId;
+          const effectiveMsg = (
+            sessionParentByIdRef.current[eventSessionId] &&
+            !msg.child_session_id &&
+            !isOwnSession
+          ) ? { ...msg, child_session_id: eventSessionId } : msg;
           try { handleWsMessage(effectiveMsg, ownerKey); } catch (err) {
             console.error('[SSE] handler error', err);
           }
@@ -8211,6 +8270,18 @@
               const existingKey = sessionKeyById.get(sessionId);
 
               if (!existingKey) {
+                // D-03: skip phantom entry for known children of live sessions
+                const knownParentId = sessionParentByIdRef.current[sessionId];
+                if (knownParentId) {
+                  let parentIsLive = false;
+                  for (const [, sess] of next) {
+                    if (sess.sessionId === knownParentId && sess.source === 'live') {
+                      parentIsLive = true;
+                      break;
+                    }
+                  }
+                  if (parentIsLive) continue;  // known child of a live session — don't create phantom entry
+                }
                 const historyKey = 'history-' + sessionId;
                 if (next.has(historyKey)) continue;
                 // Resolve the parent, walking the full ref chain so that
@@ -9137,9 +9208,14 @@
           await reconstructSubSessionsFromTranscript(items, subSessionsRef);
           setSubSessionRevision(r => r + 1);
 
-          // Rebuild child→parent session mapping from transcript tool_call items.
+          // D-04: Rebuild child→parent session mapping from transcript tool_call items.
           // After a page reload sessionParentByIdRef is empty; without this the
           // global SSE can't route delegate events to the parent session.
+          // NOTE: This only runs for the session being resumed. For deep nesting
+          // (grandchild→child→parent), intermediate lineage relies on
+          // syncSessionHistory's server-side parent_session_id pre-population
+          // (see syncSessionHistory). A full fix would fetch transcripts for all
+          // visible running sessions on mount, but that's an N+1 API call concern.
           for (const item of items) {
             if (item.type === 'tool_call' && item.subSessionId) {
               sessionParentByIdRef.current[item.subSessionId] = target.sessionId;
@@ -9447,7 +9523,7 @@
       if (queued && queued.length > 0) {
         pendingEventsRef.current.delete(key);
         for (const queuedMsg of queued) {
-          handleWsMessage(queuedMsg, key);
+          handleWsMessage({ ...queuedMsg, _replay: true }, key);
         }
       }
 
