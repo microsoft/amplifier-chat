@@ -71,11 +71,13 @@ def _load_voice_settings() -> dict:
 
 
 def _save_voice_settings(settings: dict) -> None:
-    """Persist voice settings."""
+    """Persist voice settings atomically (tmp + rename)."""
     import json
 
     _SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
-    _VOICE_SETTINGS_FILE.write_text(json.dumps(settings, indent=2))
+    tmp = _VOICE_SETTINGS_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    os.rename(tmp, _VOICE_SETTINGS_FILE)
 
 
 # Where whisper models are cached
