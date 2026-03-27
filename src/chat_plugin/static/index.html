@@ -8539,7 +8539,6 @@
             const el = document.querySelector('[data-session-id="' + sessionId + '"]');
             if (el) {
               el.classList.add('session-card-just-unpinned');
-              el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
               setTimeout(() => el.classList.remove('session-card-just-unpinned'), 400);
             }
           });
