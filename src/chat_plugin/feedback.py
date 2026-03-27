@@ -265,19 +265,17 @@ def create_feedback_routes(
 
         logger.info("[feedback-analysis] Found transcript at %s", transcript_path)
 
-        _burl = request.base_url
-        _host = _burl.hostname or "127.0.0.1"
-        # Normalise bind-all wildcard addresses to loopback so that httpx can
-        # actually connect.  amplifierd always listens on the same host, so
-        # 127.0.0.1 is always correct for intra-process calls.
+        # S-25: Use the actual socket bind address from the ASGI scope, not the
+        # client-controlled Host header.  request.base_url / request.headers["host"]
+        # can be spoofed by an attacker to redirect the internal loopback call to an
+        # arbitrary host (SSRF).  request.scope["server"] is injected by uvicorn
+        # from the OS-level socket bind address and cannot be influenced by HTTP
+        # headers.  The scheme is hardcoded to "http" because this is always a
+        # loopback call to the same process.
+        _host, _port = request.scope["server"]
         if _host in ("0.0.0.0", "::"):
             _host = "127.0.0.1"
-        _port = _burl.port
-        base_url = (
-            f"{_burl.scheme}://{_host}:{_port}"
-            if _port
-            else f"{_burl.scheme}://{_host}"
-        )
+        base_url = f"http://127.0.0.1:{_port}"
 
         # Create a new analysis session and mark it hidden
         analysis_session_id = await _create_analysis_session(base_url)
