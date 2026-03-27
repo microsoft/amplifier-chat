@@ -9557,6 +9557,9 @@
     );
     const sessionTree = buildSessionTree(filteredSessionEntries, pinnedSessionIds);
     const rootSessionEntries = sessionTree.roots;
+    const nonPinnedRootEntries = rootSessionEntries.filter(([, s]) =>
+      !s || !s.sessionId || !pinnedSessionIds.has(s.sessionId)
+    );
     const sessionKeyBySessionId = new Map(
       sessionEntries
         .filter(([, session]) => session && session.sessionId)
@@ -9621,7 +9624,7 @@
 
     const directoryGroups = (() => {
       const groupsByDir = new Map();
-      for (const entry of rootSessionEntries) {
+      for (const entry of nonPinnedRootEntries) {
         const [, session] = entry;
         const cwd = normalizeCwd(session && session.cwd);
         let group = groupsByDir.get(cwd);
@@ -9648,7 +9651,7 @@
     const activityGroups = (() => {
       const active = [], recent = [], older = [];
       const oneDayAgo = Date.now() - 86400000;
-      for (const entry of rootSessionEntries) {
+      for (const entry of nonPinnedRootEntries) {
         const [, session] = entry;
         if (session && session.source !== 'history') {
           active.push(entry);
@@ -9671,7 +9674,7 @@
       const weekStart = todayStart - (now.getDay() * 86400000);
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
       const today = [], thisWeek = [], thisMonth = [], olderAge = [];
-      for (const entry of rootSessionEntries) {
+      for (const entry of nonPinnedRootEntries) {
         const [, session] = entry;
         const ts = sessionUpdatedTs(session);
         if (ts >= todayStart) today.push(entry);
