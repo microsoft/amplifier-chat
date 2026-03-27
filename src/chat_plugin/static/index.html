@@ -8546,14 +8546,14 @@
       } else {
         await apiPinSession(sessionId);
         setPinnedSessionIds(prev => new Set(prev).add(sessionId));
-        setTimeout(() => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
           const el = document.querySelector('[data-session-id="' + sessionId + '"]');
           if (el) {
             el.classList.add('session-card-just-pinned');
             el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             setTimeout(() => el.classList.remove('session-card-just-pinned'), 250);
           }
-        }, 150);
+        }));
       }
     }, []);
 
