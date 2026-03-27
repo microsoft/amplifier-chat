@@ -44,11 +44,15 @@ def create_pin_routes(pin_storage: PinStorage) -> APIRouter:
 
     @router.post("/pins/{session_id}")
     async def pin_session(session_id: str):
+        if not VALID_SESSION_ID_RE.fullmatch(session_id):
+            raise HTTPException(status_code=400, detail="Invalid session ID")
         pin_storage.add(session_id)
         return {"pinned": True, "session_id": session_id}
 
     @router.delete("/pins/{session_id}")
     async def unpin_session(session_id: str):
+        if not VALID_SESSION_ID_RE.fullmatch(session_id):
+            raise HTTPException(status_code=400, detail="Invalid session ID")
         pin_storage.remove(session_id)
         return {"pinned": False, "session_id": session_id}
 
@@ -455,6 +459,8 @@ def create_shell_routes(session_manager: Any) -> APIRouter:
 
     @router.post("/api/sessions/{session_id}/shell")
     async def execute_shell(session_id: str, body: dict):
+        if not VALID_SESSION_ID_RE.fullmatch(session_id):
+            raise HTTPException(status_code=400, detail="Invalid session ID")
         command = body.get("command", "").strip()
         if not command:
             raise HTTPException(status_code=400, detail="Empty command")
