@@ -136,7 +136,7 @@ class SessionManager:
         """Public helper for routes: find the on-disk directory for *session_id*."""
         return self._find_session_dir(session_id)
 
-    def register(
+    async def register(
         self,
         *,
         session: Any,  # AmplifierSession
@@ -171,7 +171,7 @@ class SessionManager:
                     project_id=project_id,
                 )
             )
-            self._index.save()
+            await asyncio.to_thread(self._index.save)
         logger.info("Registered session %s (bundle=%s)", session_id, bundle_name)
         return handle
 
@@ -301,7 +301,7 @@ class SessionManager:
         else:
             slug = ""
 
-        handle = self.register(
+        handle = await self.register(
             session=session,
             prepared_bundle=prepared,
             bundle_name=bundle_name or bundle_uri or "unknown",
@@ -456,7 +456,7 @@ class SessionManager:
         )
 
         # 7. Register in SessionManager
-        handle = self.register(
+        handle = await self.register(
             session=session,
             prepared_bundle=prepared,
             bundle_name=bundle_name,
@@ -495,7 +495,7 @@ class SessionManager:
         await handle.cleanup()
         if self._index is not None:
             self._index.update(session_id, status="completed")
-            self._index.save()
+            await asyncio.to_thread(self._index.save)
         logger.info("Destroyed session %s", session_id)
 
     async def shutdown(self) -> None:

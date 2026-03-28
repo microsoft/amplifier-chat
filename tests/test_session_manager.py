@@ -267,3 +267,62 @@ class TestResumePassesSessionCwd:
 
         mock_wrap.assert_called_once_with(session)
         assert handle.session_id == session.session_id
+
+
+# ---------------------------------------------------------------------------
+# TestRegisterAsync - tests that register() is async and works correctly
+# ---------------------------------------------------------------------------
+
+
+class TestRegisterAsync:
+    """register() must be async so index.save() can be offloaded to a thread."""
+
+    @pytest.mark.asyncio
+    async def test_register_and_get(self):
+        """register() is async: returns SessionHandle retrievable via get()."""
+        manager = _make_session_manager()
+        session = _make_fake_session("sess-reg-001")
+
+        handle = await manager.register(
+            session=session,
+            prepared_bundle=None,
+            bundle_name="test-bundle",
+        )
+
+        assert handle.session_id == "sess-reg-001"
+        assert manager.get("sess-reg-001") is handle
+
+    @pytest.mark.asyncio
+    async def test_destroy(self):
+        """destroy() removes session from registry; register() must be awaited first."""
+        manager = _make_session_manager()
+        session = _make_fake_session("sess-dest-001")
+
+        await manager.register(
+            session=session,
+            prepared_bundle=None,
+            bundle_name="test-bundle",
+        )
+        assert manager.get("sess-dest-001") is not None
+
+        await manager.destroy("sess-dest-001")
+        assert manager.get("sess-dest-001") is None
+
+    @pytest.mark.asyncio
+    async def test_list_sessions(self):
+        """list_sessions() returns all registered sessions after await register()."""
+        manager = _make_session_manager()
+        session1 = _make_fake_session("sess-list-001")
+        session2 = _make_fake_session("sess-list-002")
+
+        await manager.register(
+            session=session1, prepared_bundle=None, bundle_name="bundle-a"
+        )
+        await manager.register(
+            session=session2, prepared_bundle=None, bundle_name="bundle-b"
+        )
+
+        sessions = manager.list_sessions()
+        ids = {s["session_id"] for s in sessions}
+        assert "sess-list-001" in ids
+        assert "sess-list-002" in ids

@@ -1,4 +1,7 @@
 import json
+from unittest.mock import MagicMock
+
+import pytest
 
 from chat_plugin.session_history import scan_session_revisions, scan_sessions
 
@@ -297,3 +300,95 @@ def test_scan_sessions_pinned_not_in_regular(tmp_path):
     assert "sess-a" not in regular_ids
     assert "sess-b" in regular_ids
     assert total == 1  # only non-pinned count
+
+
+# ── SessionManager / SessionIndex integration ─────────────────────────────────
+#
+# These tests verify that register() and destroy() interact correctly with
+# the SessionIndex.  They live here because list_sessions() merges active
+# in-memory sessions with historical index entries – exactly what the
+# session-history UI surfaces.
+# ─────────────────────────────────────────────────────────────────────────────
+
+from amplifierd.state.session_manager import SessionManager  # noqa: E402
+
+
+def _make_sm_with_index(projects_dir):
+    """Create a SessionManager backed by a real on-disk SessionIndex."""
+    event_bus = MagicMock()
+    settings = MagicMock()
+    settings.default_bundle = None
+    settings.default_working_dir = None
+    return SessionManager(
+        event_bus=event_bus,
+        settings=settings,
+        projects_dir=projects_dir,
+    )
+
+
+def _make_sm_session(session_id="sess-sm-001"):
+    s = MagicMock()
+    s.session_id = session_id
+    s.parent_id = None
+    return s
+
+
+@pytest.mark.asyncio
+async def test_list_sessions_active_takes_priority_over_historical(tmp_path):
+    """Active in-memory sessions appear with is_active=True before historical entries."""
+    manager = _make_sm_with_index(tmp_path)
+    session = _make_sm_session("sess-active-hist-001")
+
+    await manager.register(
+        session=session,
+        prepared_bundle=None,
+        bundle_name="test-bundle",
+    )
+
+    sessions = manager.list_sessions()
+    active = [s for s in sessions if s.get("is_active")]
+    assert any(s["session_id"] == "sess-active-hist-001" for s in active), (
+        "Registered session should appear as active"
+    )
+
+
+@pytest.mark.asyncio
+async def test_register_adds_entry_to_index(tmp_path):
+    """register() writes a SessionIndexEntry to the on-disk index."""
+    manager = _make_sm_with_index(tmp_path)
+    session = _make_sm_session("sess-idx-add-001")
+
+    await manager.register(
+        session=session,
+        prepared_bundle=None,
+        bundle_name="test-bundle",
+        project_id="proj-test",
+    )
+
+    assert manager._index is not None
+    entry = manager._index.get("sess-idx-add-001")
+    assert entry is not None, "register() should add entry to index"
+    assert entry.bundle == "test-bundle"
+
+
+@pytest.mark.asyncio
+async def test_destroy_updates_index_status(tmp_path):
+    """destroy() marks the session as 'completed' in the index."""
+    manager = _make_sm_with_index(tmp_path)
+    session = _make_sm_session("sess-dest-idx-001")
+
+    await manager.register(
+        session=session,
+        prepared_bundle=None,
+        bundle_name="test-bundle",
+        project_id="proj-test",
+    )
+
+    await manager.destroy("sess-dest-idx-001")
+
+    assert manager._index is not None
+    entry = manager._index.get("sess-dest-idx-001")
+    assert entry is not None
+    assert entry.status == "completed", (
+        f"Expected 'completed', got {entry.status!r}"
+    )
