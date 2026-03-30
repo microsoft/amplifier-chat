@@ -5529,7 +5529,7 @@
       addImages(files);
     }, [addImages]);
 
-    const doSend = useCallback(() => {
+    const doSend = useCallback(async () => {
       const ta = textareaRef.current;
       if (!ta) return;
       const content = ta.value.trim();
@@ -5562,7 +5562,8 @@
 
       // Normal send path
       const images = pendingImages.map(d => d.split(',')[1]);
-      onSend(content, images);
+      const result = await onSend(content, images);
+      if (result === false) return;
       ta.value = '';
       ta.style.height = 'auto';
       setPendingImages([]);
@@ -8824,7 +8825,7 @@
           content: 'Session is still loading. Please wait a moment and try again.',
           streaming: false, order: orderCounterRef.current++,
         }]);
-        return;
+        return false;
       }
 
       // Lazy session creation: create on first real interaction
@@ -8836,7 +8837,7 @@
             content: 'Error: Could not create session.',
             streaming: false, order: orderCounterRef.current++,
           }]);
-          return;
+          return false;
         }
       }
 
@@ -9494,7 +9495,8 @@
       setExecuting(target.status === 'running');
       executingRef.current = (target.status === 'running');
       // If the target session had an active countdown, restart it
-      if (target.status !== 'running') {
+      if (target.status !== 'running' && getQueueDrainState(key) === 'countdown') {
+        setQueueDrainStateFn('idle', key);
         tryDrainQueue();
       }
       setPendingApproval(null);
