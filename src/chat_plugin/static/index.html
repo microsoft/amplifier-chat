@@ -3040,6 +3040,8 @@
     { name: '/modes',   desc: 'List modes',              clientSide: false },
     { name: '/mode',    desc: 'Set mode',                clientSide: false },
     { name: '/config',  desc: 'Show session config',     clientSide: false },
+    { name: '/skills',  desc: 'List available skills',   clientSide: false },
+    { name: '/skill',   desc: 'Load a skill',            clientSide: false },
   ];
 
   // —— Utilities ——————————————————————————————————————————————————————
@@ -3163,6 +3165,31 @@
         'Messages kept: ' + result.message_count,
       ];
       return { text: lines.join('\n') };
+    }
+
+    // /skills — table of skill names + descriptions
+    if (command === 'skills' && result.type === 'skills') {
+      const skills = result.skills || [];
+      const shortcuts = result.shortcuts || [];
+      if (!skills.length) {
+        return { html: '<pre>' + h('Skills') + ' ' + d('(none available)') + '</pre>', cssClass: 'config-result' };
+      }
+      const lines = [h('Skills') + ' ' + d('(' + skills.length + ')')];
+      for (const s of skills) {
+        const first = (s.description || '').split('\n')[0];
+        const desc = first.length > 60 ? first.slice(0, 57) + '...' : first;
+        lines.push('  ' + esc(s.name).padEnd(22) + d(esc(desc)));
+      }
+      if (shortcuts.length) {
+        lines.push('');
+        lines.push(h('Shortcuts'));
+        for (const sc of shortcuts) {
+          lines.push('  /' + esc(sc));
+        }
+      }
+      lines.push('');
+      lines.push(d('Use /skill <name> to load a skill'));
+      return { html: '<pre>' + lines.join('\n') + '</pre>', cssClass: 'config-result' };
     }
 
     // Default: pretty-print JSON for other commands
@@ -8878,6 +8905,29 @@
           case '/thinking':
             // Toggle visibility — implemented in Phase 6
             return;
+          case '/skill': {
+            // Transform /skill <name> [context] into a synthetic LLM prompt
+            // that instructs the model to invoke the load_skill tool.
+            // This mirrors the amplifier-app-cli approach: no server command
+            // endpoint involved — the message goes through the normal LLM path.
+            const skillName = args[0];
+            if (!skillName) {
+              setChronoItems(prev => [...prev, {
+                id: makeId(), type: 'text', role: 'system',
+                content: 'Usage: /skill <name> [additional context]',
+                streaming: false, order: orderCounterRef.current++,
+              }]);
+              return;
+            }
+            const rest = args.slice(1).join(' ');
+            const prompt = rest
+              ? `Use the load_skill tool to load the skill "${skillName}". Additional context from the user: ${rest}`
+              : `Use the load_skill tool to load the skill "${skillName}".`;
+            // Recurse into sendMessage with the synthetic prompt so it goes
+            // through the normal streaming / LLM path (not the command path).
+            sendMessage(prompt);
+            return;
+          }
         }
         // Server-side command via REST
         api.sendCommand(sessionId, content.trim())

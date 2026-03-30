@@ -33,6 +33,8 @@ COMMANDS: list[CommandDef] = [
         "bundle", "Switch to a different bundle (coming soon)", "/bundle <name>"
     ),
     CommandDef("voice", "Voice feature settings", "/voice [on|off]"),
+    CommandDef("skills", "List available skills"),
+    CommandDef("skill", "Load a skill", "/skill <name> [context]"),
 ]
 
 
@@ -145,6 +147,37 @@ class CommandProcessor:
             tool_list = []
         # B1: Flatten — frontend reads result.tools directly
         return {"type": "tools", "tools": tool_list}
+
+    def _cmd_skills(self, args: list[str], *, session_id: str | None = None) -> dict:
+        handle = self._require_session(session_id)
+        if not handle:
+            return self._error("No active session")
+        try:
+            coordinator = handle.session.coordinator
+            # Try get_capability first (same pattern as amplifier-app-cli),
+            # fall back to session_state dict (same pattern as _cmd_modes).
+            discovery = None
+            if hasattr(coordinator, "get_capability"):
+                discovery = coordinator.get_capability("skills_discovery")
+            if discovery is None:
+                state = coordinator.session_state
+                discovery = state.get("skills_discovery")
+
+            if not discovery:
+                return {"type": "skills", "skills": [], "shortcuts": []}
+
+            raw_skills = discovery.list_skills()
+            skill_list = [
+                {"name": name, "description": description}
+                for name, description, *_ in raw_skills
+            ]
+            shortcuts: list[str] = []
+            if hasattr(discovery, "get_shortcuts"):
+                shortcuts = list(discovery.get_shortcuts().keys())
+        except Exception:
+            skill_list = []
+            shortcuts = []
+        return {"type": "skills", "skills": skill_list, "shortcuts": shortcuts}
 
     def _cmd_agents(self, args: list[str], *, session_id: str | None = None) -> dict:
         handle = self._require_session(session_id)
