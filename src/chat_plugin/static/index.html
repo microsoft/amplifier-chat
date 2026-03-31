@@ -5481,6 +5481,7 @@
     const voiceTimerRef = useRef(null);
     const analyserRef = useRef(null);
     const audioCtxRef = useRef(null);
+    const warmStreamRef = useRef(null);
 
     useEffect(() => {
       const ta = textareaRef.current;
@@ -5700,11 +5701,18 @@
         audioCtxRef.current = null;
       }
       analyserRef.current = null;
+      // Re-warm mic stream for the next recording
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
+        warmStreamRef.current = s;
+      }).catch(() => {});
     }, []);
 
     const startRecording = useCallback(async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Use pre-warmed mic stream if available, otherwise acquire fresh
+        const stream = warmStreamRef.current
+          || await navigator.mediaDevices.getUserMedia({ audio: true });
+        warmStreamRef.current = null;
         const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
           ? 'audio/webm;codecs=opus'
           : 'audio/webm';
@@ -5824,6 +5832,24 @@
     }, [voiceState, sttReady, startRecording, stopRecording, checkSttReady]);
 
     useEffect(() => () => { stopRecording(); }, [stopRecording]);
+
+    // Pre-warm mic stream when voice labs is enabled so getUserMedia
+    // doesn't block the click path (~5-6 s cold start eliminated).
+    useEffect(() => {
+      if (!labsVoice) return;
+      let cancelled = false;
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        warmStreamRef.current = stream;
+      }).catch(() => {});
+      return () => {
+        cancelled = true;
+        if (warmStreamRef.current) {
+          warmStreamRef.current.getTracks().forEach(t => t.stop());
+          warmStreamRef.current = null;
+        }
+      };
+    }, [labsVoice]);
 
     // Auto-stop recording when TTS playback starts (mutual exclusion with speaker)
     useEffect(() => {
