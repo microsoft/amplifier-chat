@@ -2387,6 +2387,7 @@
     .mic-btn:active { background: var(--action-btn-bg-active); }
     .mic-btn.recording { color: var(--accent-red); background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25); animation: mic-glow 2s ease-in-out infinite; }
     .mic-btn.recording:hover { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.35); }
+    .mic-btn.connecting { color: var(--accent-blue); background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.2); }
     .mic-btn.transcribing { color: var(--accent-blue); background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.2); }
     .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .mic-btn:disabled:hover { background: var(--bg-tertiary); border-color: var(--border); color: var(--text-secondary); }
@@ -5470,7 +5471,7 @@
     const [slashOpen, setSlashOpen] = useState(false);
     const [slashFilter, setSlashFilter] = useState('');
     const [slashActiveIndex, setSlashActiveIndex] = useState(0);
-    const [voiceState, setVoiceState] = useState('idle'); // idle | recording | transcribing
+    const [voiceState, setVoiceState] = useState('idle'); // idle | connecting | recording | transcribing
     const [voiceDuration, setVoiceDuration] = useState(0);
     const [sttReady, setSttReady] = useState(null); // null = unchecked, true = ready, false = needs download
     const [sttDownloading, setSttDownloading] = useState(false);
@@ -5701,10 +5702,6 @@
         audioCtxRef.current = null;
       }
       analyserRef.current = null;
-      // Re-warm mic stream for the next recording
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
-        warmStreamRef.current = s;
-      }).catch(() => {});
     }, []);
 
     const startRecording = useCallback(async () => {
@@ -5828,27 +5825,20 @@
         setSttReady(ready);
         if (!ready) { setShowDownloadBanner(true); return; }
       }
+
+      // Show immediate "connecting" feedback if no warm stream ready
+      if (!warmStreamRef.current) setVoiceState('connecting');
       startRecording();
     }, [voiceState, sttReady, startRecording, stopRecording, checkSttReady]);
 
     useEffect(() => () => { stopRecording(); }, [stopRecording]);
 
-    // Pre-warm mic stream when voice labs is enabled so getUserMedia
-    // doesn't block the click path (~5-6 s cold start eliminated).
+    // Clean up warm stream on unmount or voice labs disable
     useEffect(() => {
-      if (!labsVoice) return;
-      let cancelled = false;
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-        warmStreamRef.current = stream;
-      }).catch(() => {});
-      return () => {
-        cancelled = true;
-        if (warmStreamRef.current) {
-          warmStreamRef.current.getTracks().forEach(t => t.stop());
-          warmStreamRef.current = null;
-        }
-      };
+      if (!labsVoice && warmStreamRef.current) {
+        warmStreamRef.current.getTracks().forEach(t => t.stop());
+        warmStreamRef.current = null;
+      }
     }, [labsVoice]);
 
     // Auto-stop recording when TTS playback starts (mutual exclusion with speaker)
@@ -5893,6 +5883,12 @@
                 <span class="slash-cmd-desc">${cmd.desc}</span>
               </div>
             `)}
+          </div>
+        `}
+        ${labsVoice && voiceState === 'connecting' && html`
+          <div class="recording-banner connecting">
+            <${Icon} name="loader" />
+            <span>Connecting microphone\u2026</span>
           </div>
         `}
         ${labsVoice && voiceState === 'recording' && html`
@@ -5955,11 +5951,11 @@
           </button>
           <input ref=${fileInputRef} type="file" accept="image/*" multiple style="display:none" onChange=${e => addImages(e.target.files)} />
           ${labsVoice && html`<button
-            class=${'input-btn mic-btn' + (voiceState === 'recording' ? ' recording' : '') + (voiceState === 'transcribing' ? ' transcribing' : '')}
+            class=${'input-btn mic-btn' + (voiceState === 'recording' ? ' recording' : '') + (voiceState === 'connecting' ? ' connecting' : '') + (voiceState === 'transcribing' ? ' transcribing' : '')}
             onClick=${toggleVoice}
-            disabled=${voiceState === 'transcribing'}
-            title=${voiceState === 'idle' ? 'Voice input' : voiceState === 'recording' ? 'Stop recording' : 'Transcribing...'}
-            aria-label=${voiceState === 'idle' ? 'Voice input' : voiceState === 'recording' ? 'Stop recording' : 'Transcribing'}
+            disabled=${voiceState === 'transcribing' || voiceState === 'connecting'}
+            title=${voiceState === 'idle' ? 'Voice input' : voiceState === 'connecting' ? 'Connecting mic...' : voiceState === 'recording' ? 'Stop recording' : 'Transcribing...'}
+            aria-label=${voiceState === 'idle' ? 'Voice input' : voiceState === 'connecting' ? 'Connecting microphone' : voiceState === 'recording' ? 'Stop recording' : 'Transcribing'}
           >
             <${Icon} name=${voiceState === 'transcribing' ? 'loader' : 'mic'} />
           </button>`}
