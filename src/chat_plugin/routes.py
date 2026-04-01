@@ -319,6 +319,60 @@ def create_command_routes(processor: CommandProcessor) -> APIRouter:
             return processor.handle_command(command, args, session_id=session_id)
         return {"type": "prompt", "data": data}
 
+    @router.get("/shortcuts")
+    async def get_shortcuts(session_id: str | None = None):
+        handle = processor._require_session(session_id)
+        # Fall back to any active in-memory session when no session_id given.
+        # The chat UI has at most one active session, so "any" means "the" session.
+        if not handle and processor._session_manager:
+            sm = processor._session_manager
+            # Use the internal _sessions dict (dict[str, SessionHandle])
+            # which contains only live in-memory sessions with coordinators.
+            active = getattr(sm, "_sessions", None)
+            if active:
+                handle = next(iter(active.values()), None)
+        if not handle:
+            return {"modes": [], "skills": [], "active_mode": None}
+
+        try:
+            coordinator = handle.session.coordinator
+            state = coordinator.session_state
+
+            # Modes
+            mode_discovery = state.get("mode_discovery")
+            modes = []
+            if mode_discovery:
+                for name, description, *_ in mode_discovery.list_modes():
+                    modes.append({"name": name, "description": description})
+
+            # Skills
+            skills_discovery = None
+            if hasattr(coordinator, "get_capability"):
+                skills_discovery = coordinator.get_capability("skills_discovery")
+            if skills_discovery is None:
+                skills_discovery = state.get("skills_discovery")
+            skills = []
+            if skills_discovery:
+                shortcuts = (
+                    skills_discovery.get_shortcuts()
+                    if hasattr(skills_discovery, "get_shortcuts")
+                    else {}
+                )
+                for name in shortcuts:
+                    desc = ""
+                    found = skills_discovery.find(name)
+                    if found and hasattr(found, "description"):
+                        desc = found.description
+                    skills.append({"name": name, "description": desc})
+
+            return {
+                "modes": modes,
+                "skills": skills,
+                "active_mode": state.get("active_mode"),
+            }
+        except Exception:  # noqa: BLE001
+            return {"modes": [], "skills": [], "active_mode": None}
+
     return router
 
 

@@ -1990,13 +1990,22 @@
       position: absolute;
       bottom: 100%;
       left: 16px;
+      right: 16px;
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 4px 0;
       min-width: 200px;
       font-size: 12px;
+      max-height: min(360px, 50vh);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.15) transparent;
     }
+    .slash-popup::-webkit-scrollbar { width: 4px; }
+    .slash-popup::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+    .slash-popup::-webkit-scrollbar-track { background: transparent; }
     .slash-cmd {
       padding: 4px 12px;
       cursor: pointer;
@@ -2007,7 +2016,24 @@
     .slash-cmd:hover { background: var(--bg-tertiary); }
     .slash-cmd.active { background: var(--bg-tertiary); }
     .slash-cmd-name { color: var(--accent-blue); font-weight: 500; }
-    .slash-cmd-desc { color: var(--text-muted); }
+    .slash-cmd-desc { color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .slash-cmd-tag { font-size: 9px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+    .slash-cmd-tag.tag-mode { color: var(--accent-amber, #f59e0b); background: rgba(245, 158, 11, 0.1); }
+    .slash-cmd-tag.tag-skill { color: var(--accent-blue, #3b82f6); background: rgba(59, 130, 246, 0.1); }
+    .slash-cmd-active-marker { font-size: 9px; font-weight: 600; letter-spacing: 0.5px; color: var(--accent-amber, #f59e0b); flex-shrink: 0; }
+    .mode-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
+    .mode-banner.mode-amber { background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.15); color: var(--accent-amber, #f59e0b); }
+    .mode-banner.mode-red { background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.15); color: var(--accent-red, #ef4444); }
+    .mode-banner.mode-green { background: rgba(34, 197, 94, 0.06); border: 1px solid rgba(34, 197, 94, 0.15); color: var(--accent-green, #22c55e); }
+    .mode-banner.mode-blue { background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.15); color: var(--accent-blue, #3b82f6); }
+    .mode-banner .mode-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .mode-banner .mode-name { font-weight: 500; flex-shrink: 0; }
+    .mode-banner .mode-desc { color: var(--text-muted); font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mode-banner .mode-dismiss { background: none; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); color: inherit; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; margin-left: auto; transition: background 0.15s, border-color 0.15s; flex-shrink: 0; }
+    .mode-banner .mode-dismiss:hover { background: color-mix(in srgb, currentColor 10%, transparent); border-color: color-mix(in srgb, currentColor 50%, transparent); }
+    .mode-banner .mode-dismiss:disabled { opacity: 0.3; cursor: not-allowed; }
+    #input-area.has-mode #message-input { border-color: var(--mode-color); box-shadow: 0 0 8px color-mix(in srgb, var(--mode-color) 10%, transparent); }
+    #input-area.has-mode #message-input:focus { border-color: var(--mode-color); }
 
     /* —— Mobile —————————————————————————————————————————————————————— */
     .hamburger { display: none; }
@@ -3044,6 +3070,21 @@
     { name: '/skills',  desc: 'List available skills',   clientSide: false },
     { name: '/skill',   desc: 'Load a skill',            clientSide: false },
   ];
+
+  // —— Mode color helpers ——————————————————————————————————————————————————————
+  function getModeColor(modeName) {
+    if (!modeName) return 'blue';
+    const n = modeName.toLowerCase();
+    if (n === 'brainstorm') return 'amber';
+    if (n === 'debug') return 'red';
+    if (n === 'execute-plan' || n === 'verify' || n === 'finish') return 'green';
+    return 'blue';
+  }
+  function getModeColorVar(modeName) {
+    const c = getModeColor(modeName);
+    const map = { amber: '#f59e0b', red: '#ef4444', green: '#22c55e', blue: '#3b82f6' };
+    return map[c] || map.blue;
+  }
 
   // —— Utilities ——————————————————————————————————————————————————————
 
@@ -5460,7 +5501,7 @@
     `;
   }
 
-  function InputArea({ onSend, onStop, onQueueMessage, onShellExecute, executing, shouldQueue, viewMode, setViewMode, activeKey, labsVoice, labsShell }) {
+  function InputArea({ onSend, onStop, onQueueMessage, onShellExecute, executing, shouldQueue, viewMode, setViewMode, activeKey, labsVoice, labsShell, activeMode, setActiveMode, dynamicShortcuts }) {
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
     const [pendingImages, setPendingImages] = useState([]);
@@ -5610,8 +5651,27 @@
       setSlashActiveIndex(0);
     }, [autoResize]);
 
-    const filteredCmds = SLASH_COMMANDS.filter(c =>
-      c.name.slice(1).startsWith(slashFilter)
+    // Build merged command list: dynamic shortcuts + static commands
+    const mergedCmds = (() => {
+      const dynamic = [
+        ...(dynamicShortcuts.modes || []).map(m => ({
+          name: '/' + m.name, desc: m.description || '', source: 'mode', clientSide: false,
+        })),
+        ...(dynamicShortcuts.skills || []).map(s => ({
+          name: '/' + s.name, desc: s.description || '', source: 'skill', clientSide: false,
+        })),
+      ];
+      const builtinNames = new Set(SLASH_COMMANDS.map(c => c.name));
+      const filtered = dynamic.filter(d => !builtinNames.has(d.name));
+      return [
+        ...filtered,
+        ...SLASH_COMMANDS.map(c => ({ ...c, source: 'builtin' })),
+      ];
+    })();
+
+    const filteredCmds = mergedCmds.filter(c =>
+      c.name.slice(1).includes(slashFilter) ||
+      c.desc.toLowerCase().includes(slashFilter.toLowerCase())
     );
     const slashMenuOpen = slashOpen && filteredCmds.length > 0;
     const activeSlashIndex = Math.max(0, Math.min(slashActiveIndex, filteredCmds.length - 1));
@@ -5851,7 +5911,10 @@
     const fmtVoiceTime = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 
     return html`
-      <div id="input-area" class=${shellMode ? 'shell-mode' : ''}>
+      <div id="input-area"
+        class=${[shellMode ? 'shell-mode' : '', activeMode ? 'has-mode' : ''].filter(Boolean).join(' ')}
+        style=${activeMode ? `--mode-color: ${getModeColorVar(activeMode.name)}` : ''}
+      >
         ${pendingImages.length > 0 && html`
           <div class="image-previews">
             ${pendingImages.map((src, i) => html`
@@ -5860,6 +5923,16 @@
                 <button class="image-remove" onClick=${() => setPendingImages(p => p.filter((_, j) => j !== i))}>×</button>
               </div>
             `)}
+          </div>
+        `}
+        ${activeMode && html`
+          <div class=${'mode-banner mode-' + getModeColor(activeMode.name)}>
+            <span class="mode-dot"></span>
+            <span class="mode-name">${activeMode.name}</span>
+            <span class="mode-desc">${activeMode.description || ''}</span>
+            <button class="mode-dismiss" disabled=${executing} onClick=${() => {
+              onSend('/mode off');
+            }}>Deactivate</button>
           </div>
         `}
         ${slashMenuOpen && html`
@@ -5881,6 +5954,9 @@
               >
                 <span class="slash-cmd-name">${cmd.name}</span>
                 <span class="slash-cmd-desc">${cmd.desc}</span>
+                ${cmd.source === 'mode' && html`<span class="slash-cmd-tag tag-mode">MODE</span>`}
+                ${cmd.source === 'skill' && html`<span class="slash-cmd-tag tag-skill">SKILL</span>`}
+                ${cmd.source === 'mode' && activeMode && activeMode.name === cmd.name.slice(1) && html`<span class="slash-cmd-active-marker">active</span>`}
               </div>
             `)}
           </div>
@@ -6513,6 +6589,41 @@
     const activeDelegatesRef = useRef(0);
     const [pendingApproval, setPendingApproval] = useState(null);
     const [sessionId, setSessionId] = useState(null);
+    const [activeMode, setActiveMode] = useState(null);
+    const [dynamicShortcuts, setDynamicShortcuts] = useState({ modes: [], skills: [] });
+
+    // Fetch dynamic shortcuts for a session (fire-and-forget)
+    const fetchShortcuts = useCallback(async (sid) => {
+      try {
+        const url = sid
+          ? `${API_BASE}/chat/shortcuts?session_id=${encodeURIComponent(sid)}`
+          : `${API_BASE}/chat/shortcuts`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        setDynamicShortcuts({ modes: data.modes || [], skills: data.skills || [] });
+      } catch (e) { /* silent */ }
+    }, []);
+
+    // Fetch shortcuts whenever sessionId becomes available.
+    // On initial mount (no session yet), try without session_id — the
+    // backend falls back to any active in-memory session.  If that returns
+    // empty, we'll re-fetch once sessionId is set (after session creation).
+    const shortcutsFetchedRef = useRef(null);
+    useEffect(() => {
+      if (sessionId) {
+        // Session exists — always fetch (or re-fetch) for this specific session.
+        if (shortcutsFetchedRef.current !== sessionId) {
+          shortcutsFetchedRef.current = sessionId;
+          fetchShortcuts(sessionId);
+        }
+      } else if (shortcutsFetchedRef.current === null) {
+        // Initial mount, no session yet — try without session_id.
+        // Don't set shortcutsFetchedRef so we'll re-fetch when sessionId arrives.
+        fetchShortcuts('');
+      }
+    }, [sessionId, fetchShortcuts]);
+
     const sessionIdRef = useRef(null);
     const [cwd, setCwd] = useState('~');
     const [defaultCwd, setDefaultCwd] = useState('~');
@@ -8141,13 +8252,14 @@
           next.set(sessionKey, { ...s, source: 'live', cwd: s.cwd || requestedCwd2, serverCwd: requestedCwd2 });
           return next;
         });
+        fetchShortcuts(sessionId);
         return sessionId;
       } catch (err) {
         console.error('[chat] failed to create session', err);
         if (activeKeyRef.current === sessionKey) setSseStatus('disconnected');
         return null;
       }
-    }, [handleWsMessage]);
+    }, [handleWsMessage, fetchShortcuts]);
 
     // Global SSE: single connection for all sessions.
     // Events carry session_id in the envelope; we derive the ownerKey and
@@ -8620,7 +8732,10 @@
         lastUpdated: nowIso,
       }]]));
       syncSessionHistory({ silent: true });
-    }, [syncSessionHistory]);
+      // Eagerly create the server session so dynamic shortcuts (modes/skills)
+      // are available when the user types '/'.
+      connect(key);
+    }, [syncSessionHistory, connect]);
 
     useEffect(() => {
       const onFocus = () => refreshHistory();
@@ -8951,9 +9066,71 @@
             return;
           }
         }
+
+        // Dynamic shortcut routing (modes and skills)
+        const cmdName = cmd.slice(1); // remove leading /
+        const matchedMode = (dynamicShortcuts.modes || []).find(m => m.name === cmdName);
+        const matchedSkill = (dynamicShortcuts.skills || []).find(s => s.name === cmdName);
+
+        if (matchedMode) {
+          // Route mode shortcut as /mode <name> through server command path.
+          // No chat message is injected — the mode banner provides visual feedback.
+          // If trailing text is provided (e.g. "/brainstorm design a cache"),
+          // activate the mode first, then send the text as a normal message.
+          const trailingText = args.join(' ').trim();
+          api.sendCommand(sessionId, '/mode ' + cmdName)
+            .then(result => {
+              if (result.type === 'mode') {
+                if (result.active_mode) {
+                  const modeInfo = (dynamicShortcuts.modes || []).find(m => m.name === result.active_mode);
+                  setActiveMode({ name: result.active_mode, description: modeInfo?.description || '' });
+                } else {
+                  setActiveMode(null);
+                }
+              }
+              // Send trailing text as a follow-up message after mode activation
+              if (trailingText) {
+                sendMessage(trailingText);
+              }
+            })
+            .catch(err => {
+              setChronoItems(prev => [...prev, {
+                id: makeId(), type: 'text', role: 'system',
+                content: 'Command error: ' + (err?.message || String(err)),
+                streaming: false, order: orderCounterRef.current++,
+              }]);
+            });
+          return;
+        }
+
+        if (matchedSkill) {
+          // Route skill shortcut as synthetic LLM prompt (same as /skill).
+          // Trailing text is passed as additional context to the skill.
+          const parts3 = content.trim().split(/\s+/);
+          const args3 = parts3.slice(1);
+          const prompt = args3.length
+            ? `Use the load_skill tool to load the skill "${cmdName}". Additional context from the user: ${args3.join(' ')}`
+            : `Use the load_skill tool to load the skill "${cmdName}".`;
+          sendMessage(prompt);
+          return;
+        }
+
         // Server-side command via REST
         api.sendCommand(sessionId, content.trim())
           .then(result => {
+            // Mode results: update banner only, no chat message.
+            // The mode banner provides persistent visual feedback, making
+            // "Mode activated/deactivated" messages redundant.
+            if (result.type === 'mode') {
+              if (result.active_mode) {
+                const modeInfo = (dynamicShortcuts.modes || []).find(m => m.name === result.active_mode);
+                setActiveMode({ name: result.active_mode, description: modeInfo?.description || '' });
+              } else {
+                setActiveMode(null);
+              }
+              return;
+            }
+            // All other commands: inject formatted result into chat
             const fmt = formatCommandResult(cmd.slice(1), result);
             const item = {
               id: makeId(), type: 'text', role: 'system',
@@ -9020,7 +9197,7 @@
         executingRef.current = false;
         tryDrainQueue();
       });
-    }, [connect]);
+    }, [connect, dynamicShortcuts, setActiveMode]);
 
     // Shell mode: user-initiated command execution (! trigger)
     const handleShellExecute = useCallback(async (command) => {
@@ -9226,7 +9403,13 @@
       finalizeSyntheticAnimations();
       seenDeltasRef.current.clear();
 
-    }, []);
+      // Eagerly create the server session so dynamic shortcuts (modes/skills)
+      // are available immediately when the user types '/'.  Without this,
+      // the session is created lazily on first message send, and the slash
+      // popup shows only built-in commands until then.
+      connect(key);
+
+    }, [connect]);
 
     const resumeHistorySession = useCallback((key) => {
       // Cancel any active countdown on the current session before we do
@@ -9383,6 +9566,7 @@
               next.set(key, { ...cur, source: 'live', status: 'idle' });
               return next;
             });
+            fetchShortcuts(target.sessionId);
           } else {
             // Resume failed — leave as read-only history
             setSessions(prev => {
@@ -9431,7 +9615,7 @@
             transcriptFetchAbortRef.current = null;
           }
         });
-    }, [sessions, handleWsMessage]);
+    }, [sessions, handleWsMessage, fetchShortcuts]);
 
     const refreshSessionFromDisk = useCallback((key, options = {}) => {
       const target = sessionsRef.current.get(key);
@@ -9554,6 +9738,8 @@
             savedPlaceholderId: placeholderIdRef.current,
             savedBlockMap: { ...blockMapRef.current },
             savedToolMap: { ...toolMapRef.current },
+            savedActiveMode: activeMode,
+            savedDynamicShortcuts: dynamicShortcuts,
           });
           return next;
         });
@@ -9566,6 +9752,8 @@
       setTurnCount(target.savedTurnCount || 0);
       setExecuting(target.status === 'running');
       executingRef.current = (target.status === 'running');
+      setActiveMode(target.savedActiveMode || null);
+      setDynamicShortcuts(target.savedDynamicShortcuts || { modes: [], skills: [] });
       // If the target session had an active countdown, restart it
       if (target.status !== 'running' && getQueueDrainState(key) === 'countdown') {
         setQueueDrainStateFn('idle', key);
@@ -10681,6 +10869,9 @@
               setViewMode=${setViewMode}
               activeKey=${activeKey}
               labsVoice=${labsState.voice}
+              activeMode=${activeMode}
+              setActiveMode=${setActiveMode}
+              dynamicShortcuts=${dynamicShortcuts}
             />
           </div>
           ${viewMode === 'workspace' && !showActivity && html`

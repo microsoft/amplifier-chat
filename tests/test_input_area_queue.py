@@ -29,7 +29,7 @@ class TestTask3InputAreaSignature:
     def test_inputarea_signature_has_onqueuemessage(self, html_content):
         """InputArea function signature includes onQueueMessage prop (queueCount removed as unused)."""
         assert (
-            "function InputArea({ onSend, onStop, onQueueMessage, onShellExecute, executing, shouldQueue, viewMode, setViewMode, activeKey, labsVoice, labsShell })"
+            "function InputArea({ onSend, onStop, onQueueMessage, onShellExecute, executing, shouldQueue, viewMode, setViewMode, activeKey, labsVoice, labsShell, activeMode, setActiveMode, dynamicShortcuts })"
             in html_content
         )
 
@@ -84,8 +84,15 @@ class TestTask5TextareaEnabled:
         assert "! shell" in html_content
 
     def test_textarea_not_disabled(self, html_content):
-        """Textarea no longer has disabled=${executing} attribute."""
-        assert "disabled=${executing}" not in html_content
+        """Textarea no longer has disabled=${executing} attribute.
+
+        Note: disabled=${executing} IS used on the mode-banner Deactivate
+        button, so we check specifically that the textarea element doesn't
+        have it, rather than a blanket absence check.
+        """
+        # The textarea element should not have disabled=${executing}
+        assert "id=\"message-input\" disabled=${executing}" not in html_content
+        assert "<textarea" in html_content  # sanity: textarea still exists
 
     def test_textarea_opacity_always_1(self, html_content):
         """Textarea style opacity is always 1, not conditional on executing."""
