@@ -389,6 +389,4 @@ async def test_destroy_updates_index_status(tmp_path):
     assert manager._index is not None
     entry = manager._index.get("sess-dest-idx-001")
     assert entry is not None
-    assert entry.status == "completed", (
-        f"Expected 'completed', got {entry.status!r}"
-    )
+    assert entry.status == "completed", f"Expected 'completed', got {entry.status!r}"

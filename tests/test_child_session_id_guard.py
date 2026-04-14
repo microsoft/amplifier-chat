@@ -274,7 +274,11 @@ class TestTokenUsageRouting:
         case_pos = content.find(case_start)
         assert case_pos != -1, "token_usage case not found"
         next_case = content.find("case '", case_pos + len(case_start))
-        block = content[case_pos:next_case] if next_case != -1 else content[case_pos:case_pos + 500]
+        block = (
+            content[case_pos:next_case]
+            if next_case != -1
+            else content[case_pos : case_pos + 500]
+        )
         assert "resolveSubSessionKey" in block, (
             "resolveSubSessionKey check not found in token_usage handler"
         )
@@ -293,7 +297,11 @@ class TestFifoFallbackImprovement:
         case_pos = content.find(case_start)
         assert case_pos != -1, "session_fork case not found"
         next_case = content.find("case '", case_pos + len(case_start))
-        block = content[case_pos:next_case] if next_case != -1 else content[case_pos:case_pos + 2000]
+        block = (
+            content[case_pos:next_case]
+            if next_case != -1
+            else content[case_pos : case_pos + 2000]
+        )
         assert "ci.toolInput?.agent === msg.agent" in block, (
             "Agent-name matching not found in session_fork handler"
         )
@@ -305,10 +313,12 @@ class TestFifoFallbackImprovement:
         case_pos = content.find(case_start)
         assert case_pos != -1
         next_case = content.find("case '", case_pos + len(case_start))
-        block = content[case_pos:next_case] if next_case != -1 else content[case_pos:case_pos + 2000]
-        assert "console.warn" in block, (
-            "console.warn not found in session_fork handler"
+        block = (
+            content[case_pos:next_case]
+            if next_case != -1
+            else content[case_pos : case_pos + 2000]
         )
+        assert "console.warn" in block, "console.warn not found in session_fork handler"
 
 
 # ---------------------------------------------------------------------------
@@ -358,7 +368,7 @@ class TestPostReloadLineageRebuild:
         # Find the lineage rebuild loop
         rebuild_pos = content.find("item.subSessionId", resume_pos)
         assert rebuild_pos != -1
-        nearby = content[rebuild_pos:rebuild_pos + 200]
+        nearby = content[rebuild_pos : rebuild_pos + 200]
         assert "sessionParentByIdRef.current[item.subSessionId]" in nearby, (
             "sessionParentByIdRef mapping not found in lineage rebuild"
         )
@@ -369,7 +379,7 @@ class TestPostReloadLineageRebuild:
         rebuild_pos = content.find("item.type === 'tool_call' && item.subSessionId")
         assert rebuild_pos != -1
         # Check for D-04 comment within 800 chars before the rebuild
-        nearby = content[max(0, rebuild_pos - 800):rebuild_pos]
+        nearby = content[max(0, rebuild_pos - 800) : rebuild_pos]
         assert "D-04" in nearby, (
             "D-04 documentation comment not found near lineage rebuild"
         )
@@ -388,7 +398,9 @@ class TestNormalizeKernelPayloadWarn:
         assert fn_pos != -1, "normalizeKernelPayload not found"
         # Find the end of the function (next top-level function)
         fn_end = content.find("\n  function ", fn_pos + 10)
-        fn_body = content[fn_pos:fn_end] if fn_end != -1 else content[fn_pos:fn_pos + 2000]
+        fn_body = (
+            content[fn_pos:fn_end] if fn_end != -1 else content[fn_pos : fn_pos + 2000]
+        )
         assert "default:" in fn_body, (
             "default case not found in normalizeKernelPayload switch"
         )
@@ -407,7 +419,8 @@ class TestSubSessionCompletionComment:
         case_start = "case 'tool_result':"
         case_pos = content.find(case_start)
         assert case_pos != -1, "tool_result case not found"
-        block = content[case_pos:case_pos + 600]
-        assert "orchestrator:complete" in block or "sub-session completion" in block.lower(), (
-            "Completion inference documentation not found near tool_result handler"
-        )
+        block = content[case_pos : case_pos + 600]
+        assert (
+            "orchestrator:complete" in block
+            or "sub-session completion" in block.lower()
+        ), "Completion inference documentation not found near tool_result handler"

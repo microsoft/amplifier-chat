@@ -118,11 +118,15 @@ async def _create_child_handle(
 
 
 @agents_router.post("/{session_id}/spawn", response_model=SpawnResponse)
-async def spawn_agent(request: Request, session_id: str, body: SpawnRequest) -> SpawnResponse:
+async def spawn_agent(
+    request: Request, session_id: str, body: SpawnRequest
+) -> SpawnResponse:
     """Spawn a child agent session synchronously (blocks until instruction completes)."""
     handle = _get_handle_or_404(request, session_id)
 
-    child_session_id, child_handle = await _create_child_handle(request, handle, body.agent)
+    child_session_id, child_handle = await _create_child_handle(
+        request, handle, body.agent
+    )
 
     # Register child in parent's tracking (also propagates to EventBus)
     handle.register_child(child_session_id, body.agent)
@@ -139,7 +143,9 @@ async def spawn_agent(request: Request, session_id: str, body: SpawnRequest) -> 
         output = str(result) if result is not None else None
     except Exception:
         logger.exception(
-            "Spawn execution failed for session %s child %s", session_id, child_session_id
+            "Spawn execution failed for session %s child %s",
+            session_id,
+            child_session_id,
         )
     finally:
         if parent_cancel and child_cancel:
@@ -165,7 +171,9 @@ async def spawn_agent_stream(
     handle = _get_handle_or_404(request, session_id)
 
     # Create and register child eagerly so the session_id is available immediately
-    child_session_id, child_handle = await _create_child_handle(request, handle, body.agent)
+    child_session_id, child_handle = await _create_child_handle(
+        request, handle, body.agent
+    )
     handle.register_child(child_session_id, body.agent)
 
     # Link cancellation tokens so cancelling the parent propagates to the child.
@@ -179,7 +187,9 @@ async def spawn_agent_stream(
         try:
             await child_handle.execute(body.instruction)
         except Exception:
-            logger.exception("Background spawn execution failed for child %s", child_session_id)
+            logger.exception(
+                "Background spawn execution failed for child %s", child_session_id
+            )
         finally:
             if parent_cancel and child_cancel:
                 parent_cancel.unregister_child(child_cancel)

@@ -35,7 +35,9 @@ class TestGetArgPreviewRecipes:
         """getArgPreview fallback must JSON.stringify objects, not call String()."""
         content = html()
         # The improved fallback should detect object type and use JSON.stringify
-        assert "typeof firstVal === 'object'" in content and "JSON.stringify" in content, (
+        assert (
+            "typeof firstVal === 'object'" in content and "JSON.stringify" in content
+        ), (
             "getArgPreview fallback must use JSON.stringify for object values "
             "to avoid '[object Object]' for any unknown tool whose first arg is an object"
         )

@@ -54,9 +54,7 @@ def test_standalone_registers_overlay_bundle(tmp_path, monkeypatch):
 
     create_router(app.state)
 
-    mock_registry.register.assert_called_once_with(
-        {"distro": str(overlay_dir)}
-    )
+    mock_registry.register.assert_called_once_with({"distro": str(overlay_dir)})
 
 
 def test_standalone_skips_when_no_overlay(tmp_path, monkeypatch):

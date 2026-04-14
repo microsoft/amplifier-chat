@@ -1,7 +1,6 @@
 """Tests for shared session utilities."""
 
 import json
-from pathlib import Path
 
 
 def test_atomic_write_json(tmp_path):
@@ -89,4 +88,6 @@ def test_patch_forked_metadata_no_change_when_nothing_to_patch(tmp_path):
     patch_forked_metadata(forked_dir, parent_dir, cwd=None)
     mtime_after = (forked_dir / "metadata.json").stat().st_mtime_ns
 
-    assert mtime_before == mtime_after, "File should not be rewritten when nothing changed"
+    assert mtime_before == mtime_after, (
+        "File should not be rewritten when nothing changed"
+    )

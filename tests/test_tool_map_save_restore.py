@@ -28,9 +28,7 @@ def html():
 class TestToolMapSaveInSwitchSession:
     def test_saved_tool_map_key_in_save_block(self):
         """savedToolMap must appear in the switchSession save object."""
-        assert "savedToolMap" in html(), (
-            "savedToolMap not found anywhere in index.html"
-        )
+        assert "savedToolMap" in html(), "savedToolMap not found anywhere in index.html"
 
     def test_saved_tool_map_saved_near_saved_block_map(self):
         """savedToolMap save line must be close to savedBlockMap save line (within 200 chars)."""
@@ -52,8 +50,12 @@ class TestToolMapSaveInSwitchSession:
     def test_saved_tool_map_restored_near_block_map_restore(self):
         """toolMapRef restore must be close to blockMapRef restore line (within 200 chars)."""
         content = html()
-        block_restore_pos = content.find("blockMapRef.current = target.savedBlockMap || {};")
-        tool_restore_pos = content.find("toolMapRef.current = target.savedToolMap || {};")
+        block_restore_pos = content.find(
+            "blockMapRef.current = target.savedBlockMap || {};"
+        )
+        tool_restore_pos = content.find(
+            "toolMapRef.current = target.savedToolMap || {};"
+        )
         assert block_restore_pos != -1, "blockMapRef restore line not found"
         assert tool_restore_pos != -1, "toolMapRef restore line not found"
         assert abs(tool_restore_pos - block_restore_pos) < 200, (

@@ -37,9 +37,7 @@ class TestBuildInfrastructure:
     def test_build_vendor_sh_installs_dompurify(self):
         """build-vendor.sh must install dompurify."""
         content = (ROOT / "scripts" / "build-vendor.sh").read_text()
-        assert "dompurify" in content.lower(), (
-            "build-vendor.sh must install dompurify"
-        )
+        assert "dompurify" in content.lower(), "build-vendor.sh must install dompurify"
 
     def test_vendor_entry_js_exists(self):
         """scripts/vendor-entry.js must exist."""
@@ -48,9 +46,7 @@ class TestBuildInfrastructure:
     def test_vendor_entry_imports_dompurify(self):
         """vendor-entry.js must import DOMPurify."""
         content = (ROOT / "scripts" / "vendor-entry.js").read_text()
-        assert "dompurify" in content.lower(), (
-            "vendor-entry.js must import DOMPurify"
-        )
+        assert "dompurify" in content.lower(), "vendor-entry.js must import DOMPurify"
 
     def test_vendor_entry_exports_dompurify(self):
         """vendor-entry.js must export DOMPurify to window."""
@@ -92,13 +88,9 @@ class TestAgentsMd:
     def test_agents_md_mentions_vendor_build(self):
         """AGENTS.md must document the vendor build process."""
         content = (ROOT / "AGENTS.md").read_text()
-        assert "build-vendor" in content, (
-            "AGENTS.md must mention build-vendor script"
-        )
+        assert "build-vendor" in content, "AGENTS.md must mention build-vendor script"
 
     def test_agents_md_mentions_dompurify(self):
         """AGENTS.md must mention DOMPurify."""
         content = (ROOT / "AGENTS.md").read_text()
-        assert "DOMPurify" in content, (
-            "AGENTS.md must mention DOMPurify"
-        )
+        assert "DOMPurify" in content, "AGENTS.md must mention DOMPurify"
