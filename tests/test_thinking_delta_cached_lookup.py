@@ -29,10 +29,10 @@ class TestThinkingDeltaCachedLookup:
     def test_active_thinking_item_cached_in_content_start(self):
         """content_start must set sub._activeThinkingItem for thinking blocks."""
         content = html()
-        assert "sub._activeThinkingItem = thinkingItem" in content or \
-               "_activeThinkingItem = thinkingItem" in content, (
-            "_activeThinkingItem cache assignment not found in content_start"
-        )
+        assert (
+            "sub._activeThinkingItem = thinkingItem" in content
+            or "_activeThinkingItem = thinkingItem" in content
+        ), "_activeThinkingItem cache assignment not found in content_start"
 
     def test_thinking_delta_uses_cached_item(self):
         """thinking_delta must use sub._activeThinkingItem for O(1) lookup."""

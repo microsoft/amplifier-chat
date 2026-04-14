@@ -107,18 +107,46 @@ class TestWrapToolsForThreading:
         session.coordinator = coordinator
         return session
 
-    def test_wraps_all_tools(self):
+    def test_wraps_only_blocking_tools(self):
+        """Only tools whose names appear in _NEEDS_THREADING are wrapped.
+
+        Tools like 'delegate' (session-spawning) must NOT be wrapped.
+        """
+
         class FakeTool:
+            def __init__(self, name):
+                self.name = name
+
             async def execute(self, input):
                 return "ok"
 
-        tools = [FakeTool(), FakeTool()]
-        session = self._make_session_with_tools(tools)
+        blocking = FakeTool("read_file")  # in _NEEDS_THREADING
+        passthrough = FakeTool("delegate")  # NOT in _NEEDS_THREADING
+
+        session = self._make_session_with_tools([blocking, passthrough])
         wrap_tools_for_threading(session)
         wrapped = session.coordinator["tools"]
         assert len(wrapped) == 2
-        for w in wrapped:
-            assert isinstance(w, ThreadedToolWrapper)
+        assert isinstance(wrapped[0], ThreadedToolWrapper), "read_file must be wrapped"
+        assert wrapped[1] is passthrough, "delegate must NOT be wrapped"
+
+    def test_idempotency_guard(self):
+        """Already-wrapped tools are not wrapped a second time."""
+
+        class FakeTool:
+            name = "grep"
+
+            async def execute(self, input):
+                return "ok"
+
+        tool = FakeTool()
+        already_wrapped = ThreadedToolWrapper(tool)
+
+        session = self._make_session_with_tools([already_wrapped])
+        wrap_tools_for_threading(session)
+        wrapped = session.coordinator["tools"]
+        assert wrapped[0] is already_wrapped
+        assert not isinstance(wrapped[0]._tool, ThreadedToolWrapper)
 
     def test_no_coordinator_is_safe(self):
         class FakeSession:

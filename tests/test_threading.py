@@ -133,31 +133,113 @@ class TestThreadedToolWrapper:
 # ---------------------------------------------------------------------------
 
 
+class _NamedTool:
+    """Minimal stand-in for a tool with a given name."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    async def execute(self, input):  # noqa: A002
+        return "ok"
+
+
 class TestWrapToolsForThreading:
     """Unit tests for the wrap_tools_for_threading helper."""
 
-    def test_wraps_all_tools(self):
-        """Every tool in the coordinator is replaced with a ThreadedToolWrapper."""
-        tool_a = MagicMock()
-        tool_b = MagicMock()
+    def test_wraps_only_blocking_tools(self):
+        """Only tools whose names appear in _NEEDS_THREADING are wrapped."""
+        blocking = _NamedTool("read_file")
+        passthrough = _NamedTool("delegate")
 
         coordinator = MagicMock()
-        coordinator.get.return_value = [tool_a, tool_b]
+        coordinator.get.return_value = [blocking, passthrough]
 
         session = MagicMock()
         session.coordinator = coordinator
 
         wrap_tools_for_threading(session)
 
-        # The function does coordinator["tools"] = wrapped
         coordinator.__setitem__.assert_called_once()
         key, wrapped = coordinator.__setitem__.call_args[0]
         assert key == "tools"
         assert len(wrapped) == 2
-        assert isinstance(wrapped[0], ThreadedToolWrapper)
-        assert isinstance(wrapped[1], ThreadedToolWrapper)
-        assert wrapped[0]._tool is tool_a
-        assert wrapped[1]._tool is tool_b
+        assert isinstance(wrapped[0], ThreadedToolWrapper), (
+            "read_file should be wrapped"
+        )
+        assert wrapped[0]._tool is blocking
+        assert wrapped[1] is passthrough, "delegate should stay unwrapped"
+
+    def test_delegate_stays_unwrapped(self):
+        """Tools that spawn child sessions (delegate, task, recipes) must NOT be wrapped."""
+        for name in (
+            "delegate",
+            "task",
+            "recipes",
+            "bash",
+            "web_search",
+            "todo",
+            "mode",
+        ):
+            tool = _NamedTool(name)
+            coordinator = MagicMock()
+            coordinator.get.return_value = [tool]
+            session = MagicMock()
+            session.coordinator = coordinator
+            wrap_tools_for_threading(session)
+            _, wrapped = coordinator.__setitem__.call_args[0]
+            assert wrapped[0] is tool, f"{name!r} should not be wrapped"
+
+    def test_idempotency_guard(self):
+        """Calling wrap_tools_for_threading twice does not double-wrap a tool."""
+        tool = _NamedTool("grep")
+        already_wrapped = ThreadedToolWrapper(tool)
+
+        coordinator = MagicMock()
+        coordinator.get.return_value = [already_wrapped]
+
+        session = MagicMock()
+        session.coordinator = coordinator
+
+        wrap_tools_for_threading(session)
+
+        _, wrapped = coordinator.__setitem__.call_args[0]
+        assert wrapped[0] is already_wrapped, "pre-wrapped tool must not be re-wrapped"
+        assert not isinstance(wrapped[0]._tool, ThreadedToolWrapper)
+
+    def test_dict_path_wraps_blocking_tools(self):
+        """Dict-path coordinator: blocking tools are wrapped, others stay as-is."""
+        blocking = _NamedTool("web_fetch")
+        passthrough = _NamedTool("delegate")
+
+        coordinator = {"tools": {"web_fetch": blocking, "delegate": passthrough}}
+
+        class _FakeSession:
+            pass
+
+        session = _FakeSession()
+        session.coordinator = coordinator  # type: ignore[attr-defined]
+
+        wrap_tools_for_threading(session)
+
+        assert isinstance(coordinator["tools"]["web_fetch"], ThreadedToolWrapper)
+        assert coordinator["tools"]["delegate"] is passthrough
+
+    def test_dict_path_idempotency(self):
+        """Dict-path: already-wrapped tools are not re-wrapped."""
+        tool = _NamedTool("glob")
+        coordinator = {"tools": {"glob": ThreadedToolWrapper(tool)}}
+
+        class _FakeSession:
+            pass
+
+        session = _FakeSession()
+        session.coordinator = coordinator  # type: ignore[attr-defined]
+
+        wrap_tools_for_threading(session)
+
+        result = coordinator["tools"]["glob"]
+        assert isinstance(result, ThreadedToolWrapper)
+        assert not isinstance(result._tool, ThreadedToolWrapper)
 
     def test_noop_when_no_tools(self):
         """No error when coordinator.get('tools') returns None."""

@@ -42,7 +42,7 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/chat_plugin"]
+packages = ["src/chat_plugin", "src/amplifierd"]
 
 [tool.pyright]
 pythonVersion = "3.12"

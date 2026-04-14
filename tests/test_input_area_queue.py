@@ -67,7 +67,10 @@ class TestTask4DoSendQueueRouting:
 
     def test_dosend_deps_include_shouldqueue_and_onqueuemessage(self, html_content):
         """doSend useCallback deps include shouldQueue, onQueueMessage, onShellExecute, shellMode, and activeKey."""
-        assert "[onSend, onQueueMessage, onShellExecute, pendingImages, shouldQueue, shellMode, activeKey]" in html_content
+        assert (
+            "[onSend, onQueueMessage, onShellExecute, pendingImages, shouldQueue, shellMode, activeKey]"
+            in html_content
+        )
 
     def test_dosend_slash_commands_bypass_queue(self, html_content):
         """The comment about slash commands bypassing queue is present."""
@@ -91,7 +94,7 @@ class TestTask5TextareaEnabled:
         have it, rather than a blanket absence check.
         """
         # The textarea element should not have disabled=${executing}
-        assert "id=\"message-input\" disabled=${executing}" not in html_content
+        assert 'id="message-input" disabled=${executing}' not in html_content
         assert "<textarea" in html_content  # sanity: textarea still exists
 
     def test_textarea_opacity_always_1(self, html_content):

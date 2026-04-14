@@ -42,7 +42,7 @@ class TestChildEventReplaySourceKey:
         assert fork_start != -1, "session_fork case not found"
         fork_end = content.find("case '", fork_start + 20)
         fork_body = content[fork_start:fork_end]
-        assert "handleWsMessage(bufferedMsg)" not in fork_body or \
-               "handleWsMessage(bufferedMsg, ownerKey)" in fork_body, (
-            "session_fork must not call handleWsMessage(bufferedMsg) without ownerKey"
-        )
+        assert (
+            "handleWsMessage(bufferedMsg)" not in fork_body
+            or "handleWsMessage(bufferedMsg, ownerKey)" in fork_body
+        ), "session_fork must not call handleWsMessage(bufferedMsg) without ownerKey"

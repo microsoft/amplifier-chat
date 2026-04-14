@@ -193,7 +193,9 @@ async def get_session(request: Request, session_id: str) -> SessionDetail:
 
 
 @sessions_router.patch("/{session_id}")
-async def patch_session(request: Request, session_id: str, body: PatchSessionRequest) -> dict:
+async def patch_session(
+    request: Request, session_id: str, body: PatchSessionRequest
+) -> dict:
     """Patch session properties (working_dir, name).
 
     Works for both live (in-memory) and disk-only (history) sessions.
@@ -208,7 +210,9 @@ async def patch_session(request: Request, session_id: str, body: PatchSessionReq
 
                 set_working_dir(handle.session, body.working_dir)
             except (ImportError, AttributeError):
-                logger.warning("amplifier_foundation.set_working_dir not available or failed")
+                logger.warning(
+                    "amplifier_foundation.set_working_dir not available or failed"
+                )
             handle._working_dir = body.working_dir  # noqa: SLF001
 
     # Persist name and/or working_dir to metadata.json on disk
@@ -272,7 +276,9 @@ async def delete_session(request: Request, session_id: str) -> None:
 
 
 @sessions_router.post("/{session_id}/execute", response_model=ExecuteResponse)
-async def execute(request: Request, session_id: str, body: ExecuteRequest) -> ExecuteResponse:
+async def execute(
+    request: Request, session_id: str, body: ExecuteRequest
+) -> ExecuteResponse:
     """Execute a prompt synchronously (blocks until complete)."""
     handle = _get_handle_or_404(request, session_id)
     if handle.status == SessionStatus.EXECUTING:
@@ -324,7 +330,9 @@ async def execute_stream(
 
 
 @sessions_router.post("/{session_id}/cancel", response_model=CancelResponse)
-async def cancel_session(request: Request, session_id: str, body: CancelRequest) -> CancelResponse:
+async def cancel_session(
+    request: Request, session_id: str, body: CancelRequest
+) -> CancelResponse:
     """Cancel the current execution."""
     handle = _get_handle_or_404(request, session_id)
     immediate = body.immediate or False
@@ -377,9 +385,13 @@ async def fork_session_endpoint(
         )
         new_session_id = result.session_id
         message_count = result.message_count
-        forked_from_turn = result.forked_from_turn if result.forked_from_turn else body.turn
+        forked_from_turn = (
+            result.forked_from_turn if result.forked_from_turn else body.turn
+        )
     except (ImportError, AttributeError):
-        logger.warning("fork_session_in_memory not available; using stub fork for %s", session_id)
+        logger.warning(
+            "fork_session_in_memory not available; using stub fork for %s", session_id
+        )
         new_session_id = f"{session_id}-fork-t{body.turn}-{uuid.uuid4().hex[:8]}"
 
     return ForkResponse(
@@ -396,7 +408,10 @@ async def fork_preview(request: Request, session_id: str, turn: int) -> dict[str
     handle = _get_handle_or_404(request, session_id)
 
     try:
-        from amplifier_foundation.session import fork_session_in_memory, get_turn_boundaries
+        from amplifier_foundation.session import (
+            fork_session_in_memory,
+            get_turn_boundaries,
+        )
 
         messages: list[Any] = []
         context = getattr(handle.session, "context", None)
@@ -416,7 +431,9 @@ async def fork_preview(request: Request, session_id: str, turn: int) -> dict[str
             "messages": result.messages or [],
         }
     except (ImportError, AttributeError):
-        logger.warning("fork preview foundation functions not available for %s", session_id)
+        logger.warning(
+            "fork preview foundation functions not available for %s", session_id
+        )
         return {
             "session_id": session_id,
             "turn": turn,
@@ -447,7 +464,9 @@ async def list_turns(request: Request, session_id: str) -> dict[str, Any]:
         for i, start_idx in enumerate(boundaries, start=1):
             turns.append({"turn": i, "start_index": start_idx})
     except (ImportError, AttributeError):
-        logger.warning("get_turn_boundaries not available; using turn_count for %s", session_id)
+        logger.warning(
+            "get_turn_boundaries not available; using turn_count for %s", session_id
+        )
         for i in range(1, handle.turn_count + 1):
             turns.append({"turn": i})
 
@@ -511,7 +530,9 @@ async def get_transcript(request: Request, session_id: str) -> dict:
             detail=f"No transcript for session '{session_id}'",
             instance=str(request.url.path),
         )
-        raise HTTPException(status_code=404, detail=detail.model_dump(exclude_none=True))
+        raise HTTPException(
+            status_code=404, detail=detail.model_dump(exclude_none=True)
+        )
 
     transcript_path = session_dir / "transcript.jsonl"
     if not transcript_path.exists():
@@ -522,7 +543,9 @@ async def get_transcript(request: Request, session_id: str) -> dict:
             detail=f"No transcript for session '{session_id}'",
             instance=str(request.url.path),
         )
-        raise HTTPException(status_code=404, detail=detail.model_dump(exclude_none=True))
+        raise HTTPException(
+            status_code=404, detail=detail.model_dump(exclude_none=True)
+        )
     messages = []
     for line in transcript_path.read_text().strip().split("\n"):
         if line.strip():
@@ -571,7 +594,9 @@ async def session_tree(request: Request, session_id: str) -> SessionTreeNode:
             if child_handle is not None:
                 children_list.append(_build_tree(child_handle, depth + 1))
             else:
-                children_list.append(SessionTreeNode(session_id=child_id, agent=agent_name))
+                children_list.append(
+                    SessionTreeNode(session_id=child_id, agent=agent_name)
+                )
         return SessionTreeNode(
             session_id=h.session_id,
             agent=h.bundle_name,
@@ -699,7 +724,9 @@ async def set_mode(request: Request, session_id: str, body: SetModeRequest) -> d
         raise HTTPException(status_code=503, detail="Coordinator unavailable")
     state = getattr(coordinator, "session_state", None)
     if state is None:
-        raise HTTPException(status_code=503, detail="Modes not available (hooks-mode not mounted)")
+        raise HTTPException(
+            status_code=503, detail="Modes not available (hooks-mode not mounted)"
+        )
 
     discovery = state.get("mode_discovery")
     mode_hooks = state.get("mode_hooks")

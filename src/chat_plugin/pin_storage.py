@@ -18,13 +18,9 @@ class PinStorage:
             try:
                 data = json.loads(self._path.read_text(encoding="utf-8"))
                 raw_pinned = data.get("pinned", [])
-                self._pins = (
-                    list(raw_pinned) if isinstance(raw_pinned, list) else []
-                )
+                self._pins = list(raw_pinned) if isinstance(raw_pinned, list) else []
                 raw_at = data.get("pinned_at", {})
-                self._pinned_at = (
-                    dict(raw_at) if isinstance(raw_at, dict) else {}
-                )
+                self._pinned_at = dict(raw_at) if isinstance(raw_at, dict) else {}
             except (json.JSONDecodeError, KeyError, ValueError):
                 self._pins = []
                 self._pinned_at = {}
@@ -47,9 +43,7 @@ class PinStorage:
 
     def get_pins_with_timestamps(self) -> dict[str, str]:
         """Return pinned session IDs mapped to their pin timestamps."""
-        return {
-            sid: self._pinned_at.get(sid, "") for sid in self._pins
-        }
+        return {sid: self._pinned_at.get(sid, "") for sid in self._pins}
 
     def add(self, session_id: str) -> None:
         if session_id in self._pins:

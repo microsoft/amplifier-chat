@@ -14,6 +14,7 @@ Current behaviour that causes failures:
 
 After the security fix is applied, all 7 tests should PASS.
 """
+
 from __future__ import annotations
 
 import base64
